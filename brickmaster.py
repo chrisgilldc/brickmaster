@@ -18,7 +18,7 @@ from gpiozero import LED
 # Probably could be in a config file, but this works for now!
 
 brickmaster_config = {
-	"host": "0.0.0.0",
+	"host": "127.0.0.1",
 	"port": "5002",
 	"controls": {
 		"windmill": {"type": "8relay", "stack": 0, "relay": 1, "set_name": "Vestas Windmill", "set_id": "10268-1", "function": "Rotation and lights"},
@@ -129,8 +129,13 @@ class Brickmaster(Resource):
 
 			# Perform the correct action for the control type
 			if brickmaster_config['controls'][control]['type'] == 'GPIO':
-				# Do PI stuff
-				sleep(5)
+				# Pull out the LED object
+				led = controls_gpio[brickmaster_config['controls'][control]['pin']]
+				# Set the GPIO pin status
+				if control_val:
+					led.on()
+				else:
+					led.off()
 			elif brickmaster_config['controls'][control]['type'] == '8relay':
 
 				# Make the call to the relay board
