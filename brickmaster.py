@@ -1,51 +1,64 @@
 #!/usr/bin/python3
 
-# Brickmaster
-
-# Controls Lego motors via REST API and Pi 8Relay
+# Brickmaster - a Flask App for Lego Control!
 
 # Bring in libraries
+## Core Components
 from flask import Flask, request, abort, jsonify
 from flask_restful import Resource, Api, reqparse
 from json import dumps
-import lib8relay
 import time
+## For 8Relay support
+import lib8relay 
+## For GPIO support
+from gpiozero import LED
+
+# Configuration dict
+
+# Probably could be in a config file, but this works for now!
+
+brickmaster_config = {
+	"host": "0.0.0.0",
+	"port": "5002",
+	"controls": {
+		"windmill": {"type": "8relay", "stack": 0, "relay": 1, "set_name": "Vestas Windmill", "set_id": "10268-1", "function": "Rotation and lights"},
+		"rc-lift": {"type": "8relay", "stack": 0, "relay": 5, "set_name": "Rollercoaster", "set_id": "10261-1", "function": "Lift chain"},
+		"lightcycles": {"type": "8relay", "stack": 0, "relay": 6, "set_name": "Tron Legacy", "set_id": "21314", "function": "Lights"},
+		"ship": {"type": "8relay", "stack": 0, "relay": 7, "set_name": "Ship in a Bottle", "set_id": "92177", "function": "Lights"},
+		"senate": {"type": "GPIO", "pin": 4, "set_name": "US Capitol"},
+		"house": {"type": "GPIO", "pin": 17},
+		"tholos": {"type": "GPIO", "pin": 18}
+	}
+}
 
 # Create the Flask app
 app = Flask(__name__)
 api = Api(app)
 
-# 8Relay library
+# Create the 8Relay library
 l8 = lib8relay
 
-# Configuration dict
+controls_gpio = {}
 
-# Probably could be in a config file, but this works for now!
-# For each relay, can define:
-# Name - The name to display on long-form reports
-# Set - The Lego set ID
-# Function - The function that's controlled. Useful if the same set has multiple functions separately controlled.
-# Unlisted relays will return 'unused' along with an error if accessed.
+# Create LED objects for the GPIO pins in use.
+for key, control in brickmaster_config['controls'].items():
+	if control['type'] == "GPIO":
+		controls_gpio[control['pin']] = LED(control['pin'])
 
-studs_config = {
-	"stack": 0, # Which board in the stack is this. Only one is supported for now, so probably 0.
-	"relays": {
-		"1": {"set_name": "Vestas Windmill", "set_id": "10268-1", "function": "Rotation and lights"},
-		"5": {"set_name": "Rollercoaster", "set_id": "10261-1", "function": "Lift chain"}
-	}
-}
+# Define the Brickmaster class
+class Brickmaster(Resource):
+	# Tool to validate config at start. Going to write it...some day.
+	#def validate_config(self,config):
+		# Things!
 
-
-
-class Studs(Resource):
-	# Helper function to validate relay info.
-	def check_relay(self,relay):
-		if not str.isdigit(relay):
-			abort(406,'Relay must be an integer.')
-			if not relay in studs_config['relays']:
-				abort(406,'Requested relay (' + str(relay) + ') not configured')
+	# Helper function to validate control info.
+	def check_control(self,control):
+		# Does the control exist?
+		if not control in brickmaster_config['controls']:
+			abort(406,'Requested control (' + str(control) + ') not configured')
 		return 0
 
+	# Helper function to turn booleans into text
 	def bool_to_text(self,value):
 		if int(value) == 0:
 			text_value = "Off"
@@ -55,71 +68,94 @@ class Studs(Resource):
 			abort(500,'Passed meaningless value')
 		return text_value
 
-	def relay_status(self,relay):
+	# Function for getting status of a given control. This is separate from "Get" because it's needed elsewhere, beyond just Get.
+	def control_status(self,control):
+		# Set up return dict and seed with the name of the requested control
 		return_status = {}
-		try:
-			relay_status = l8.get(studs_config['stack'],int(relay))
-		except:
-			abort(503,'Relay board failed to get status. Please check hardware.')
+		return_status['control'] = control
 
-		# Return status dict with the values we need.
-		return_status['relay'] = relay
-		return_status['status'] = self.bool_to_text(relay_status)
-		return_status['is_on'] = bool(relay_status)
+		# Fetch status in the appropriate way
+		if brickmaster_config['controls'][control]['type'] == 'GPIO':
+			# Retrieve the LED control object...
+			try:
+				control_status = controls_gpio[brickmaster_config['controls'][control]['pin']].value
+			except:
+				abort(503,'Failed to get GPIO status.')
+			return_status['status'] = self.bool_to_text(control_status)
+			return_status['is_on'] = bool(control_status)
+
+		elif brickmaster_config['controls'][control]['type'] == '8relay':
+			try:
+				control_status = l8.get(brickmaster_config['controls'][control]['stack'],brickmaster_config['controls'][control]['relay'])
+			except:
+				abort(503,'Relay board failed to get status. Please check hardware.')
+
+			# Return both text version and boolean version of status. This is needed for Home Assistant, at least.
+			return_status['status'] = self.bool_to_text(control_status)
+			return_status['is_on'] = bool(control_status)
+		else:
+			abort(500,'Unsupported control type encountered.')
+
 		return return_status
 
-	def get(self,relay):
-		# Confirm we have a valid relay request.
-		self.check_relay(relay)
+	def get(self,control):
+		# Confirm we have a valid control request.
+		self.check_control(control)
 
-		return jsonify(self.relay_status(relay))
-
-		abort(500,'Got somewhere we never should have.')
+		# Return status in a nice JSON format.
+		return jsonify(self.control_status(control))
 
 	# Posting for on/off
-	def post(self,relay=None):
-		if relay:
+	def post(self,control=None):
+		if control:
 			abort(405,'Method not allowed on this resource.')
 
 		# Initialize return dict.
 		return_status=[]
 
 		# Get posted data.
-		input_relays=request.get_json()
+		input_controls=request.get_json()
 
-		for relay in input_relays.keys():
-			# Make sure it's in-bounds.
-			self.check_relay(relay)
+		for control in input_controls.keys():
+			# Make sure it exists
+			self.check_control(control)
 
 			# Only an affirmative "On" gets an attempt to set up.
 			# Otherwise, turn it off because something's wonky
-			if input_relays[relay].lower() == 'on':
-				relay_val = 1
+			if input_controls[control].lower() == 'on':
+				control_val = 1
 			else:
-				relay_val = 0
+				control_val = 0
 
-			# Make the call to the relay board
-			try:
-				l8.set(studs_config['stack'],int(relay),relay_val)
-			except:
-				abort(503,'Relay board failed to set status. Please check hardware.')
+			# Perform the correct action for the control type
+			if brickmaster_config['controls'][control]['type'] == 'GPIO':
+				# Do PI stuff
+				sleep(5)
+			elif brickmaster_config['controls'][control]['type'] == '8relay':
 
-			# Wait two seconds for the relay to trip.
-			#time.sleep(2)
+				# Make the call to the relay board
+				try:
+					l8.set(brickmaster_config['controls'][control]['stack'],brickmaster_config['controls'][control]['relay'],control_val)
+				except:
+					abort(503,'Relay board failed to set status. Please check hardware.')
+			else:
+				abort(500,'Unsupported control type encountered')
 
 			# Get the new status and push it into the return array.
-			return_status.append(self.relay_status(relay))
+			return_status.append(self.control_status(control))
 
 		return jsonify(return_status)
 
-		# Should have returned here by now.
-		abort(500,'Got somewhere we never should have.')
-
 # Main Section
+
+# At start, shut off all GPIO controls
+for pin, led_object in controls_gpio.items():
+	print("Shutting off pin: " + str(pin))
+	led_object.off()
 
 # Set up all the resources
 
-api.add_resource(Studs, '/studs', '/studs/<string:relay>')
+api.add_resource(Brickmaster, '/brickmaster', '/brickmaster/<string:control>')
 
 if __name__ == '__main__':
-	app.run(host='0.0.0.0',port='5002')
+	app.run(host=brickmaster_config['host'],port=brickmaster_config['port'])
