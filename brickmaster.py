@@ -9,9 +9,11 @@ from flask_restful import Resource, Api, reqparse
 from json import dumps
 import time
 ## For 8Relay support
-import lib8relay 
+#import lib8relay
 ## For GPIO support
-from gpiozero import LED
+import RPi.GPIO as GPIO
+## Set Board numbering system
+GPIO.setmode(GPIO.BCM)
 
 # Configuration dict
 
@@ -21,10 +23,6 @@ brickmaster_config = {
 	"host": "127.0.0.1",
 	"port": "5002",
 	"controls": {
-		"windmill": {"type": "8relay", "stack": 0, "relay": 1, "set_name": "Vestas Windmill", "set_id": "10268-1", "function": "Rotation and lights"},
-		"rc-lift": {"type": "8relay", "stack": 0, "relay": 5, "set_name": "Rollercoaster", "set_id": "10261-1", "function": "Lift chain"},
-		"lightcycles": {"type": "8relay", "stack": 0, "relay": 6, "set_name": "Tron Legacy", "set_id": "21314", "function": "Lights"},
-		"ship": {"type": "8relay", "stack": 0, "relay": 7, "set_name": "Ship in a Bottle", "set_id": "92177", "function": "Lights"},
 		"senate": {"type": "GPIO", "pin": 4, "set_name": "US Capitol"},
 		"house": {"type": "GPIO", "pin": 17},
 		"tholos": {"type": "GPIO", "pin": 18}
@@ -36,14 +34,12 @@ app = Flask(__name__)
 api = Api(app)
 
 # Create the 8Relay library
-l8 = lib8relay
+#l8 = lib8relay
 
-controls_gpio = {}
-
-# Create LED objects for the GPIO pins in use.
+# Set up the Channels
 for key, control in brickmaster_config['controls'].items():
 	if control['type'] == "GPIO":
-		controls_gpio[control['pin']] = LED(control['pin'])
+		GPIO.setup(control['pin'], GPIO.OUT)
 
 # Define the Brickmaster class
 class Brickmaster(Resource):
@@ -78,7 +74,7 @@ class Brickmaster(Resource):
 		if brickmaster_config['controls'][control]['type'] == 'GPIO':
 			# Retrieve the LED control object...
 			try:
-				control_status = controls_gpio[brickmaster_config['controls'][control]['pin']].value
+				control_status = GPIO.input(brickmaster_config['controls'][control]['pin'])
 			except:
 				abort(503,'Failed to get GPIO status.')
 			return_status['status'] = self.bool_to_text(control_status)
@@ -129,15 +125,12 @@ class Brickmaster(Resource):
 
 			# Perform the correct action for the control type
 			if brickmaster_config['controls'][control]['type'] == 'GPIO':
-				# Pull out the LED object
-				led = controls_gpio[brickmaster_config['controls'][control]['pin']]
 				# Set the GPIO pin status
 				if control_val:
-					led.on()
+					GPIO.output(brickmaster_config['controls'][control]['pin'],control_val)
 				else:
-					led.off()
+					GPIO.output(brickmaster_config['controls'][control]['pin'],0)
 			elif brickmaster_config['controls'][control]['type'] == '8relay':
-
 				# Make the call to the relay board
 				try:
 					l8.set(brickmaster_config['controls'][control]['stack'],brickmaster_config['controls'][control]['relay'],control_val)
@@ -154,9 +147,9 @@ class Brickmaster(Resource):
 # Main Section
 
 # At start, shut off all GPIO controls
-for pin, led_object in controls_gpio.items():
-	print("Shutting off pin: " + str(pin))
-	led_object.off()
+#for pin, led_object in controls_gpio.items():
+#	print("Shutting off pin: " + str(pin))
+#	led_object.off()
 
 # Set up all the resources
 
@@ -164,3 +157,7 @@ api.add_resource(Brickmaster, '/brickmaster', '/brickmaster/<string:control>')
 
 if __name__ == '__main__':
 	app.run(host=brickmaster_config['host'],port=brickmaster_config['port'])
+
+
+# Cleanup when exiting
+GPIO.cleanup()

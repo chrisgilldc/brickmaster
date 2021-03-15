@@ -6,7 +6,11 @@ Overview ---
 This is a basic flask app to allow API-based control of devices connected to a Raspberry Pi. Supports the Sequent Microsystems 8Relay board, and work is ongoing on Pi GPIO support.
 
 Installation ---
-Install like a normal flask app.
+
+Prereqs:
+	1. Install flask and flask-restful
+		sudo apt-get install python3-flask python3-flask-restful
+
 
 Configuration ---
 
