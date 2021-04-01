@@ -8,19 +8,11 @@ from flask import Flask, request, abort, jsonify
 from flask_restful import Resource, Api, reqparse
 from json import dumps
 import time
-## For 8Relay support
-#import lib8relay
-## For GPIO support
-import RPi.GPIO as GPIO
-## Set Board numbering system
-GPIO.setmode(GPIO.BCM)
-
-# Configuration dict
 
 # Probably could be in a config file, but this works for now!
 
 brickmaster_config = {
-	"host": "127.0.0.1",
+	"host": "0.0.0.0",
 	"port": "5002",
 	"controls": {
 		"senate": {"type": "GPIO", "pin": 4, "set_name": "US Capitol"},
@@ -29,17 +21,35 @@ brickmaster_config = {
 	}
 }
 
+# Conditional library loading.
+found_gpio = False
+found_8relay = False
+for key in brickmaster_config['controls'].keys():
+	if ( brickmaster_config['controls'][key]['type'] == 'GPIO' ) & ( not found_gpio ):
+		import RPi.GPIO as GPIO
+		## Set Board numbering system
+		GPIO.setmode(GPIO.BCM)
+		# Set up the Channels
+		for key, control in brickmaster_config['controls'].items():
+			if brickmaster_config['controls'][key]['type'] == "GPIO":
+				GPIO.setup(control['pin'], GPIO.OUT)
+		# Only process once.
+		found_gpio = True
+	if ( brickmaster_config['controls'][key]['type'] == '8relay' ) & ( not found_8relay ):
+		import lib8relay
+		# Create the 8Relay library
+		l8 = lib8relay
+		# Only process once.
+		found_8relay = True
+	if found_gpio & found_8relay:
+		# If we've found all known output types, break early.
+		break
+
+
 # Create the Flask app
 app = Flask(__name__)
 api = Api(app)
 
-# Create the 8Relay library
-#l8 = lib8relay
-
-# Set up the Channels
-for key, control in brickmaster_config['controls'].items():
-	if control['type'] == "GPIO":
-		GPIO.setup(control['pin'], GPIO.OUT)
 
 # Define the Brickmaster class
 class Brickmaster(Resource):
