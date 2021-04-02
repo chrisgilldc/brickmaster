@@ -15,15 +15,16 @@ brickmaster_config = {
 	"host": "0.0.0.0",
 	"port": "5002",
 	"controls": {
-		"senate": {"type": "GPIO", "pin": 4, "set_name": "US Capitol"},
-		"house": {"type": "GPIO", "pin": 17},
-		"tholos": {"type": "GPIO", "pin": 18}
+		"senate": {"type": "GPIO", "pin": 4, "automate": "insession", "set_name": "US Capitol"},
+		"house": {"type": "GPIO", "pin": 17, "automate": "insession"},
+		"tholos": {"type": "GPIO", "pin": 18, "automate": "insession"}
 	}
 }
 
 # Conditional library loading.
 found_gpio = False
 found_8relay = False
+found_insession = False
 for key in brickmaster_config['controls'].keys():
 	if ( brickmaster_config['controls'][key]['type'] == 'GPIO' ) & ( not found_gpio ):
 		import RPi.GPIO as GPIO
@@ -41,6 +42,18 @@ for key in brickmaster_config['controls'].keys():
 		l8 = lib8relay
 		# Only process once.
 		found_8relay = True
+	if ( brickmaster_config['controls'][key]['automate'] == 'insession' ) & ( not found_insession ):
+		# Bring in insession and create object instance.
+		from insession import insession
+		insession = insession()
+		# Call statuses to trigger a calendar load.
+		insession.status('house')
+		insession.status('senate')
+
+		# Need an automatic scheduler to take action based on the calendar
+		from apscheduler.schedulers.background import BackgroundScheduler
+		clerk = BackgroundScheduler()
+
 	if found_gpio & found_8relay:
 		# If we've found all known output types, break early.
 		break
@@ -154,12 +167,8 @@ class Brickmaster(Resource):
 
 		return jsonify(return_status)
 
-# Main Section
-
-# At start, shut off all GPIO controls
-#for pin, led_object in controls_gpio.items():
-#	print("Shutting off pin: " + str(pin))
-#	led_object.off()
+# Main Section --
+# Arguably this should be run through a WSGI server, but hey, probably fine to run on your own Pi directly.
 
 # Set up all the resources
 
