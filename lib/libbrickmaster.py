@@ -20,34 +20,57 @@ class brickmaster:
 		found_insession = False
 
 		for key in controls.keys():
-		        if ( controls[key]['type'] == 'GPIO' ) & ( not found_gpio ):
-		                self.GPIO = importlib.import_module('RPi.GPIO')
+			if ( controls[key]['type'] == 'GPIO' ) & ( not found_gpio ):
+				self.GPIO = importlib.import_module('RPi.GPIO')
 				#import RPi.GPIO as GPIO
-		                ## Set Board numbering system
-        		        self.GPIO.setmode(self.GPIO.BCM)
-	                	# Set up the Channels
-		                for key, control in controls.items():
-	        	                if controls[key]['type'] == "GPIO":
-		                                self.GPIO.setup(control['pin'], self.GPIO.OUT)
-	        	        # Only process once.
-		                found_gpio = True
-		        if ( controls[key]['type'] == '8relay' ) & ( not found_8relay ):
-		                self.l8 = importlib.import_module('lib8relay')
-        		        # Only process once.
-	        	        found_8relay = True
-	        	if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
-		                # Bring in insession and create object instance.
-		                from lib.insession import insession
-	        	        insession = insession()
-		                # Call statuses to trigger a calendar load.
-		                insession.status('house')
-	        	        insession.status('senate')
+				## Set Board numbering system
+				self.GPIO.setmode(self.GPIO.BCM)
+				# Set up the Channels
+				for key, control in controls.items():
+					if controls[key]['type'] == "GPIO":
+						self.GPIO.setup(control['pin'], self.GPIO.OUT)
+
+				# Only process once.
+				found_gpio = True
+			if ( controls[key]['type'] == '8relay' ) & ( not found_8relay ):
+				self.l8 = importlib.import_module('lib8relay')
+
+				# Only process once.
+				found_8relay = True
+			if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
+				# Bring in insession and create object instance
+				spec = importlib.util.spec_from_file_location('insession','lib/insession.py')
+				self.insession = importlib.util.module_from_spec(spec)
+				# Call statuses to get existing status.
+				for chamber in ['house','senate']:
+					if self.insession.status(chamber) == 'C':
+						bm.control_set(chamber,'on')
+					else:
+						bm.control_set(chamber,'off')
 
 	                	# Need an automatic scheduler to take action based on the calendar
 		                # from apscheduler.schedulers.background import BackgroundScheduler
+				importlib.import_module('apscheduler.schedulers.backgroundscheduler')
+				# Two job stores, one for each chamber
+				jobstores = { 'house': MemoryJobStore(), 'senate': MemoryJobStore() }
+				# Create the scheduler.
+				self.apcongress = BackgroundScheduler(jobstores=jobstores, timezone=est)
+				self.apcongress.start()
 
 	def __del__(self):
 		self.GPIO.cleanup()
+
+	# Automation for Insession.
+	#def automate_congress(self,chamber):
+		#if chamber.lower() not in ['house','senate']:
+		#	return 1
+
+
+		#get_jobs(
+		# Find out the next action
+		#chamber_next_action = self.insession.next(chamber)
+		# 
+		#self.apcongress(
 
 	# Helper function to validate control info.
 	def check_control(self,control):

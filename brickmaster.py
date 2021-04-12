@@ -19,8 +19,8 @@ brickmaster_config = {
 	"port": "5002",
 	"controls": {
 		"senate": {"type": "GPIO", "pin": 4, "automate": "insession", "set_name": "US Capitol"},
-		"house": {"type": "GPIO", "pin": 17, "automate": "insession"},
-		"tholos": {"type": "GPIO", "pin": 18, "automate": "insession"}
+		"house": {"type": "GPIO", "pin": 18, "automate": "insession"},
+		"tholos": {"type": "GPIO", "pin": 17, "automate": "insession"}
 	}
 }
 
