@@ -6,11 +6,14 @@
 
 import time
 import importlib
+import sys
+from datetime import datetime
 
 # Define the Brickmaster class
 class brickmaster:
 	# Initialize based on passed controls.
 	def __init__(self,controls):
+		print("Brickmaster initialization...",file=sys.stderr)
 		# Stash the controls for future reference.
 		self.controls = controls
 
@@ -21,6 +24,7 @@ class brickmaster:
 
 		for key in controls.keys():
 			if ( controls[key]['type'] == 'GPIO' ) & ( not found_gpio ):
+				print("Initializing GPIO...",file=sys.stderr)
 				self.GPIO = importlib.import_module('RPi.GPIO')
 				#import RPi.GPIO as GPIO
 				## Set Board numbering system
@@ -33,44 +37,102 @@ class brickmaster:
 				# Only process once.
 				found_gpio = True
 			if ( controls[key]['type'] == '8relay' ) & ( not found_8relay ):
+				print("Initializing 8Relay...",file=sys.stderr)
 				self.l8 = importlib.import_module('lib8relay')
 
 				# Only process once.
 				found_8relay = True
 			if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
+				print("Initializing insession automation...",file=sys.stderr)
 				# Bring in insession and create object instance
-				spec = importlib.util.spec_from_file_location('insession','lib/insession.py')
-				self.insession = importlib.util.module_from_spec(spec)
+				from lib.libinsession import insession
+				self.insession = insession()
 				# Call statuses to get existing status.
 				for chamber in ['house','senate']:
 					if self.insession.status(chamber) == 'C':
-						bm.control_set(chamber,'on')
+						print(chamber + ": Found to be convened, setting light on.",file=sys.stderr)
+						self.control_set(chamber,'on')
 					else:
-						bm.control_set(chamber,'off')
+						print(chamber + ": Found to be adjourned, setting light off.",file=sys.stderr)
+						self.control_set(chamber,'off')
+				# Set Tholos
+				print("Updating Tholos.",file=sys.stderr)
+				self.set_tholos()
 
 	                	# Need an automatic scheduler to take action based on the calendar
 		                # from apscheduler.schedulers.background import BackgroundScheduler
-				importlib.import_module('apscheduler.schedulers.backgroundscheduler')
+				from apscheduler.schedulers.background import BackgroundScheduler
+				from apscheduler.jobstores.memory import MemoryJobStore
 				# Two job stores, one for each chamber
 				jobstores = { 'house': MemoryJobStore(), 'senate': MemoryJobStore() }
-				# Create the scheduler.
-				self.apcongress = BackgroundScheduler(jobstores=jobstores, timezone=est)
+				# Create the scheduler, use DC time
+				self.apcongress = BackgroundScheduler(jobstores=jobstores, timezone='America/New_York')
 				self.apcongress.start()
+
+				# Call automate on both houses.
+				print("Starting automation for House...",file=sys.stderr)
+				self.automate_congress('house')
+				print("Starting automation for Senate...",file=sys.stderr)
+				self.automate_congress('senate')
+
+		print("...initialization complete.",file=sys.stderr)
 
 	def __del__(self):
 		self.GPIO.cleanup()
 
 	# Automation for Insession.
-	#def automate_congress(self,chamber):
-		#if chamber.lower() not in ['house','senate']:
-		#	return 1
+	def automate_congress(self,chamber):
+		if chamber.lower() not in ['house','senate']:
+			return 1
 
+		print(chamber + ": beginning automation run.",file=sys.stderr)
 
-		#get_jobs(
-		# Find out the next action
-		#chamber_next_action = self.insession.next(chamber)
-		# 
-		#self.apcongress(
+		# Get jobs in this chamber's queue.
+		# Is the chamber's next event already scheduled?
+		chamber_next = self.insession.next(chamber)
+
+		# Find out if we've already scheduled this.
+		#if chamber_next['timestamp'] in self.apcongress.get_jobs(chamber).keys:
+		#	print("Next event at " + self.insession.next(chamber) + " already scheduled.",file=sys.stderr)
+		#else:
+		if chamber_next['status'] == 'C':
+			# If it's a convene, turn it on.
+			self.apcongress.add_job(self.control_set,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])).isoformat(),jobstore=chamber, args=[chamber, 'on'])
+		elif chamber_next['status'] == 'A':
+			# If it's adjourn, turn it off.
+			self.apcongress.add_job(self.control_set,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])).isoformat(),jobstore=chamber, args=[chamber, 'off'])
+		elif chamber_next['status'] == 'none':
+			# If it's not a Convene or Adjourn, probably don't have calendar data, in which case trap and schedule a retry.
+			# Update the calendar in 58 minutes.
+			self.apcongress.add_job(self.insession.update_chamber,run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+3480),jobstore=chamber, args=[chamber])
+			# Re-run the automation in one hour, if the calendar update got something it will schedule a new item, otherwise it'll just schedule another calendare update.
+			self.apcongress.add_job(self.automate_congress,run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+3600),jobstore=chamber, args=[chamber])
+			print(chamber + ": no future events found. Update scheduled in one hour.",file=sys.stderr)
+			print(self.apcongress.print_jobs(chamber),file=sys.stderr)
+			return 0
+		else:
+			# Anything else is an error, bomb.
+			print(chamber + ": Unknown values found.",file=sys.stderr)
+			print(chamber_next,file=sys.stderr)
+			return 1
+
+		# Update the tholos immediately after the chamber update.
+		self.apcongress.add_job(self.set_tholos,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+5).isoformat(),jobstore=chamber)
+		# Schedule a new chamber automation run just after the next event.
+		self.apcongress.add_job(self.automate_congress,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+120).isoformat(),jobstore=chamber, args=[chamber])
+
+		print(chamber + ": now scheduled. New jobstore queue...",file=sys.stderr)
+		print(self.apcongress.print_jobs(chamber),file=sys.stderr)
+
+		return 0
+
+	def set_tholos(self):
+		# If either the house or the senate is in session, set the Tholos to be on. Otherwise, turn it off.
+		if self.control_status('house')['is_on'] or self.control_status('senate')['is_on']:
+			self.control_set('tholos','on')
+		else:
+			self.control_set('tholos','off')
+		return 0
 
 	# Helper function to validate control info.
 	def check_control(self,control):

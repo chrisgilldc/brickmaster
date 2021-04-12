@@ -145,6 +145,16 @@ class insession:
 			self.senate_calendar = {key:val for key, val in self.senate_calendar.items() if key >= senate_limit_time}
 			self.senate_last_pruned = datetime.now().timestamp()
 
+	# Gateway function for updating chambers.
+	def update_chamber(self,chamber):
+		if chamber.lower() == 'house':
+			self.__update_house
+		elif chamber.lower() == 'senate':
+			self.__update_senate
+		else:
+			return 1
+		return 0
+
 	# Helper function to fetch the right calendar and trigger updates when necessary.
 	def __chamber_calendar(self,chamber):
 		# Required imports for function
@@ -220,15 +230,31 @@ class insession:
 			dctime_epoch = time.strftime('%s')
 
 		if chamber.lower() == 'house':
-			action_time = min(k for k in self.house_calendar if k >= dctime_epoch)
-			action = self.house_calendar[action_time]
+			target_calendar = self.house_calendar
 		elif chamber.lower() == 'senate':
-			action_time = min(k for k in self.senate_calendar if k >= dctime_epoch)
-			action = self.senate_calendar[action_time]
+			target_calendar = self.senate_calendar
+		else:
+			return 1
 
-		result = {
-			'status': action,
-			'timestamp': action_time,
-			'desc': chamber + ' ' + self.__action_name(action,1) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %H:%M')
+		# Check if there are future events in the calendar.
+		future_calendar = []
+		for k in target_calendar:
+			if k >= dctime_epoch:
+				future_calendar = k
+
+		if len(future_calendar) > 0:
+			action_time = int(min(future_calendar))
+			action = future_calendar[action_time]
+			result = {
+				'status': action,
+				'timestamp': action_time,
+				'desc': chamber + ' ' + self.__action_name(action,1) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %H:%M')
 			}
+		else:
+			result = {
+				'status': 'none',
+				'timestamp': '0',
+				'desc': 'No future actions on calendar'
+			}
+
 		return result
