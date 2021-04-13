@@ -49,11 +49,12 @@ class brickmaster:
 				self.insession = insession()
 				# Call statuses to get existing status.
 				for chamber in ['house','senate']:
-					if self.insession.status(chamber) == 'C':
-						print(chamber + ": Found to be convened, setting light on.",file=sys.stderr)
+					result = self.insession.status(chamber)['status']
+					if result == 'C':
+						print(chamber.capitalize() + ": (C) Found to be convened, setting light on.",file=sys.stderr)
 						self.control_set(chamber,'on')
 					else:
-						print(chamber + ": Found to be adjourned, setting light off.",file=sys.stderr)
+						print(chamber.capitalize() + ": (" + result + ") Found to be adjourned, setting light off.",file=sys.stderr)
 						self.control_set(chamber,'off')
 				# Set Tholos
 				print("Updating Tholos.",file=sys.stderr)
@@ -183,10 +184,11 @@ class brickmaster:
 			current = self.insession.status(control)
 			next = self.insession.next(control)
 			return_status['current_status'] = current['status']
-			return_status['current_timestamp'] = current['timestamp']
+			return_status['current_timestamp'] = int(current['timestamp'])
+			return_status['current_description'] = self.insession.action_name(current['status']).capitalize() + " at " + datetime.fromtimestamp(int(current['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
 			return_status['next_status'] = next['status']
-			return_status['next_timestamp'] = next['timestamp']
-			return_status['status_description'] = self.insession.action_name(current['status']) + " at " + datetime.fromtimestamp(int(current['timestamp'])).strftime('%-I:%-M %p, %a %b %-m')+ "\nWill " + self.insession.action_name(next['status'],1) + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%-M %p, %a %b %-m')
+			return_status['next_timestamp'] = int(next['timestamp'])
+			return_status['next_description'] = self.insession.action_name(next['status'],1).capitalize() + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
 
 		return return_status
 

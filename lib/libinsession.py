@@ -70,22 +70,21 @@ class insession:
 			senate_date = "2021" + convene.get('month') + convene.get('date')
 
 			# All Meetings have a convening time.
-			convene_time = datetime.strptime(senate_date + convene.get('time'),'%Y%m%d%H%M').strftime('%s')
+			convene_timestamp = datetime.strptime(senate_date + convene.get('time'),'%Y%m%d%H%M').strftime('%s')
 
 			# If there's an adjournment, figure that out too.
-			if adjourn is not None:
-				# Meetings that haven't adjourned yet have an adjourn element with an empty time, so we have to trap it.
-				if adjourn.get('time') != "":
-					adjourn_time = datetime.strptime(senate_date + adjourn.get('time').replace(':',''),'%Y%m%d%H%M').strftime('%s')
-					# When the Senate has a Pro Forma session, the convening time and adjournment time will be the same. Skip those.
-					if adjourn_time != convene_time:
-						self.senate_calendar[convene_time] = 'C'
-						self.senate_calendar[adjourn_time] = 'A'
+			# Meetings that haven't adjourned yet have an adjourn element with an empty time, so we have to trap it.
+			if ( adjourn is not None ) and ( adjourn.get('time') != "" ):
+				adjourn_timestamp = datetime.strptime(senate_date + adjourn.get('time').replace(':',''),'%Y%m%d%H%M').strftime('%s')
+				# When the Senate has a Pro Forma session, the convening time and adjournment time will be the same. Skip those.
+				if adjourn_timestamp != convene_timestamp:
+					self.senate_calendar[convene_timestamp] = 'C'
+					self.senate_calendar[adjourn_timestamp] = 'A'
 				# If the convene time is in the future, no adjourn time is reported. This is fine, so go ahead.
-				elif convene_time >= datetime.now(self.DCT).strftime('%s'):
-					self.senate_calendar[convene_time] = 'C'
+				elif convene_timestamp >= datetime.now(self.DCT).strftime('%s'):
+					self.senate_calendar[convene_timestamp] = 'C'
 			else:
-				self.senate_calendar[convene_time] = 'C'
+				self.senate_calendar[convene_timestamp] = 'C'
 
 		self.senate_updated = datetime.now().timestamp()
 
