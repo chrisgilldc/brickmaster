@@ -107,23 +107,15 @@ class brickmaster:
 			self.apcongress.add_job(self.insession.update_chamber,run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+3480),jobstore=chamber, args=[chamber])
 			# Re-run the automation in one hour, if the calendar update got something it will schedule a new item, otherwise it'll just schedule another calendare update.
 			self.apcongress.add_job(self.automate_congress,run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+3600),jobstore=chamber, args=[chamber])
-			print(chamber + ": no future events found. Update scheduled in one hour.",file=sys.stderr)
-			print(self.apcongress.print_jobs(chamber),file=sys.stderr)
 			return 0
 		else:
 			# Anything else is an error, bomb.
-			print(chamber + ": Unknown values found. Dumping return array."),file=sys.stderr)
-			print(chamber_next,file=sys.stderr)
 			return 1
 
 		# Update the tholos immediately after the chamber update.
 		self.apcongress.add_job(self.set_tholos,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+5).isoformat(),jobstore=chamber)
 		# Schedule a new chamber automation run just after the next event.
 		self.apcongress.add_job(self.automate_congress,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+120).isoformat(),jobstore=chamber, args=[chamber])
-
-		print(chamber + ": now scheduled. New jobstore queue...",file=sys.stderr)
-		print(self.apcongress.print_jobs(chamber),file=sys.stderr)
-
 		return 0
 
 	def set_tholos(self):
@@ -183,6 +175,18 @@ class brickmaster:
 			return_status['is_on'] = bool(control_status)
 		else:
 			return('Unsupported control type encountered.')
+
+
+		# Get the automation status of the control so we can pack that in as well. Could be useful!
+		## If automated by Insession, provide detail on convene/adjourn.
+		if self.controls[control]['automate'] == 'insession':
+			current = self.insession.status(control)
+			next = self.insession.next(control)
+			return_status['current_status'] = current['status']
+			return_status['current_timestamp'] = current['timestamp']
+			return_status['next_status'] = next['status']
+			return_status['next_timestamp'] = next['timestamp']
+			return_status['status_description'] = self.insession.action_name(current['status']) + " at " + datetime.fromtimestamp(int(current['timestamp'])).strftime('%-I:%-M %p, %a %b %-m')+ "\nWill " + self.insession.action_name(next['status'],1) + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%-M %p, %a %b %-m')
 
 		return return_status
 

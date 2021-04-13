@@ -28,7 +28,7 @@ brickmaster_config = {
 app = Flask(__name__)
 api = Api(app)
 
-# Create the Brickmaster instance. Takes the controls, 
+# Create the Brickmaster instance. Takes the controls
 bm = brickmaster(brickmaster_config['controls'])
 
 # Create Brickmaster Flask Interface

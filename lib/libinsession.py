@@ -32,7 +32,7 @@ class insession:
 		self.config_senate_recheck = 21600
 
 	# Utility to convert status codes to action names
-	def __action_name(self,action,future = 0):
+	def action_name(self,action,future = 0):
 		if action == 'C':
 			if future:
 				return('will convene')
@@ -214,7 +214,7 @@ class insession:
 		result = {
 			'status': action,
 			'timestamp': action_time,
-			'desc': chamber.capitalize() + ' ' + self.__action_name(action) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %I:%M %p')
+			'desc': chamber.capitalize() + ' ' + self.action_name(action) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %I:%M %p')
 			}
 		return result
 
@@ -248,7 +248,7 @@ class insession:
 			result = {
 				'status': next_action,
 				'timestamp': next_action_time,
-				'desc': chamber.capitalize() + ' ' + self.__action_name(next_action,1) + ' at ' + datetime.fromtimestamp(int(next_action_time)).strftime('%m/%d/%Y %I:%M %p')
+				'desc': chamber.capitalize() + ' ' + self.action_name(next_action,1) + ' at ' + datetime.fromtimestamp(int(next_action_time)).strftime('%m/%d/%Y %I:%M %p')
 			}
 		else:
 			result = {
