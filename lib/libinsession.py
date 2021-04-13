@@ -237,18 +237,18 @@ class insession:
 			return 1
 
 		# Check if there are future events in the calendar.
-		future_calendar = []
+		future_actions = []
 		for k in target_calendar:
 			if k >= dctime_epoch:
-				future_calendar = k
+				future_actions.append(k)
 
-		if len(future_calendar) > 0:
-			action_time = int(min(future_calendar))
-			action = future_calendar[action_time]
+		if len(future_actions) > 0:
+			next_action_time = int(min(future_actions))
+			next_action = target_calendar[str(next_action_time)]
 			result = {
-				'status': action,
-				'timestamp': action_time,
-				'desc': chamber + ' ' + self.__action_name(action,1) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %H:%M')
+				'status': next_action,
+				'timestamp': next_action_time,
+				'desc': chamber + ' ' + self.__action_name(next_action,1) + ' at ' + datetime.fromtimestamp(int(next_action_time)).strftime('%m/%d/%Y %H:%M')
 			}
 		else:
 			result = {

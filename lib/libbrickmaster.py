@@ -112,7 +112,7 @@ class brickmaster:
 			return 0
 		else:
 			# Anything else is an error, bomb.
-			print(chamber + ": Unknown values found.",file=sys.stderr)
+			print(chamber + ": Unknown values found. Dumping return array."),file=sys.stderr)
 			print(chamber_next,file=sys.stderr)
 			return 1
 
@@ -193,7 +193,7 @@ class brickmaster:
 
 		# Only an affirmative "On" gets an attempt to set up.
 		# Otherwise, turn it off because something's wonky
-		if state == 'on':
+		if state.lower() == 'on':
 			control_val = 1
 		else:
 			control_val = 0
@@ -202,9 +202,15 @@ class brickmaster:
 		if self.controls[control]['type'] == 'GPIO':
 			# Set the GPIO pin status
 			if control_val:
-				self.GPIO.output(self.controls[control]['pin'],1)
+				try:
+					self.GPIO.output(self.controls[control]['pin'],1)
+				except:
+					return 1
 			else:
-				self.GPIO.output(self.controls[control]['pin'],0)
+				try:
+					self.GPIO.output(self.controls[control]['pin'],0)
+				except:
+					return 1
 		elif self.controls[control]['type'] == '8relay':
 			# Make the call to the relay board
 			try:
