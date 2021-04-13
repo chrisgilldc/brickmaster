@@ -57,7 +57,6 @@ class brickmaster:
 						print(chamber.capitalize() + ": (" + result + ") Found to be adjourned, setting light off.",file=sys.stderr)
 						self.control_set(chamber,'off')
 				# Set Tholos
-				print("Updating Tholos.",file=sys.stderr)
 				self.set_tholos()
 
 	                	# Need an automatic scheduler to take action based on the calendar
@@ -76,6 +75,9 @@ class brickmaster:
 				print("Starting automation for Senate...",file=sys.stderr)
 				self.automate_congress('senate')
 
+				# Yes, we've found insession
+				found_insession = True
+
 		print("...initialization complete.",file=sys.stderr)
 
 	def __del__(self):
@@ -86,8 +88,6 @@ class brickmaster:
 		if chamber.lower() not in ['house','senate']:
 			return 1
 
-		print(chamber + ": beginning automation run.",file=sys.stderr)
-
 		# Get jobs in this chamber's queue.
 		# Is the chamber's next event already scheduled?
 		chamber_next = self.insession.next(chamber)
@@ -96,18 +96,26 @@ class brickmaster:
 		#if chamber_next['timestamp'] in self.apcongress.get_jobs(chamber).keys:
 		#	print("Next event at " + self.insession.next(chamber) + " already scheduled.",file=sys.stderr)
 		#else:
+
+		# Next event in ISO format
+		next_isodate = datetime.fromtimestamp(int(chamber_next['timestamp'])).isoformat()
+		print(chamber_next)
 		if chamber_next['status'] == 'C':
 			# If it's a convene, turn it on.
-			self.apcongress.add_job(self.control_set,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])).isoformat(),jobstore=chamber, args=[chamber, 'on'])
+			print("Scheduling [" + chamber.capitalize() + "] to [Convene] at [" + next_isodate + "]")
+			self.apcongress.add_job(self.control_set,'date',run_date=next_isodate,jobstore=chamber, args=[chamber, 'on'])
 		elif chamber_next['status'] == 'A':
+			print("Scheduling [" + chamber.capitalize() + "] to [Adjourn] at [" + next_isodate + "]")
 			# If it's adjourn, turn it off.
-			self.apcongress.add_job(self.control_set,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])).isoformat(),jobstore=chamber, args=[chamber, 'off'])
+			self.apcongress.add_job(self.control_set,'date',run_date=next_isodate,jobstore=chamber, args=[chamber, 'off'])
 		elif chamber_next['status'] == 'none':
 			# If it's not a Convene or Adjourn, probably don't have calendar data, in which case trap and schedule a retry.
 			# Update the calendar in 58 minutes.
-			self.apcongress.add_job(self.insession.update_chamber,run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+3480),jobstore=chamber, args=[chamber])
+			reschedule_isodate = datetime.fromtimestamp(datetime.now().timestamp()+3480).isoformat()
+			print("No future events. Retry [" + chamber.capitalize() + "] at [" + reschedule_isodate + "]")
+			self.apcongress.add_job(self.insession.update_chamber,run_date=datetime.fromtimestamp(datetime.now().timestamp()+3480).isoformat(),jobstore=chamber, args=[chamber])
 			# Re-run the automation in one hour, if the calendar update got something it will schedule a new item, otherwise it'll just schedule another calendare update.
-			self.apcongress.add_job(self.automate_congress,run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+3600),jobstore=chamber, args=[chamber])
+			self.apcongress.add_job(self.automate_congress,run_date=reschedule_isodate,jobstore=chamber, args=[chamber])
 			return 0
 		else:
 			# Anything else is an error, bomb.
