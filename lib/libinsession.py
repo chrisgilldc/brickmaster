@@ -193,7 +193,7 @@ class insession:
 		if dctime_epoch < min(chamber_calendar):
 			error = {
 				'status': 'E',
-				'desc': 'Requested time ' + time.strftime('%Y-%m-%d %H:%M') + ' before available calendar data.' }
+				'desc': 'Requested time ' + time.strftime('%Y-%m-%d %I:%M %p') + ' before available calendar data.' }
 			return(error)
 		else:
 			action_time = max(k for k in chamber_calendar if k <= dctime_epoch)
@@ -214,7 +214,7 @@ class insession:
 		result = {
 			'status': action,
 			'timestamp': action_time,
-			'desc': chamber + ' ' + self.__action_name(action) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %H:%M')
+			'desc': chamber.capitalize() + ' ' + self.__action_name(action) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %I:%M %p')
 			}
 		return result
 
@@ -248,7 +248,7 @@ class insession:
 			result = {
 				'status': next_action,
 				'timestamp': next_action_time,
-				'desc': chamber + ' ' + self.__action_name(next_action,1) + ' at ' + datetime.fromtimestamp(int(next_action_time)).strftime('%m/%d/%Y %H:%M')
+				'desc': chamber.capitalize() + ' ' + self.__action_name(next_action,1) + ' at ' + datetime.fromtimestamp(int(next_action_time)).strftime('%m/%d/%Y %I:%M %p')
 			}
 		else:
 			result = {
