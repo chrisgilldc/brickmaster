@@ -26,10 +26,9 @@ class insession:
 		# Days of history to keep
 		self.config_house_days = 14
 		self.config_senate_days = 14
-		# Amount of time to recheck the calendar in seconds
-		# (Default: 6 Hours / 21,600 s)
-		self.config_house_recheck = 21600
-		self.config_senate_recheck = 21600
+		# Auto-recheck time. If calendar hasn't be updated in this amount of time, do it.
+		self.config_house_recheck = 14400
+		self.config_senate_recheck = 14400
 
 	# Utility to convert status codes to action names
 	def action_name(self,action,future = 0):
@@ -88,6 +87,9 @@ class insession:
 
 		self.senate_updated = datetime.now().timestamp()
 
+		# Auto-prune
+		self.__prune_calendar('senate')
+
 	# Updating the House.
 	def __update_house(self):
 		# Required imports for function
@@ -126,6 +128,9 @@ class insession:
 
 		# Update the timestamp...
 		self.house_updated = datetime.now().timestamp()
+
+		# Auto-prune.
+		self.__prune_calendar('house')
 
 	# Prune the calendar.
 	def __prune_calendar(self,chamber = "Both"):

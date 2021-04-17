@@ -85,46 +85,70 @@ class brickmaster:
 
 	# Automation for Insession.
 	def automate_congress(self,chamber):
+		# File for schedule debug logging
+		self.sdb = open("schedule_debug.log","a+")
+		print("Automation update begun at [" + datetime.now().isoformat() + "]",file=self.sdb)
 		if chamber.lower() not in ['house','senate']:
+			return 1
+
+		# Update chamber to current
+		print("Updating [" + chamber.capitalize() + "] to current state.",file=self.sdb)
+		chamber_current = self.insession.status(chamber)
+		# If it's off and it should be on, turn on.
+		if chamber_current == 'C' and (not control_status['is_on']):
+			print("Found off when should be convened. Setting on.",file=self.sdb)
+			self.control_set(chamber,'on')
+		# If it's on and should be off, turn off.
+		elif chamber_current == 'A' and (control_status['is_on']):
+			print("Found on when should be adjourned. Setting off.",file=self.sdb)
+			self.control_set(chamber,'off')
+		else:
+			print("Unknown control status for [" + chamber + "] returned.",file=self.sdb)
 			return 1
 
 		# Get jobs in this chamber's queue.
 		# Is the chamber's next event already scheduled?
 		chamber_next = self.insession.next(chamber)
 
-		# Find out if we've already scheduled this.
-		#if chamber_next['timestamp'] in self.apcongress.get_jobs(chamber).keys:
-		#	print("Next event at " + self.insession.next(chamber) + " already scheduled.",file=sys.stderr)
-		#else:
-
 		# Next event in ISO format
 		next_isodate = datetime.fromtimestamp(int(chamber_next['timestamp'])).isoformat()
-		print(chamber_next)
+
+		# Find out if we've already scheduled this.
+		#if chamber_next['timestamp'] in self.apcongress.get_jobs(chamber).keys:
+		#	print("Next event for [" + chamber.capitalize() "] at [" + next_isodate + "] already scheduled.",file=self.sdb)
+		#else:
+
 		if chamber_next['status'] == 'C':
 			# If it's a convene, turn it on.
-			print("Scheduling [" + chamber.capitalize() + "] to [Convene] at [" + next_isodate + "]")
+			print("Scheduling [" + chamber.capitalize() + "] to [Convene] at [" + next_isodate + "]",file=self.sdb)
 			self.apcongress.add_job(self.control_set,'date',run_date=next_isodate,jobstore=chamber, args=[chamber, 'on'])
 		elif chamber_next['status'] == 'A':
-			print("Scheduling [" + chamber.capitalize() + "] to [Adjourn] at [" + next_isodate + "]")
+			print("Scheduling [" + chamber.capitalize() + "] to [Adjourn] at [" + next_isodate + "]",file=self.sdb)
 			# If it's adjourn, turn it off.
 			self.apcongress.add_job(self.control_set,'date',run_date=next_isodate,jobstore=chamber, args=[chamber, 'off'])
 		elif chamber_next['status'] == 'none':
 			# If it's not a Convene or Adjourn, probably don't have calendar data, in which case trap and schedule a retry.
 			# Update the calendar in 58 minutes.
-			reschedule_isodate = datetime.fromtimestamp(datetime.now().timestamp()+3480).isoformat()
-			print("No future events. Retry [" + chamber.capitalize() + "] at [" + reschedule_isodate + "]")
-			self.apcongress.add_job(self.insession.update_chamber,run_date=datetime.fromtimestamp(datetime.now().timestamp()+3480).isoformat(),jobstore=chamber, args=[chamber])
+			print("No future events for [" + chamber.capitalize() + "]. Retry [" + chamber.capitalize() + "] in 20m",file=self.sdb)
+			self.apcongress.add_job(self.insession.update_chamber,run_date=datetime.fromtimestamp(datetime.now().timestamp()+1140).isoformat(),jobstore=chamber, args=[chamber])
 			# Re-run the automation in one hour, if the calendar update got something it will schedule a new item, otherwise it'll just schedule another calendare update.
-			self.apcongress.add_job(self.automate_congress,run_date=reschedule_isodate,jobstore=chamber, args=[chamber])
+			self.apcongress.add_job(self.automate_congress,run_date=datetime.fromtimestamp(datetime.now().timestamp()+1200),jobstore=chamber, args=[chamber])
+			self.sdb.close()
 			return 0
 		else:
 			# Anything else is an error, bomb.
+			print("Unknown error encountered.",file=self.sdb)
+			self.sdb.close()
 			return 1
 
 		# Update the tholos immediately after the chamber update.
+		print("Scheduling tholos update at [" + datetime.fromtimestamp(int(chamber_next['timestamp'])+5).isoformat() + "]",file=self.sdb)
 		self.apcongress.add_job(self.set_tholos,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+5).isoformat(),jobstore=chamber)
 		# Schedule a new chamber automation run just after the next event.
+		print("Scheduling next automation run for [" + chamber + "] at [" + datetime.fromtimestamp(int(chamber_next['timestamp'])+120).isoformat() + "]",file=self.sdb)
 		self.apcongress.add_job(self.automate_congress,'date',run_date=datetime.fromtimestamp(int(chamber_next['timestamp'])+120).isoformat(),jobstore=chamber, args=[chamber])
+
+		self.sdb.close()
 		return 0
 
 	def set_tholos(self):
