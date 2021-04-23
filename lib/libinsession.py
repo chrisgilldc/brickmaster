@@ -13,13 +13,13 @@ class insession:
 
 	# Class instantiation
 	def __init__(self):
-
 		import pytz
 		# Create an object for the DC Timezone
 		self.DCT = pytz.timezone('America/New_York')
 		# Initialize dictionaries for the calendars
-		self.house_calendar = {}
-		self.senate_calendar = {}
+		self.calendar = {}
+		self.calendar['house'] = {}
+		self.calendar['senate'] = {}
 		# Initialize variable for updates.
 		self.house_updated = ""
 		self.senate_updated = ""
@@ -29,6 +29,10 @@ class insession:
 		# Auto-recheck time. If calendar hasn't be updated in this amount of time, do it.
 		self.config_house_recheck = 14400
 		self.config_senate_recheck = 14400
+		# Trigger updates for both chambers.
+		self.__update_house()
+		self.__update_senate()
+
 
 	# Utility to convert status codes to action names
 	def action_name(self,action,future = 0):
@@ -57,6 +61,7 @@ class insession:
 		import pytz				# For Timezones
 		import requests				# For getting files from the web
 		import xml.etree.ElementTree as ET 	# For XML processing
+		import sys
 
 		# Get the Senate floor schedule. It's always one big schedule so we can just grab it.
 		senate_request = requests.get('https://www.senate.gov/legislative/schedule/floor_schedule.xml')
@@ -77,13 +82,16 @@ class insession:
 				adjourn_timestamp = datetime.strptime(senate_date + adjourn.get('time').replace(':',''),'%Y%m%d%H%M').strftime('%s')
 				# When the Senate has a Pro Forma session, the convening time and adjournment time will be the same. Skip those.
 				if adjourn_timestamp != convene_timestamp:
-					self.senate_calendar[convene_timestamp] = 'C'
-					self.senate_calendar[adjourn_timestamp] = 'A'
+					self.calendar['senate'][convene_timestamp] = 'C'
+					self.calendar['senate'][adjourn_timestamp] = 'A'
 				# If the convene time is in the future, no adjourn time is reported. This is fine, so go ahead.
 				elif convene_timestamp >= datetime.now(self.DCT).strftime('%s'):
-					self.senate_calendar[convene_timestamp] = 'C'
+					self.calendar['senate'][convene_timestamp] = 'C'
 			else:
-				self.senate_calendar[convene_timestamp] = 'C'
+				self.calendar['senate'][convene_timestamp] = 'C'
+
+		# Call for a scrape of Congress.Gov to supplement the legislative calendar.
+		self.__scrape()
 
 		self.senate_updated = datetime.now().timestamp()
 
@@ -113,18 +121,21 @@ class insession:
 		for floor_action in house_xml.findall(".//*..[@act-id='H20100']"):
 			# Convert to Epoch
 			action_time = datetime.strptime(floor_action.attrib['update-date-time'], '%Y%m%dT%H:%M')
-			self.house_calendar[action_time.strftime('%s')] = 'C'
+			self.calendar['house'][action_time.strftime('%s')] = 'C'
 
 		for floor_action in house_xml.findall(".//*..[@act-id='H61000']"):
 			action_time = datetime.strptime(floor_action.attrib['update-date-time'], '%Y%m%dT%H:%M')
-			self.house_calendar[action_time.strftime('%s')] = 'A'
+			self.calendar['house'][action_time.strftime('%s')] = 'A'
 		try:
 			next_convene = house_xml.find(".//legislative_day_finished").attrib
 		except:
 			next_convene = 0
 		else:
 			action_time = datetime.strptime(next_convene['next-legislative-day-convenes'], '%Y%m%dT%H:%M')
-			self.house_calendar[action_time.strftime('%s')] = 'C'
+			self.calendar['house'][action_time.strftime('%s')] = 'C'
+
+		# Call for a scrape of Congress.Gov to supplement the legislative calendar.
+		self.__scrape()
 
 		# Update the timestamp...
 		self.house_updated = datetime.now().timestamp()
@@ -140,14 +151,61 @@ class insession:
 		if ( chamber.lower() == "house" ) or ( chamber == "Both" ):
 			house_limit_time = datetime.now(self.DCT) - timedelta(days=self.config_house_days)
 			house_limit_time = house_limit_time.strftime('%s')
-			self.house_calendar = {key:val for key, val in self.house_calendar.items() if key >= house_limit_time}
+			self.calendar['house'] = {key:val for key, val in self.calendar['house'].items() if key >= house_limit_time}
 			self.house_last_pruned = datetime.now().timestamp()
 
 		if ( chamber.lower() == "senate" ) or ( chamber == "Both" ):
 			senate_limit_time = datetime.now(self.DCT) - timedelta(days=self.config_senate_days)
 			senate_limit_time = senate_limit_time.strftime('%s')
-			self.senate_calendar = {key:val for key, val in self.senate_calendar.items() if key >= senate_limit_time}
+			self.calendar['senate'] = {key:val for key, val in self.calendar['senate'].items() if key >= senate_limit_time}
 			self.senate_last_pruned = datetime.now().timestamp()
+
+	# Scrape congress.gov if we don't know anything from the calendar.
+	def __scrape(self):
+		import requests
+		from datetime import datetime
+		from bs4 import BeautifulSoup
+
+		cg_request = requests.get('https://congress.gov')
+		# Return an error if we couldn't scrape congress.gov
+		if not cg_request.ok:
+			return 1
+
+		# Parse the response into a BeautifulSoup data object.
+		cg_data = BeautifulSoup(cg_request.content,'html.parser')
+
+		return_data = {}
+
+		for chamber in ('house','senate'):
+			return_data[chamber] = {}
+
+			# Pull the chamber data into an easily identified variable.
+			chamber_data = cg_data.find(class_='home-current-' + chamber)
+
+			# Check current status.
+
+			# What class are they using to show the status?
+			if chamber_data.find(class_='outOfSession'):
+				print('\t' + chamber.capitalize() + ' is out of session')
+				return_data[chamber]['status'] = 'A'
+				# If out of session, should list a next meeting. It's in the span of the 'activity' div.
+				chamber_activity = chamber_data.find(class_='activity').span.text
+				# If it's a real result, process it and add it to the calendar.
+				if type(chamber_activity) == str:
+					print('\t' + chamber.capitalize() + ' has next convene date')
+					# Convert to timestamp
+					chamber_next_timestamp = datetime.strptime(chamber_activity,'%B %d, %Y at %H:%M %p %Z').strftime('%s')
+					print('\t\t' + chamber_activity + ' --> ' + chamber_next_timestamp)
+					self.calendar[chamber][chamber_next_timestamp] = 'C'
+
+			elif chamber_data.find(class_='inSession'):
+				return_data[chamber]['status'] = 'C'
+			else:
+				# Should always find either in session or out of session. If neither, return error.
+				return 1
+
+		return return_data
+
 
 	# Gateway function for updating chambers.
 	def update_chamber(self,chamber):
@@ -159,49 +217,46 @@ class insession:
 			return 1
 		return 0
 
-	# Helper function to fetch the right calendar and trigger updates when necessary.
-	def __chamber_calendar(self,chamber):
-		# Required imports for function
-		import sys
-		# Pull the calendar for the correct chamber.
-		if ( chamber.lower() == "house" ):
-			# If calendar is empty, it's probably startup, trigger an update.
-			if len(self.house_calendar.keys()) == 0:
-				self.__update_house()
-			chamber_calendar = self.house_calendar
-		elif ( chamber.lower() == "senate" ):
-			# If calendar is empty, it's probably startup, trigger an update.
-			if len(self.senate_calendar.keys()) == 0:
-				self.__update_senate()
-			chamber_calendar = self.senate_calendar
-		else:
-			sys.exit(1)
-		return chamber_calendar
-
 	# Report current status for a chamber.
 	def status(self,chamber,time = None):
 		# Required imports for function
 		from datetime import datetime,timedelta	# For date/Time management
 		import pytz				# For Timezones
+		import sys
 
+		# Validate chamber names, and if calendar is empty, call an update
+		if ( chamber.lower() == 'house' ):
+			if len(self.calendar['house'].keys()) == 0:
+				self.__update_house()
+		elif ( chamber.lower() == 'senate' ):
+			if len(self.calendar['senate'].keys()) == 0:
+				self.update_senate()
+		else:
+			# If we don't have a valid chamber, blow it all up.
+			sys.exit(1)
 
-		chamber_calendar = self.__chamber_calendar(chamber)
-
-		# DC time, in Epoch seconds
+		# Default time to 'now', otherwise use the requested time passed to us.
 		if time == None:
 			dctime_epoch = datetime.now(self.DCT).strftime('%s')
 		else:
 			dctime_epoch = time.strftime('%s')
 
 		# IF time requested is less than the earliest calendar item, return an error.
-		if dctime_epoch < min(chamber_calendar):
+		if dctime_epoch < min(self.calendar[chamber]):
+			print(chamber,file=sys.stderr)
+			print(dctime_epoch,file=sys.stderr)
+			print(min(self.calendar[chamber]),file=sys.stderr)
+			print(self.calendar[chamber],file=sys.stderr)
 			error = {
 				'status': 'E',
 				'desc': 'Requested time ' + time.strftime('%Y-%m-%d %I:%M %p') + ' before available calendar data.' }
 			return(error)
 		else:
-			action_time = max(k for k in chamber_calendar if k <= dctime_epoch)
-			action = chamber_calendar[action_time]
+			# Find the most recent calendar item.
+			action_time = max(k for k in self.calendar[chamber] if k <= dctime_epoch)
+			#if datetime.now().strftime('%s') - action_time >
+
+			action = self.calendar[chamber][action_time]
 
 		# Do housekeeping for the chamber before returning.
 		# Trigger a pruning for the calendar.
@@ -213,7 +268,6 @@ class insession:
 		if chamber.lower == "senate":
 			if ( datetime.now().timestamp() - self.senate_updated ) >= self.config_senate_recheck:
 				self.__update_senate()
-
 
 		result = {
 			'status': action,
@@ -234,9 +288,9 @@ class insession:
 			dctime_epoch = time.strftime('%s')
 
 		if chamber.lower() == 'house':
-			target_calendar = self.house_calendar
+			target_calendar = self.calendar['house']
 		elif chamber.lower() == 'senate':
-			target_calendar = self.senate_calendar
+			target_calendar = self.calendar['senate']
 		else:
 			return 1
 

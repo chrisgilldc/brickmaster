@@ -94,16 +94,17 @@ class brickmaster:
 		# Update chamber to current
 		print("Updating [" + chamber.capitalize() + "] to current state.",file=self.sdb)
 		chamber_current = self.insession.status(chamber)
+		print("Got chamber status result: " + str(chamber_current),file=sys.stderr)
 		# If it's off and it should be on, turn on.
-		if chamber_current == 'C' and (not control_status['is_on']):
-			print("Found off when should be convened. Setting on.",file=self.sdb)
+		if chamber_current['status'] == 'C':
+			print("Chamber is convened. Setting on.",file=self.sdb)
 			self.control_set(chamber,'on')
 		# If it's on and should be off, turn off.
-		elif chamber_current == 'A' and (control_status['is_on']):
-			print("Found on when should be adjourned. Setting off.",file=self.sdb)
+		elif chamber_current['status'] == 'A':
+			print("Chamber is adjourned. Setting off.",file=self.sdb)
 			self.control_set(chamber,'off')
 		else:
-			print("Unknown control status for [" + chamber + "] returned.",file=self.sdb)
+			print("Unknown control status for [" + chamber + "] returned. [" + str(chamber_current) + "]",file=self.sdb)
 			return 1
 
 		# Get jobs in this chamber's queue.
@@ -137,7 +138,7 @@ class brickmaster:
 			return 0
 		else:
 			# Anything else is an error, bomb.
-			print("Unknown error encountered.",file=self.sdb)
+			print("Unknown error encountered: " + str(chamber_next),file=self.sdb)
 			self.sdb.close()
 			return 1
 
