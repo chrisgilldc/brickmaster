@@ -134,7 +134,7 @@ class insession:
 			action_time = datetime.strptime(next_convene['next-legislative-day-convenes'], '%Y%m%dT%H:%M')
 			self.calendar['house'][action_time.strftime('%s')] = 'C'
 
-		# Call for a scrape of Congress.Gov to supplement the legislative calendar.
+		# Call for a scrape of Congress.Gov to supplement the legislative calendar and to get real actual status.
 		self.__scrape()
 
 		# Update the timestamp...
@@ -176,18 +176,21 @@ class insession:
 
 		return_data = {}
 
+		# Timestamp to use for 'artificial' actions
+		scrape_timestamp = str(int(datetime.now().strftime('%s')) - 10)
+
 		for chamber in ('house','senate'):
-			return_data[chamber] = {}
 
 			# Pull the chamber data into an easily identified variable.
 			chamber_data = cg_data.find(class_='home-current-' + chamber)
 
-			# Check current status.
-
 			# What class are they using to show the status?
 			if chamber_data.find(class_='outOfSession'):
-				print('\t' + chamber.capitalize() + ' is out of session')
-				return_data[chamber]['status'] = 'A'
+				# Add "artificial" event ten seconds in the past so Status can grab it.
+				self.calendar[chamber][scrape_timestamp] = {
+					"status": "A",
+					"source": "scrape" }
+
 				# If out of session, should list a next meeting. It's in the span of the 'activity' div.
 				chamber_activity = chamber_data.find(class_='activity').span.text
 				# If it's a real result, process it and add it to the calendar.
@@ -199,12 +202,15 @@ class insession:
 					self.calendar[chamber][chamber_next_timestamp] = 'C'
 
 			elif chamber_data.find(class_='inSession'):
-				return_data[chamber]['status'] = 'C'
+					# Add "artificial" event ten seconds in the past so Status can grab it.
+					self.calendar[chamber][scrape_timestamp] = {
+						"status": "C",
+						"source": "scrape" }
 			else:
 				# Should always find either in session or out of session. If neither, return error.
 				return 1
 
-		return return_data
+		return 0
 
 
 	# Gateway function for updating chambers.

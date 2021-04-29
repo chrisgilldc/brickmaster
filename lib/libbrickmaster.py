@@ -54,7 +54,7 @@ class brickmaster:
 						print(chamber.capitalize() + ": (C) Found to be convened, setting light on.",file=sys.stderr)
 						self.control_set(chamber,'on')
 					else:
-						print(chamber.capitalize() + ": (" + result + ") Found to be adjourned, setting light off.",file=sys.stderr)
+						print(chamber.capitalize() + ": (" + str(result) + ") Found to be adjourned, setting light off.",file=sys.stderr)
 						self.control_set(chamber,'off')
 				# Set Tholos
 				self.set_tholos()
