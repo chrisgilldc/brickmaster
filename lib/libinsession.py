@@ -82,16 +82,24 @@ class insession:
 				adjourn_timestamp = datetime.strptime(senate_date + adjourn.get('time').replace(':',''),'%Y%m%d%H%M').strftime('%s')
 				# When the Senate has a Pro Forma session, the convening time and adjournment time will be the same. Skip those.
 				if adjourn_timestamp != convene_timestamp:
-					self.calendar['senate'][convene_timestamp] = 'C'
-					self.calendar['senate'][adjourn_timestamp] = 'A'
+					self.calendar['senate'][convene_timestamp] = {
+						'status': 'C',
+						'source': 'cal' }
+					self.calendar['senate'][adjourn_timestamp] = {
+						'status': 'A',
+						'source': 'cal' }
 				# If the convene time is in the future, no adjourn time is reported. This is fine, so go ahead.
 				elif convene_timestamp >= datetime.now(self.DCT).strftime('%s'):
-					self.calendar['senate'][convene_timestamp] = 'C'
+					self.calendar['senate'][convene_timestamp] = {
+						'status': 'C',
+						'source': 'cal' }
 			else:
-				self.calendar['senate'][convene_timestamp] = 'C'
+				self.calendar['senate'][convene_timestamp] = {
+					'status': 'C',
+					'source': 'cal' }
 
 		# Call for a scrape of Congress.Gov to supplement the legislative calendar.
-		self.__scrape()
+		self.__scrape('senate')
 
 		self.senate_updated = datetime.now().timestamp()
 
@@ -121,21 +129,29 @@ class insession:
 		for floor_action in house_xml.findall(".//*..[@act-id='H20100']"):
 			# Convert to Epoch
 			action_time = datetime.strptime(floor_action.attrib['update-date-time'], '%Y%m%dT%H:%M')
-			self.calendar['house'][action_time.strftime('%s')] = 'C'
+			self.calendar['house'][action_time.strftime('%s')] = {
+				'status': 'C',
+				'source': 'cal' }
 
 		for floor_action in house_xml.findall(".//*..[@act-id='H61000']"):
 			action_time = datetime.strptime(floor_action.attrib['update-date-time'], '%Y%m%dT%H:%M')
-			self.calendar['house'][action_time.strftime('%s')] = 'A'
+			self.calendar['house'][action_time.strftime('%s')] = {
+				'status': 'A',
+				'source': 'cal' }
 		try:
 			next_convene = house_xml.find(".//legislative_day_finished").attrib
 		except:
 			next_convene = 0
 		else:
 			action_time = datetime.strptime(next_convene['next-legislative-day-convenes'], '%Y%m%dT%H:%M')
-			self.calendar['house'][action_time.strftime('%s')] = 'C'
+			self.calendar['house'][action_time.strftime('%s')] = {
+				'status': 'C',
+				'source': 'cal' }
+		print("Dumping house calendar...")
+		print(self.calendar['house'])
 
 		# Call for a scrape of Congress.Gov to supplement the legislative calendar and to get real actual status.
-		self.__scrape()
+		self.__scrape('house')
 
 		# Update the timestamp...
 		self.house_updated = datetime.now().timestamp()
@@ -161,11 +177,16 @@ class insession:
 			self.senate_last_pruned = datetime.now().timestamp()
 
 	# Scrape congress.gov if we don't know anything from the calendar.
-	def __scrape(self):
+	def __scrape(self,chamber):
 		import requests
 		from datetime import datetime
 		from bs4 import BeautifulSoup
 
+		# Has to be a valid chamber
+		if chamber.lower() not in ('house','senate'):
+			return 1
+
+		# Request Congress.gov
 		cg_request = requests.get('https://congress.gov')
 		# Return an error if we couldn't scrape congress.gov
 		if not cg_request.ok:
@@ -174,42 +195,49 @@ class insession:
 		# Parse the response into a BeautifulSoup data object.
 		cg_data = BeautifulSoup(cg_request.content,'html.parser')
 
+		# Collector for our return data
 		return_data = {}
 
-		# Timestamp to use for 'artificial' actions
+		# Timestamp to use for 'artificial' actions when we need it.
 		scrape_timestamp = str(int(datetime.now().strftime('%s')) - 10)
 
-		for chamber in ('house','senate'):
+		# Current time in DC.
+		dctime_epoch = datetime.now(self.DCT).strftime('%s')
 
-			# Pull the chamber data into an easily identified variable.
-			chamber_data = cg_data.find(class_='home-current-' + chamber)
+		# Get the most recent calendar action for this chamber, for sake of comparison
+		action_time = max(k for k in self.calendar[chamber] if k <= dctime_epoch)
+		action = self.calendar[chamber][action_time]
 
-			# What class are they using to show the status?
-			if chamber_data.find(class_='outOfSession'):
-				# Add "artificial" event ten seconds in the past so Status can grab it.
+		# Pull the chamber data into an easily identified variable.
+		chamber_data = cg_data.find(class_='home-current-' + chamber)
+
+		# What class are they using to show the status?
+		if chamber_data.find(class_='outOfSession'):
+			# If currently out of session but most recent calendar action says in session, add "artificial" calendar item to update.
+			if action['status'] == 'C':
 				self.calendar[chamber][scrape_timestamp] = {
 					"status": "A",
 					"source": "scrape" }
-
-				# If out of session, should list a next meeting. It's in the span of the 'activity' div.
-				chamber_activity = chamber_data.find(class_='activity').span.text
-				# If it's a real result, process it and add it to the calendar.
-				if type(chamber_activity) == str:
-					print('\t' + chamber.capitalize() + ' has next convene date')
-					# Convert to timestamp
-					chamber_next_timestamp = datetime.strptime(chamber_activity,'%B %d, %Y at %H:%M %p %Z').strftime('%s')
-					print('\t\t' + chamber_activity + ' --> ' + chamber_next_timestamp)
-					self.calendar[chamber][chamber_next_timestamp] = 'C'
-
-			elif chamber_data.find(class_='inSession'):
-					# Add "artificial" event ten seconds in the past so Status can grab it.
-					self.calendar[chamber][scrape_timestamp] = {
+			# If out of session, should list a next meeting. It's in the span of the 'activity' div.
+			chamber_activity = chamber_data.find(class_='activity').span.text
+			# If it's a real result, process it and add it to the calendar.
+			if type(chamber_activity) == str:
+				# Convert to timestamp
+				chamber_next_timestamp = datetime.strptime(chamber_activity,'%B %d, %Y at %H:%M %p %Z').strftime('%s')
+				# If this action isn't already in the calendar, add it.
+				if chamber_next_timestamp not in self.calendar[chamber].keys():
+					self.calendar[chamber][chamber_next_timestamp] = {
 						"status": "C",
 						"source": "scrape" }
-			else:
-				# Should always find either in session or out of session. If neither, return error.
-				return 1
-
+		elif chamber_data.find(class_='inSession'):
+		# If currently in session but most recent calendar says adjourned, add "artifical" calendar item to update.
+			if action['status'] == 'A':
+				self.calendar[chamber][scrape_timestamp] = {
+					"status": "C",
+					"source": "scrape" }
+		else:
+			# Should always find either in session or out of session. If neither, return error.
+			return 1
 		return 0
 
 
@@ -260,8 +288,6 @@ class insession:
 		else:
 			# Find the most recent calendar item.
 			action_time = max(k for k in self.calendar[chamber] if k <= dctime_epoch)
-			#if datetime.now().strftime('%s') - action_time >
-
 			action = self.calendar[chamber][action_time]
 
 		# Do housekeeping for the chamber before returning.
@@ -275,10 +301,18 @@ class insession:
 			if ( datetime.now().timestamp() - self.senate_updated ) >= self.config_senate_recheck:
 				self.__update_senate()
 
+		if action['source'] == 'cal':
+			description = chamber.capitalize() + ' ' + self.action_name(action['status']) + ' ' + datetime.fromtimestamp(int(action_time)).strftime('%A %B %d at %I:%M %p')
+		elif action['source'] == 'scrape':
+			description = chamber.capitalize() + ' stands adjourned.' if action['status'] == 'A' else ' is in session.' if action['status'] == 'C' else ' has unknown status.'
+		else:
+			description = chamber.capitalize() + ' has unknown status.'
+
 		result = {
-			'status': action,
+			'status': action['status'],
+			'source': action['source'],
 			'timestamp': action_time,
-			'desc': chamber.capitalize() + ' ' + self.action_name(action) + ' at ' + datetime.fromtimestamp(int(action_time)).strftime('%m/%d/%Y %I:%M %p')
+			'desc': description
 			}
 		return result
 

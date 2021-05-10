@@ -218,10 +218,10 @@ class brickmaster:
 			next = self.insession.next(control)
 			return_status['current_status'] = current['status']
 			return_status['current_timestamp'] = int(current['timestamp'])
-			return_status['current_description'] = self.insession.action_name(current['status']).capitalize() + " at " + datetime.fromtimestamp(int(current['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
+			return_status['current_description'] = current['desc']
 			return_status['next_status'] = next['status']
 			return_status['next_timestamp'] = int(next['timestamp'])
-			return_status['next_description'] = self.insession.action_name(next['status'],1).capitalize() + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
+			#return_status['next_description'] = next['status'].capitalize() + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
 
 		return return_status
 
