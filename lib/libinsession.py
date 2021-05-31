@@ -82,19 +82,24 @@ class insession:
 				adjourn_timestamp = datetime.strptime(senate_date + adjourn.get('time').replace(':',''),'%Y%m%d%H%M').strftime('%s')
 				# When the Senate has a Pro Forma session, the convening time and adjournment time will be the same. Skip those.
 				if adjourn_timestamp != convene_timestamp:
-					self.calendar['senate'][convene_timestamp] = {
+					self.calendar['senate'][int(convene_timestamp)] = {
+						'display_time': datetime.fromtimestamp(int(convene_timestamp)),
 						'status': 'C',
 						'source': 'cal' }
-					self.calendar['senate'][adjourn_timestamp] = {
+
+					self.calendar['senate'][int(adjourn_timestamp)] = {
+						'display_time': datetime.fromtimestamp(int(adjourn_timestamp)),
 						'status': 'A',
 						'source': 'cal' }
 				# If the convene time is in the future, no adjourn time is reported. This is fine, so go ahead.
 				elif convene_timestamp >= datetime.now(self.DCT).strftime('%s'):
-					self.calendar['senate'][convene_timestamp] = {
+					self.calendar['senate'][int(convene_timestamp)] = {
+						'display_time': datetime.fromtimestamp(int(convene_timestamp)),
 						'status': 'C',
 						'source': 'cal' }
 			else:
-				self.calendar['senate'][convene_timestamp] = {
+				self.calendar['senate'][int(convene_timestamp)] = {
+					'display_time': datetime.fromtimestamp(int(convene_timestamp)),
 					'status': 'C',
 					'source': 'cal' }
 
@@ -129,13 +134,15 @@ class insession:
 		for floor_action in house_xml.findall(".//*..[@act-id='H20100']"):
 			# Convert to Epoch
 			action_time = datetime.strptime(floor_action.attrib['update-date-time'], '%Y%m%dT%H:%M')
-			self.calendar['house'][action_time.strftime('%s')] = {
+			self.calendar['house'][int(action_time.strftime('%s'))] = {
+				'display_time': action_time,
 				'status': 'C',
 				'source': 'cal' }
 
 		for floor_action in house_xml.findall(".//*..[@act-id='H61000']"):
 			action_time = datetime.strptime(floor_action.attrib['update-date-time'], '%Y%m%dT%H:%M')
-			self.calendar['house'][action_time.strftime('%s')] = {
+			self.calendar['house'][int(action_time.strftime('%s'))] = {
+				'display_time': action_time,
 				'status': 'A',
 				'source': 'cal' }
 		try:
@@ -144,7 +151,8 @@ class insession:
 			next_convene = 0
 		else:
 			action_time = datetime.strptime(next_convene['next-legislative-day-convenes'], '%Y%m%dT%H:%M')
-			self.calendar['house'][action_time.strftime('%s')] = {
+			self.calendar['house'][int(action_time.strftime('%s'))] = {
+				'display_time': action_time,
 				'status': 'C',
 				'source': 'cal' }
 		print("Dumping house calendar...")
@@ -166,13 +174,13 @@ class insession:
 
 		if ( chamber.lower() == "house" ) or ( chamber == "Both" ):
 			house_limit_time = datetime.now(self.DCT) - timedelta(days=self.config_house_days)
-			house_limit_time = house_limit_time.strftime('%s')
+			house_limit_time = int(house_limit_time.strftime('%s'))
 			self.calendar['house'] = {key:val for key, val in self.calendar['house'].items() if key >= house_limit_time}
 			self.house_last_pruned = datetime.now().timestamp()
 
 		if ( chamber.lower() == "senate" ) or ( chamber == "Both" ):
 			senate_limit_time = datetime.now(self.DCT) - timedelta(days=self.config_senate_days)
-			senate_limit_time = senate_limit_time.strftime('%s')
+			senate_limit_time = int(senate_limit_time.strftime('%s'))
 			self.calendar['senate'] = {key:val for key, val in self.calendar['senate'].items() if key >= senate_limit_time}
 			self.senate_last_pruned = datetime.now().timestamp()
 
@@ -199,10 +207,10 @@ class insession:
 		return_data = {}
 
 		# Timestamp to use for 'artificial' actions when we need it.
-		scrape_timestamp = str(int(datetime.now().strftime('%s')) - 10)
+		scrape_timestamp = int(datetime.now().strftime('%s')) - 10
 
 		# Current time in DC.
-		dctime_epoch = datetime.now(self.DCT).strftime('%s')
+		dctime_epoch = int(datetime.now(self.DCT).strftime('%s'))
 
 		# Get the most recent calendar action for this chamber, for sake of comparison
 		action_time = max(k for k in self.calendar[chamber] if k <= dctime_epoch)
@@ -223,7 +231,7 @@ class insession:
 			# If it's a real result, process it and add it to the calendar.
 			if type(chamber_activity) == str:
 				# Convert to timestamp
-				chamber_next_timestamp = datetime.strptime(chamber_activity,'%B %d, %Y at %H:%M %p %Z').strftime('%s')
+				chamber_next_timestamp = int(datetime.strptime(chamber_activity,'%B %d, %Y at %H:%M %p %Z').strftime('%s'))
 				# If this action isn't already in the calendar, add it.
 				if chamber_next_timestamp not in self.calendar[chamber].keys():
 					self.calendar[chamber][chamber_next_timestamp] = {
@@ -271,9 +279,9 @@ class insession:
 
 		# Default time to 'now', otherwise use the requested time passed to us.
 		if time == None:
-			dctime_epoch = datetime.now(self.DCT).strftime('%s')
+			dctime_epoch = int(datetime.now(self.DCT).strftime('%s'))
 		else:
-			dctime_epoch = time.strftime('%s')
+			dctime_epoch = int(time.strftime('%s'))
 
 		# IF time requested is less than the earliest calendar item, return an error.
 		if dctime_epoch < min(self.calendar[chamber]):
@@ -323,9 +331,9 @@ class insession:
 		import pytz				# For Timezones
 
 		if time == None:
-			dctime_epoch = datetime.now(self.DCT).strftime('%s')
+			dctime_epoch = int(datetime.now(self.DCT).strftime('%s'))
 		else:
-			dctime_epoch = time.strftime('%s')
+			dctime_epoch = int(time.strftime('%s'))
 
 		if chamber.lower() == 'house':
 			target_calendar = self.calendar['house']
@@ -342,7 +350,7 @@ class insession:
 
 		if len(future_actions) > 0:
 			next_action_time = int(min(future_actions))
-			next_action = target_calendar[str(next_action_time)]
+			next_action = target_calendar[next_action_time]
 			result = {
 				'status': next_action,
 				'timestamp': next_action_time,

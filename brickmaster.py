@@ -60,12 +60,26 @@ class bmfi(Resource):
 
 		return jsonify(return_status)
 
+# Debug class so the current schedule for House and Senate can be accessed.
+class is_debug(Resource):
+	def get(self,chamber=None):
+		if chamber not in ('house','senate'):
+			abort(405,'Requested chamber must be "house" or "senate"')
+		return jsonify(bm.insession.calendar[chamber])
+
+	def post(self,chamber=None):
+		abort(405,'Cannot post to this resource')
+
 # Main Section --
 # Arguably this should be run through a WSGI server, but hey, probably fine to run on your own Pi directly.
 
 # Set up all the resources
 
 api.add_resource(bmfi, '/brickmaster', '/brickmaster/<string:control>')
+
+# Debug insession schedule status
+api.add_resource(is_debug,'/insession/<string:chamber>')
+
 
 if __name__ == '__main__':
 	app.run(host=brickmaster_config['host'],port=brickmaster_config['port'])
