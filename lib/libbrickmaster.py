@@ -42,41 +42,42 @@ class brickmaster:
 
 				# Only process once.
 				found_8relay = True
-			if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
-				print("Initializing insession automation...",file=sys.stderr)
-				# Bring in insession and create object instance
-				from lib.libinsession import insession
-				self.insession = insession()
-				# Call statuses to get existing status.
-				for chamber in ['house','senate']:
-					result = self.insession.status(chamber)['status']
-					if result == 'C':
-						print(chamber.capitalize() + ": (C) Found to be convened, setting light on.",file=sys.stderr)
-						self.control_set(chamber,'on')
-					else:
-						print(chamber.capitalize() + ": (" + str(result) + ") Found to be adjourned, setting light off.",file=sys.stderr)
-						self.control_set(chamber,'off')
-				# Set Tholos
-				self.set_tholos()
+			if 'automate' in controls[key]:
+				if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
+					print("Initializing insession automation...",file=sys.stderr)
+					# Bring in insession and create object instance
+					from lib.libinsession import insession
+					self.insession = insession()
+					# Call statuses to get existing status.
+					for chamber in ['house','senate']:
+						result = self.insession.status(chamber)['status']
+						if result == 'C':
+							print(chamber.capitalize() + ": (C) Found to be convened, setting light on.",file=sys.stderr)
+							self.control_set(chamber,'on')
+						else:
+							print(chamber.capitalize() + ": (" + str(result) + ") Found to be adjourned, setting light off.",file=sys.stderr)
+							self.control_set(chamber,'off')
+					# Set Tholos
+					self.set_tholos()
 
-	                	# Need an automatic scheduler to take action based on the calendar
-		                # from apscheduler.schedulers.background import BackgroundScheduler
-				from apscheduler.schedulers.background import BackgroundScheduler
-				from apscheduler.jobstores.memory import MemoryJobStore
-				# Two job stores, one for each chamber
-				jobstores = { 'house': MemoryJobStore(), 'senate': MemoryJobStore() }
-				# Create the scheduler, use DC time
-				self.apcongress = BackgroundScheduler(jobstores=jobstores, timezone='America/New_York')
-				self.apcongress.start()
+	                		# Need an automatic scheduler to take action based on the calendar
+			                # from apscheduler.schedulers.background import BackgroundScheduler
+					from apscheduler.schedulers.background import BackgroundScheduler
+					from apscheduler.jobstores.memory import MemoryJobStore
+					# Two job stores, one for each chamber
+					jobstores = { 'house': MemoryJobStore(), 'senate': MemoryJobStore() }
+					# Create the scheduler, use DC time
+					self.apcongress = BackgroundScheduler(jobstores=jobstores, timezone='America/New_York')
+					self.apcongress.start()
 
-				# Call automate on both houses.
-				print("Starting automation for House...",file=sys.stderr)
-				self.automate_congress('house')
-				print("Starting automation for Senate...",file=sys.stderr)
-				self.automate_congress('senate')
+					# Call automate on both houses.
+					print("Starting automation for House...",file=sys.stderr)
+					self.automate_congress('house')
+					print("Starting automation for Senate...",file=sys.stderr)
+					self.automate_congress('senate')
 
-				# Yes, we've found insession
-				found_insession = True
+					# Yes, we've found insession
+					found_insession = True
 
 		print("...initialization complete.",file=sys.stderr)
 
@@ -213,15 +214,16 @@ class brickmaster:
 
 		# Get the automation status of the control so we can pack that in as well. Could be useful!
 		## If automated by Insession, provide detail on convene/adjourn.
-		if self.controls[control]['automate'] == 'insession':
-			current = self.insession.status(control)
-			next = self.insession.next(control)
-			return_status['current_status'] = current['status']
-			return_status['current_timestamp'] = int(current['timestamp'])
-			return_status['current_description'] = current['desc']
-			return_status['next_status'] = next['status']
-			return_status['next_timestamp'] = int(next['timestamp'])
-			#return_status['next_description'] = next['status'].capitalize() + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
+		if 'automate' in self.controls[control]:
+			if self.controls[control]['automate'] == 'insession':
+				current = self.insession.status(control)
+				next = self.insession.next(control)
+				return_status['current_status'] = current['status']
+				return_status['current_timestamp'] = int(current['timestamp'])
+				return_status['current_description'] = current['desc']
+				return_status['next_status'] = next['status']
+				return_status['next_timestamp'] = int(next['timestamp'])
+				#return_status['next_description'] = next['status'].capitalize() + " at " + datetime.fromtimestamp(int(next['timestamp'])).strftime('%-I:%M %p, %a %b %-d')
 
 		return return_status
 
