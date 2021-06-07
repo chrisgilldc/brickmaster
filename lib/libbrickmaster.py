@@ -20,6 +20,8 @@ class brickmaster:
 		# Check the controls and do necessary setup.
 		found_gpio = False
 		found_8relay = False
+		found_pf = False
+		self.pf_controls = {}
 		found_insession = False
 
 		for key in controls.keys():
@@ -42,6 +44,30 @@ class brickmaster:
 
 				# Only process once.
 				found_8relay = True
+			if (controls[key]['type'] == 'pf' ):
+				if not found_pf:
+					print("Initializing Power Functions...",file=sys.stderr)
+					from lib.libpowerfunctions import legopf
+
+					# Only process once.
+					found_pf = True
+				print("Processing power function control definition...",file=sys.stderr)
+				print(controls[key],file=sys.stderr)
+				# Short variables to save my knuckles...
+				c = controls[key]['channel']
+				o = controls[key]['output']
+				# Check if this already exists....
+				try:
+					self.pf_controls[c][o]
+				except:
+					# If the Channel dict doesn't already exist, create it
+					if c not in self.pf_controls.keys():
+						self.pf_controls[c] = {}
+					# Prepare PF control
+					self.pf_controls[c][o] = legopf(c,o)
+					print("Creating Power Function control for " + str(c) + str(o),file=sys.stderr)
+				else:
+ 					print("Power Function control " + str(c) + str(o) + " already exists. Can't configure twice, ignoring.",file=sys.stderr)
 			if 'automate' in controls[key]:
 				if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
 					print("Initializing insession automation...",file=sys.stderr)
@@ -82,7 +108,8 @@ class brickmaster:
 		print("...initialization complete.",file=sys.stderr)
 
 	def __del__(self):
-		self.GPIO.cleanup()
+		if 'GPIO' in locals():
+			self.GPIO.cleanup()
 
 	# Automation for Insession.
 	def automate_congress(self,chamber):
@@ -208,6 +235,14 @@ class brickmaster:
 			# Return both text version and boolean version of status. This is needed for Home Assistant, at least.
 			return_status['status'] = self.__bool_to_text(control_status)
 			return_status['is_on'] = bool(control_status)
+
+		elif self.controls[control]['type'] == 'pf':
+			# Get the status via the power functions object in the PF dict.
+			control_status = self.pf_controls[self.controls[control]['channel']][self.controls[control]['output']].state
+			if control_status not in ('BRAKE',0):
+				return_status['is_on'] = False
+			else:
+				return_status['is_on'] = True
 		else:
 			return('Unsupported control type encountered.')
 
@@ -227,20 +262,29 @@ class brickmaster:
 
 		return return_status
 
+	def _convert_control_val(self,state):
+		# Convert requested state to a control value.
+		if type(state) == 'str':
+			if state.lower() == 'on':
+				return 1
+			else:
+				return 0
+		elif state == 1:
+			return 1
+		else:
+			return 0
+
 	def control_set(self,control,state):
 		# Confirm the requested control exists, return if it doesn't.
 		if control not in self.controls:
 			return("Requested control \'" + control + "\' does not exist.")
 
-		# Only an affirmative "On" gets an attempt to set up.
-		# Otherwise, turn it off because something's wonky
-		if state.lower() == 'on':
-			control_val = 1
-		else:
-			control_val = 0
-
 		# Perform the correct action for the control type
 		if self.controls[control]['type'] == 'GPIO':
+
+			# Convert requested state to control value
+			control_val = self._convert_control_val(state)
+
 			# Set the GPIO pin status
 			if control_val:
 				try:
@@ -253,11 +297,42 @@ class brickmaster:
 				except:
 					return 1
 		elif self.controls[control]['type'] == '8relay':
+			# Convert requested state to control value
+			control_val = self._convert_control_val(state)
+
 			# Make the call to the relay board
 			try:
 				self.l8.set(self.controls[control]['stack'],self.controls[control]['relay'],control_val)
 			except:
 				return('Relay board failed to set status. Please check hardware.')
+
+		elif self.controls[control]['type'] == 'pf':
+			# Power functions bounds checking is more complex....
+
+			# If it's an integer value it's asking for a specific speed.
+			if type(state) == int:
+				if -7 <= state <= 7:
+					target_state = state
+				else:
+					return('Requested state \'' + state + '\' not within bounds.')
+			elif state.lower() == 'on':
+				# If set to generic "On", set to the control's defined on speed.
+				target_state = self.controls[control]['on_speed']
+			elif state.lower() == 'brake' or state.lower() == 'off':
+				# Brake or off will send a 'brake'
+				target_state = 'BRAKE'
+			else:
+				return('No supported Power Functions state received')
+
+			# Alright, we have a valid PF value to pass
+			print("Trying to call PF...")
+			pf_return = self.pf_controls[self.controls[control]['channel']][self.controls[control]['output']].set(target_state)
+			print("Called PF, got: ")
+			print(pf_return)
+			if pf_return['code'] == 1:
+				return('Error while sending Power Functions command: ' + pf_return['message'])
+			else:
+				return 0
 		else:
 			return('Unsupported control type encountered')
 		return 0
