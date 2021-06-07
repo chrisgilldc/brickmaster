@@ -11,18 +11,23 @@ from flask import Flask, request, abort, jsonify
 from flask_restful import Resource, Api, reqparse
 from json import dumps
 import time
+import ast
+from os import path
 
 # Probably could be in a config file, but this works for now!
 
-brickmaster_config = {
-	"host": "0.0.0.0",
-	"port": "5002",
-	"controls": {
-		"senate": {"type": "GPIO", "pin": 4, "automate": "insession", "set_name": "US Capitol"},
-		"house": {"type": "GPIO", "pin": 17, "automate": "insession"},
-		"tholos": {"type": "GPIO", "pin": 18, "automate": "insession"}
-	}
-}
+if not path.isfile('brickmaster.cfg'):
+	print("Expected config-file 'brickmaster.cfg' does not exist. Cannot continue.")
+	sys.exit(1)
+
+# Read config Dict from file.
+with open('brickmaster.cfg') as config_file:
+	config_data = config_file.read()
+
+brickmaster_config = ast.literal_eval(config_data)
+
+print("Config data: ")
+print(brickmaster_config)
 
 # Create the Flask app
 app = Flask(__name__)

@@ -17,6 +17,7 @@ Also
 Requirements ---
 
 Python 3.7
+Flask, with RESTful
 
 For GPIO support ----
 RPi library
@@ -36,4 +37,13 @@ is unlikely to be "pretty" code and plenty of "works for me" stuff going on here
 
 Installing ---
 
-Probably some information here, eventually.
+Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms.
+
+1. Install required packages: sudo apt-get install pythyon3-flask python3-flask-restful
+ a. For GPIO support: 
+      sudo apt-get install python3-rpi.gpio
+ b. For Sequent 8Relay support:
+      Install as per Sequent's instructions.
+      https://github.com/SequentMicrosystems/ioplus-rpi/blob/master/python/README.md
+ c. For Power Functions IR support:
+      <To be written>
