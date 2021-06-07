@@ -47,3 +47,24 @@ Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms.
       https://github.com/SequentMicrosystems/ioplus-rpi/blob/master/python/README.md
  c. For Power Functions IR support:
       <To be written>
+ 
+ Home Assistant ---
+ 
+ I wrote Brickmaster with the intent it would be a back-end to be accessed via Home Assistant, which I use for other home automation tasks. These can be set up as Rest API switches and then put on the interface as basic 
+
+Example 1: Basic on/off
+switch:
+ - platform:
+    name: <a name>
+    resource: http://<DNS name or IP>:<Port>/brickmaster
+    state_resource: http://<DNS name or IP>:5002/brickmaster/<control>
+    method: post
+    body_on: '{"<control>": "On"}'
+    body_off: '{"<control>": "Off"}'
+    is_on_template: '{{ value_json.is_on }}'
+    headers:
+      Content-Type: application/json
+
+ Example 2: Slider (ie: Power Functions)
+  < To be Written >
+ 
