@@ -224,6 +224,7 @@ class insession:
 			# If currently out of session but most recent calendar action says in session, add "artificial" calendar item to update.
 			if action['status'] == 'C':
 				self.calendar[chamber][scrape_timestamp] = {
+					'display_time': datetime.fromtimestamp(int(scrape_timestamp)),
 					"status": "A",
 					"source": "scrape" }
 			# If out of session, should list a next meeting. It's in the span of the 'activity' div.
@@ -235,12 +236,14 @@ class insession:
 				# If this action isn't already in the calendar, add it.
 				if chamber_next_timestamp not in self.calendar[chamber].keys():
 					self.calendar[chamber][chamber_next_timestamp] = {
+						"display_time": datetime.fromtimestamp(int(chamber_next_timestamp)),
 						"status": "C",
 						"source": "scrape" }
 		elif chamber_data.find(class_='inSession'):
 		# If currently in session but most recent calendar says adjourned, add "artifical" calendar item to update.
 			if action['status'] == 'A':
 				self.calendar[chamber][scrape_timestamp] = {
+					"display_time": datetime.fromtimestamp(int(scrape_timestamp)),
 					"status": "C",
 					"source": "scrape" }
 		else:
