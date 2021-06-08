@@ -58,7 +58,6 @@ class bmfi(Resource):
 		input_controls = request.get_json()
 
 		for control in input_controls.keys():
-			print("Setting state for: " + control)
 			bm.control_set(control,input_controls[control])
 
 			return_status.append(bm.control_status(control))

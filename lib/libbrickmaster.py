@@ -239,10 +239,20 @@ class brickmaster:
 		elif self.controls[control]['type'] == 'pf':
 			# Get the status via the power functions object in the PF dict.
 			control_status = self.pf_controls[self.controls[control]['channel']][self.controls[control]['output']].state
-			if control_status not in ('BRAKE',0):
-				return_status['is_on'] = False
+			if type(control_status) == str:
+				if control_status == 'BRAKE':
+					return_status['status'] = 'BRAKE'
+					return_status['is_on'] = False
+			elif type(control_status) == int:
+				if control_status == 0:
+					return_status['status'] = 'BRAKE'
+					return_status['is_on'] = False
+				elif -7 <= control_status <= 7:
+					return_status['status'] = control_status
+					return_status['is_on'] = True
 			else:
-				return_status['is_on'] = True
+				return_status['status'] = 'Unknown'
+				return_status['is_on'] = False
 		else:
 			return('Unsupported control type encountered.')
 
@@ -325,10 +335,7 @@ class brickmaster:
 				return('No supported Power Functions state received')
 
 			# Alright, we have a valid PF value to pass
-			print("Trying to call PF...")
 			pf_return = self.pf_controls[self.controls[control]['channel']][self.controls[control]['output']].set(target_state)
-			print("Called PF, got: ")
-			print(pf_return)
 			if pf_return['code'] == 1:
 				return('Error while sending Power Functions command: ' + pf_return['message'])
 			else:
