@@ -52,9 +52,21 @@ Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms. I
         irsend SEND_ONCE Lego_Single_Output 1R_7
         Brickmaster calls irsend directly, so if this doesn't work, neither will Brickmaster!
 2. Install nginx and uwsgi
-    a. Install packages
-        sudo apt-get install nginx uwsgi
+    a. Install nginx and uwsgi packages
+        sudo apt-get install nginx uwsgi uwsgi-plugin-python3
+    b. Set up uwsgi 
+        cp config/brickmaster.ini-uwsgi /etc/uwsgi/apps-enabled/brickmaster.ini
+    c. Set up nginx
+        cp config/brickmaster.nginx /etc/nginx/sites-enabled/brickmaster
+    d. If necessary, edit the config files to point to different paths. The examples presume things got parked in /home/pi/brickmaster.
+    e. Start the services to make sure they work.
+        systemctl start uwsgi
+        systemctl start nginx
+    f. Enable the services.
+        systemctl enable uwsgi
+        systemctl enable nginx
         
+       
  
  Home Assistant ---
  
