@@ -1,0 +1,37 @@
+#
+# Brickmaster nginx configuration
+
+server {
+	listen 5002 default_server;
+	# Uncomment for IPv6 support
+	#listen [::]:5002 default_server;
+
+	# Uncomment for SSL support
+	# listen 443 ssl defaul_server;
+	# listen [::]:443 ssl default_server;
+
+	# Point this to wherever you dropped the Brickmaster branch.
+	root /home/pi/brickmaster/html;
+
+	index index.html;
+
+	server_name _;
+
+	#location / {
+	#	# First attempt to serve request as file, then
+	#	# as directory, then fall back to displaying a 404.
+	#	try_files $uri $uri/ =404;
+	#}
+
+	# Brickmaster
+	# Pass Brickmaster requests to uWSGI
+	location = /brickmaster { rewrite ^ /brickmaster/; }
+	location /brickmaster { try_files $uri @brickmaster; }
+	location @brickmaster {
+		include uwsgi_params;
+		uwsgi_pass unix:/tmp/brickmaster.sock;
+	}
+
+	# Redirect favicon
+	location = /favicon.ico { alias /brickmaster.png; }
+}

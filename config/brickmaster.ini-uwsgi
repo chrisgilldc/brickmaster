@@ -1,0 +1,8 @@
+[uwsgi]
+module = brickmaster:app
+socket = /tmp/brickmaster.sock
+chdir = /home/pi/brickmaster
+plugin = python3
+uid = pi
+gid = pi
+master = True
