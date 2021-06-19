@@ -2,9 +2,13 @@
 
 # Brickmaster - a Flask App for Lego Control!
 
+# Path for Brickmaster libraries.
+import sys
+sys.path.insert(0,'/home/pi/brickmaster/lib')
+
 # Bring in libraries
 #
-from lib.libbrickmaster import brickmaster
+from libbrickmaster import brickmaster
 
 ## Core Components
 from flask import Flask, request, abort, jsonify

@@ -47,7 +47,7 @@ class brickmaster:
 			if (controls[key]['type'] == 'pf' ):
 				if not found_pf:
 					print("Initializing Power Functions...",file=sys.stderr)
-					from lib.libpowerfunctions import legopf
+					from libpowerfunctions import legopf
 
 					# Only process once.
 					found_pf = True
@@ -72,7 +72,7 @@ class brickmaster:
 				if ( controls[key]['automate'] == 'insession' ) & ( not found_insession ):
 					print("Initializing insession automation...",file=sys.stderr)
 					# Bring in insession and create object instance
-					from lib.libinsession import insession
+					from libinsession import insession
 					self.insession = insession()
 					# Call statuses to get existing status.
 					for chamber in ['house','senate']:
