@@ -28,12 +28,12 @@ class legopf:
 		self.__output = output
 
 		# When initialized, stop so we hvae a consistent state.
-		self.set('Brake')
-		self.state = 'Brake'
+		self.set('BRAKE')
+		self.state = 'BRAKE'
 
 	def __del__(self):
 		# When shutting down, send a brake command.
-		self.set('Brake')
+		self.set('BRAKE')
 
 	def set(self,setting):
 		# Where:
