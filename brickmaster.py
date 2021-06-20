@@ -38,7 +38,7 @@ app = Flask(__name__)
 api = Api(app)
 
 # Create the Brickmaster instance. Takes the controls
-bm = brickmaster(brickmaster_config['controls'])
+bm = brickmaster(brickmaster_config['controls'],brickmaster_config['debug'])
 
 # Create Brickmaster Flask Interface
 class bmfi(Resource):
@@ -68,13 +68,12 @@ class bmfi(Resource):
 				print("Setting control...",file=sys.stdout)
 				print(json.dumps(input_controls))
 			returned_data = bm.control_set(control,input_controls[control])
-			print(returned_data)
 			if returned_data['status'] == 1 and brickmaster_config['debug']:
 				print("Attempt to set control returned error.",file=sys.stdout)
 				print(returned_data['message'],file=sys.stdout)
 			return_status.append(bm.control_status(control))
 		if brickmaster_config['debug']:
-			print("Returning completed status...",file=sys.stdout)
+			print("Sending final reply to client:",file=sys.stdout)
 			print(return_status)
 		return jsonify(return_status)
 

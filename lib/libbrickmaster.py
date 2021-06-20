@@ -12,10 +12,13 @@ from datetime import datetime
 # Define the Brickmaster class
 class brickmaster:
 	# Initialize based on passed controls.
-	def __init__(self,controls):
+	def __init__(self,controls,debug=False):
 		print("Brickmaster initialization...",file=sys.stderr)
 		# Stash the controls for future reference.
 		self.controls = controls
+
+		# Debug status for the overall module.
+		self.debug = debug
 
 		# Check the controls and do necessary setup.
 		found_gpio = False
@@ -279,7 +282,7 @@ class brickmaster:
 
 	def _convert_control_val(self,state):
 		# Convert requested state to a control value.
-		if type(state) == 'str':
+		if type(state) == str:
 			if state.lower() == 'on':
 				return 1
 			else:
@@ -290,12 +293,14 @@ class brickmaster:
 			return 0
 
 	def control_set(self,control,state):
+		if self.debug:
+			print("Entered 'control_set' function...",file=sys.stdout)
 		# Set up a return data dict so we can return both error status code and error message string.
 		return_data = {}
+		# Pre-set a return status of 1 (error) so we always have a status to return. We set this 0 when we succeed.
+		return_data['status'] = 1
 
 		# Confirm the requested control exists, return if it doesn't.
-		print("Checking control...")
-		print(self.controls)
 		if control not in self.controls:
 			return_data['status'] = 1
 			return_data['message'] =  "Requested control \'" + control + "\' does not exist."
@@ -305,35 +310,52 @@ class brickmaster:
 		# Perform the correct action for the control type
 		# PI GPIO controls
 		if self.controls[control]['type'] == 'GPIO':
+			if self.debug:
+				print('Identified control type -> GPIO',file=sys.stdout)
 
 			# Convert requested state to control value
+			if self.debug:
+				print('State requested by input: ' + str(state),file=sys.stdout)
 			control_val = self._convert_control_val(state)
 
 			# Set the GPIO pin status
 			if control_val:
 				try:
 					self.GPIO.output(self.controls[control]['pin'],1)
+					return_data['status'] = 0
 				except:
 					return_data['status'] = 1
 			else:
 				try:
 					self.GPIO.output(self.controls[control]['pin'],0)
+					return_data['status'] = 0
 				except:
 					return_data['status'] = 1
 
 		# Sequent 8Relay controls
 		elif self.controls[control]['type'] == '8relay':
+			if self.debug:
+				print('Identified control type -> 8relay',file=sys.stdout)
+
 			# Convert requested state to control value
+			if self.debug:
+				print('State requested by input: ' + str(state),file=sys.stdout)
 			control_val = self._convert_control_val(state)
+			if self.debug:
+				print('Determined control value: ' + str(control_val),file=sys.stdout)
 
 			# Make the call to the relay board
 			try:
 				self.l8.set(self.controls[control]['stack'],self.controls[control]['relay'],control_val)
+				return_data['status'] = 0
 			except:
 				return_data['status'] = 1
 
 		# Power functions controls
 		elif self.controls[control]['type'] == 'pf':
+			if self.debug:
+				print('Identified control type -> Power Functions',file=sys.stdout)
+
 			# Power functions bounds checking is more complex....
 
 			# If it's an integer value it's asking for a specific speed.
@@ -364,6 +386,7 @@ class brickmaster:
 			return_data['message'] = 'Unsupported control type encountered'
 			return_data['status'] = 1
 
-		print("Preparing to return data...")
+		if self.debug:
+			print("Data returning from control_set function:",file=sys.stdout)
 		print(return_data)
 		return return_data
