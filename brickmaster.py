@@ -67,7 +67,11 @@ class bmfi(Resource):
 			if brickmaster_config['debug']:
 				print("Setting control...",file=sys.stdout)
 				print(json.dumps(input_controls))
-			bm.control_set(control,input_controls[control])
+			returned_data = bm.control_set(control,input_controls[control])
+			print(returned_data)
+			if returned_data['status'] == 1 and brickmaster_config['debug']:
+				print("Attempt to set control returned error.",file=sys.stdout)
+				print(returned_data['message'],file=sys.stdout)
 			return_status.append(bm.control_status(control))
 		if brickmaster_config['debug']:
 			print("Returning completed status...",file=sys.stdout)

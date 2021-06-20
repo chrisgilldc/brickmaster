@@ -289,12 +289,17 @@ class brickmaster:
 			return 0
 
 	def control_set(self,control,state):
-		# Confirm the requested control exists, return if it doesn't.
-		if control not in self.controls:
-			return("Requested control \'" + control + "\' does not exist.")
-
 		# Set up a return data dict so we can return both error status code and error message string.
 		return_data = {}
+
+		# Confirm the requested control exists, return if it doesn't.
+		print("Checking control...")
+		print(self.controls)
+		if control not in self.controls:
+			return_data['status'] = 1
+			return_data['message'] =  "Requested control \'" + control + "\' does not exist."
+			return return_data
+
 
 		# Perform the correct action for the control type
 		# PI GPIO controls
@@ -358,4 +363,6 @@ class brickmaster:
 			return_data['message'] = 'Unsupported control type encountered'
 			return_data['status'] = 1
 
+		print("Preparing to return data...")
+		print(return_data)
 		return return_data
