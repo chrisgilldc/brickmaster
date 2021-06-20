@@ -13,7 +13,7 @@ from libbrickmaster import brickmaster
 ## Core Components
 from flask import Flask, request, abort, jsonify
 from flask_restful import Resource, Api, reqparse
-from json import dumps
+import json
 import time
 import ast
 from os import path
@@ -60,12 +60,18 @@ class bmfi(Resource):
 
 		# Get posted data.
 		input_controls = request.get_json()
-
+		if brickmaster_config['debug']:
+			print("Debug: Received posted data: ",file=sys.stdout)
+			print(json.dumps(input_controls))
 		for control in input_controls.keys():
+			if brickmaster_config['debug']:
+				print("Setting control...",file=sys.stdout)
+				print(json.dumps(input_controls))
 			bm.control_set(control,input_controls[control])
-
 			return_status.append(bm.control_status(control))
-
+		if brickmaster_config['debug']:
+			print("Returning completed status...",file=sys.stdout)
+			print(return_status)
 		return jsonify(return_status)
 
 # Debug class so the current schedule for House and Senate can be accessed.
