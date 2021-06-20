@@ -25,7 +25,6 @@ server {
 
 	# Brickmaster
 	# Pass Brickmaster requests to uWSGI
-	location = /brickmaster { rewrite ^ /brickmaster/; }
 	location /brickmaster { try_files $uri @brickmaster; }
 	location @brickmaster {
 		include uwsgi_params;
