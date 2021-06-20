@@ -27,7 +27,11 @@ class brickmaster:
 		for key in controls.keys():
 			if ( controls[key]['type'] == 'GPIO' ) & ( not found_gpio ):
 				print("Initializing GPIO...",file=sys.stderr)
-				self.GPIO = importlib.import_module('RPi.GPIO')
+				try:
+					self.GPIO = importlib.import_module('RPi.GPIO')
+				except:
+					print("Needed to load RPi.GPIO and couldn't find library.",file=sys.stderr)
+					sys.exit(1)
 				#import RPi.GPIO as GPIO
 				## Set Board numbering system
 				self.GPIO.setmode(self.GPIO.BCM)
@@ -289,7 +293,11 @@ class brickmaster:
 		if control not in self.controls:
 			return("Requested control \'" + control + "\' does not exist.")
 
+		# Set up a return data dict so we can return both error status code and error message string.
+		return_data = {}
+
 		# Perform the correct action for the control type
+		# PI GPIO controls
 		if self.controls[control]['type'] == 'GPIO':
 
 			# Convert requested state to control value
@@ -300,12 +308,14 @@ class brickmaster:
 				try:
 					self.GPIO.output(self.controls[control]['pin'],1)
 				except:
-					return 1
+					return_data['status'] = 1
 			else:
 				try:
 					self.GPIO.output(self.controls[control]['pin'],0)
 				except:
-					return 1
+					return_data['status'] = 1
+
+		# Sequent 8Relay controls
 		elif self.controls[control]['type'] == '8relay':
 			# Convert requested state to control value
 			control_val = self._convert_control_val(state)
@@ -314,8 +324,9 @@ class brickmaster:
 			try:
 				self.l8.set(self.controls[control]['stack'],self.controls[control]['relay'],control_val)
 			except:
-				return('Relay board failed to set status. Please check hardware.')
+				return_data['status'] = 1
 
+		# Power functions controls
 		elif self.controls[control]['type'] == 'pf':
 			# Power functions bounds checking is more complex....
 
@@ -324,7 +335,8 @@ class brickmaster:
 				if -7 <= state <= 7:
 					target_state = state
 				else:
-					return('Requested state \'' + state + '\' not within bounds.')
+					return_status['message'] = 'Requested state \'' + state + '\' not within bounds.'
+					return_status['status'] = 1
 			elif state.lower() == 'on':
 				# If set to generic "On", set to the control's defined on speed.
 				target_state = self.controls[control]['on_speed']
@@ -332,14 +344,18 @@ class brickmaster:
 				# Brake or off will send a 'brake'
 				target_state = 'BRAKE'
 			else:
-				return('No supported Power Functions state received')
+				return_data['message'] = 'No supported Power Functions state received'
+				return_data['status'] = 1
 
 			# Alright, we have a valid PF value to pass
 			pf_return = self.pf_controls[self.controls[control]['channel']][self.controls[control]['output']].set(target_state)
 			if pf_return['code'] == 1:
-				return('Error while sending Power Functions command: ' + pf_return['message'])
+				return_data['message'] = 'Error while sending Power Functions command: ' + pf_return['message']
+				return_data['status'] = 1
 			else:
-				return 0
+				return_data['status'] =  0
 		else:
-			return('Unsupported control type encountered')
-		return 0
+			return_data['message'] = 'Unsupported control type encountered'
+			return_data['status'] = 1
+
+		return return_data
