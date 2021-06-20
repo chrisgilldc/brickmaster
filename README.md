@@ -45,6 +45,7 @@ Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms. I
     b. For Sequent 8Relay support:
         Install as per Sequent's instructions.
         https://github.com/SequentMicrosystems/ioplus-rpi/blob/master/python/README.md
+        Also be sure the user running Brickmaster (ie: pi, www-user, etc) is part of the i2c group.
     c. For Power Functions IR support:
         Copy the lircd config files from the config/lircd directory to /etc/lircd.conf.d
         Restart lircd

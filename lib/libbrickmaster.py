@@ -257,6 +257,7 @@ class brickmaster:
 			else:
 				return_status['status'] = 'Unknown'
 				return_status['is_on'] = False
+			print(return_status,file=sys.stderr)
 		else:
 			return('Unsupported control type encountered.')
 
