@@ -1,0 +1,21 @@
+{
+	countdown: -30
+	ignition: -8.9
+	stage1: {
+		burn_time: 168
+		final_alt: 61
+		final_velocity: 2300
+		stage1_interstage: 600
+	}
+	stage2: {
+		burn_time: 384
+		final_alt: 164
+		final_velocity: 6833.33
+		stage2_interstage: 60
+	}
+	stage3: {
+		burn_time: 147
+		final_alt: 185
+		final_velocity: 7421.29
+	}
+}

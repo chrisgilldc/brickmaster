@@ -9,13 +9,15 @@
 ####
 
 
+# Signal handler
+import signal
 # Basic scheduler
 import sched, time
 # Datetime conversion
 from datetime import timedelta
 
 # Quick 7s formatting library
-from format_7s import time_7s
+from format_7s import time_7s, number_7s
 
 # Support for 7-segment displays via Adafruit backpacks.
 import board
@@ -51,15 +53,28 @@ def mc_update():
 	derived_speed = elapsed_time * 5
 
 	display_time = time_7s(elapsed_time,4)
+	display_alt = number_7s(derived_altitude,4)
+	display_speed = number_7s(derived_speed,4)
 
 	# Print to log
-	print(display_time + "\t" + str(derived_altitude) + "\t" + str(derived_speed))
+	print(display_time + "\t" + display_alt + "\t" + display_speed)
 
 	# Push to displays
 	mc_clock.print(display_time)
-	mc_alt.print("%.2f" % derived_altitude)
-	mc_speed.print("%.2f" % derived_speed)
+	mc_alt.print(display_alt)
+	mc_speed.print(display_speed)
 
+# Function to shut everything down.
+def all_off():
+	mc_clock.fill(0)
+	mc_alt.fill(0)
+	mc_speed.fill(0)
+
+def keyboardInterruptHandler(signal, frame):
+	all_off()
+	exit(0)
+
+signal.signal(signal.SIGINT,keyboardInterruptHandler)
 
 print("Clock\tAlt\tSpeed")
 launch_time = time.time()
