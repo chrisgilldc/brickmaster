@@ -10,9 +10,14 @@ def time_7s(data):
 	if data <= -599 or data > 6039:
 		return("ERR")
 	# Negative values under 60s.
-	elif data < 59:
+	elif data < -59:
 		data = abs(data)
 		return("-" + str(int(data // 60)) + ":" + str(int(data % 60)).zfill(2))
+	elif data < 0:
+		data = abs(data)
+		return("- :" + str(data).zfill(2))
+	elif data == 0:
+		return("00:00")
 	# Over 60s, M:S
 	elif data >= 60:
 		return(str(int(data // 60)).zfill(2) + ":" + str(int(data % 60)).zfill(2))
