@@ -33,8 +33,8 @@ pp = pprint.PrettyPrinter(depth=4)
 i2c = board.I2C()
 # Initialize three displays
 mc_clock = BigSeg7x4(i2c,address=0x70)
-mc_alt = Seg7x4(i2c,address=0x71)
-mc_speed = Seg7x4(i2c,address=0x72)
+mc_alt = Seg7x4(i2c,address=0x72)
+mc_speed = Seg7x4(i2c,address=0x71)
 # Set initial values
 mc_clock.print("00:00")
 mc_alt.print("0000")
