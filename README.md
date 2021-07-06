@@ -4,30 +4,37 @@
 #
 ####
 
-Summary ---
+## Summary
 
 A flask app for controlling legos. Maybe other things too?
 
-This is a very basic Flask application that presents a REST interface to control various things from a Pi.
-Currently supports direct GPIO control and the use of the Sequent Microsystems 8Relay board (good for 
-higher voltage applications).
+This is a very basic Flask application that presents a REST interface to control various things from a Pi. Currently supports three control types:
 
-Also 
+**Pi GPIO:** The GPIO pins from the Pi. By default outputs 3.3v, can be run through a level shifter to bump it up to the 5v more commonly used in Lego LED kits.
+**Power Functions:** Uses lircd and an IR emitter to send to a Lego Power Functions receiver. Nice if you want to use the native Power Functions hardware, or get to things in more remote places. I implemented this with somewhat inelegant system calls to irsend, and lircd itself is on its way out, likely needs re-implementation at some point.
+**Sequent Microsystems 8Relay:** A relay hat for the Pi, allows use of arbitrary voltages directly via the Pi. I use this to allow direct control of Lego motors (9v) beyond what a level shifter could support. Of course can also drive LEDs if provided with the correct input voltage.
 
-Requirements ---
+
+## Requirements
 
 Python 3.7
+  - May work on earlier versions, but haven't tested it and not planning on it.
 Flask, with RESTful
 
-For GPIO support ----
+** For GPIO support **
 RPi library
 Connections to GPIO pins. Remember, Pi GPIO is 3.3v, a level shifter or relay may be required.
 
-For 8Relay support ----
+** For Power Functions Support **
+lircd
+Lego Power Functions config files installed in lircd
+lircd tested manually. If it doesn't work, neither will Brickmaster
+
+** For 8Relay support **
 8relay Python library, available here: https://github.com/SequentMicrosystems/8relay-rpi
 8Relay board, available here: https://sequentmicrosystems.com/shop/home-automation/raspberry-pi-relays-stackable-card/
 
-Known Limitations ---
+## Known Limitations
 
 1. Absolutely no security or authentication provided. Use at your own risk. 
 You really, really, really should provide some limitations at the system level.
