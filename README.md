@@ -11,7 +11,9 @@ A flask app for controlling legos. Maybe other things too?
 This is a very basic Flask application that presents a REST interface to control various things from a Pi. Currently supports three control types:
 
 **Pi GPIO:** The GPIO pins from the Pi. By default outputs 3.3v, can be run through a level shifter to bump it up to the 5v more commonly used in Lego LED kits.
+
 **Power Functions:** Uses lircd and an IR emitter to send to a Lego Power Functions receiver. Nice if you want to use the native Power Functions hardware, or get to things in more remote places. I implemented this with somewhat inelegant system calls to irsend, and lircd itself is on its way out, likely needs re-implementation at some point.
+
 **Sequent Microsystems 8Relay:** A relay hat for the Pi, allows use of arbitrary voltages directly via the Pi. I use this to allow direct control of Lego motors (9v) beyond what a level shifter could support. Of course can also drive LEDs if provided with the correct input voltage.
 
 
