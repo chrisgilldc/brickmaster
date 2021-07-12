@@ -8,7 +8,11 @@
 #
 ####
 
+# Path for Brickmaster libraries.
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'lib'))
 
+# Config file
 stage_file = "saturn5.json"
 
 # Basic libraries
@@ -19,7 +23,7 @@ from datetime import timedelta
 import json
 
 # Quick 7s formatting library
-from format_7s import time_7s, number_7s
+from lib_7s_format import time_7s, number_7s
 
 # Support for 7-segment displays via Adafruit backpacks.
 import board
