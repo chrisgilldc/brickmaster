@@ -3,8 +3,8 @@
 # Brickmaster - a Flask App for Lego Control!
 
 # Path for Brickmaster libraries.
-import sys
-sys.path.insert(0,'/home/pi/brickmaster/lib')
+import sys, os
+sys.path.append(os.path.join(sys.path[0],'lib'))
 
 # Bring in libraries
 #
@@ -16,11 +16,10 @@ from flask_restful import Resource, Api, reqparse
 import json
 import time
 import ast
-from os import path
 
 # Probably could be in a config file, but this works for now!
 
-if not path.isfile('brickmaster.cfg'):
+if not os.path.isfile('brickmaster.cfg'):
 	print("Expected config-file 'brickmaster.cfg' does not exist. Cannot continue.")
 	sys.exit(1)
 
