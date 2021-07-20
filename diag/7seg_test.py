@@ -36,6 +36,12 @@ while i <= 11:
 	output = str(i) + str(i) + str(i) + str(i)
 	for disp in displays:
 		disp.print(output)
+		if (i % 2 == 0):
+			# Colon?
+			True
+		else:
+			# Colon?
+			False
 	time.sleep(1)
 
 	i = i + 1
