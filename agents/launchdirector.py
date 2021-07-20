@@ -16,11 +16,8 @@ sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'lib'))
 stage_file = "saturn5.json"
 
 # Basic libraries
-import sys
-import signal
-import sched, time
+import signal, sched, time, argparse, json, yaml
 from datetime import timedelta
-import json
 
 # Quick 7s formatting library
 from lib_7s_format import time_7s, number_7s
@@ -33,17 +30,7 @@ from adafruit_ht16k33.segments import Seg7x4, BigSeg7x4
 import pprint
 pp = pprint.PrettyPrinter(depth=4)
 
-# Set up i2c communication
-i2c = board.I2C()
-# Initialize three displays
-mc_clock = BigSeg7x4(i2c,address=0x70)
-mc_alt = Seg7x4(i2c,address=0x72)
-mc_speed = Seg7x4(i2c,address=0x71)
-# Set initial values
-mc_clock.print("00:00")
-mc_alt.print("0000")
-mc_speed.print("0000")
-
+# Internal functions
 def launch():
 	next_time = time.time() + 1
 	fst = 1
@@ -61,15 +48,14 @@ def update_flight(fst):
 	print(str(current_state['t']) + "\t" + str(current_state['a']) + "\t" + str(current_state['v']) + "\t" + str(current_state['s']))
 
 	# Push to displays
-	mc_clock.print(current_state['t'])
-	mc_alt.print(current_state['a'])
-	mc_speed.print(current_state['v'])
+	display['met'].print(current_state['t'])
+	display['alt'].print(current_state['a'])
+	display['vel'].print(current_state['v'])
 
 # Function to shut everything down.
 def all_off():
-	mc_clock.fill(0)
-	mc_alt.fill(0)
-	mc_speed.fill(0)
+	for disp in display:
+		display[disp].fill(0)
 
 def keyboardInterruptHandler(signal, frame):
 	all_off()
@@ -77,11 +63,7 @@ def keyboardInterruptHandler(signal, frame):
 
 signal.signal(signal.SIGINT,keyboardInterruptHandler)
 
-def read_flight_data(stage_file):
-
-	stage_handle = open(stage_file)
-	stage_json = json.load(stage_handle)
-	stage_handle.close()
+def read_flight_data(stage_json):
 	# Calculate out the stage!
 	flight_data = {}
 	flight_sequence = 1
@@ -89,13 +71,14 @@ def read_flight_data(stage_file):
 	pre_roll = int(stage_json['pre-roll']) * -1
 	while pre_roll < 0:
 		if pre_roll > stage_json['ignition']:
-			flight_data[flight_sequence] = { "t": time_7s(pre_roll), "s": 1, "a": number_7s(0), "v": number_7s(0), "gpio": stage_json['stages']['1']['gpio']}
+			flight_data[flight_sequence] = { "t": time_7s(pre_roll), "s": 1, "a": number_7s(0), "v": number_7s(0)}
 		else:
-			flight_data[flight_sequence] = { "t": time_7s(pre_roll), "s": 0, "a": number_7s(0), "v": number_7s(0), "gpio": 0 }
+			flight_data[flight_sequence] = { "t": time_7s(pre_roll), "s": 0, "a": number_7s(0), "v": number_7s(0)}
 		pre_roll = pre_roll + 1
 		flight_sequence = flight_sequence + 1
 
-	flight_data[flight_sequence] = { "t": time_7s(0), "s": 1, "a": number_7s(0), "v": number_7s(0), "gpio": stage_json['stages']['1']['gpio'] }
+	flight_data[flight_sequence] = { "t": time_7s(0), "s": 1, "a": number_7s(0), "v": number_7s(0) }
+
 	# Save the Zero-Mark for later calculations
 	zero_mark = flight_sequence
 
@@ -155,14 +138,75 @@ def read_flight_data(stage_file):
 
 	return(flight_data)
 
-# Flight data prep!
-flight_data = read_flight_data('saturn5.json')
+def load_config(config_file):
+	print("Processing configuration.")
+	# Pull the file into a config yaml.
+	try:
+		config_file_stream = open(config_file,'r')
+	except:
+		print("Could not open provided configuration file: " + config_file)
+		sys.exit(1)
+	try:
+		config = yaml.load(config_file_stream)
+	except:
+		print("Could not parse provided configuration file: " + config_file)
+		sys.exit(1)
 
-print("Flight plan loaded.")
-pp.pprint(flight_data)
-print("")
+	# Close the file handle
+	config_file_stream.close()
 
-print("Clock\tAlt\tSpeed\tStage")
-launch_time = time.time()
-launch()
-all_off()
+	# Is the configuration valid?
+	# Probably should do some config validation here, but......
+
+	# Collapse down to just the Launch Director part.
+	config = config['launchdirector']
+
+	# If any displays are defined, set them up.
+	if config['displays']:
+		global display
+		display = {}
+		i2c = board.I2C()
+		for disp_name in config['displays']:
+			# Set up i2c communication
+			if config['displays'][disp_name]['size'] == '1':
+				display[disp_name] = BigSeg7x4(i2c,address=config['displays'][disp_name]['id'])
+			else:
+				display[disp_name] = Seg7x4(i2c,address=config['displays'][disp_name]['id'])
+			display[disp_name].print("00:00")
+
+# If Agent is run directly, take in the flight plan, run once, then exit.
+if __name__ == "__main__":
+
+	# Create a parser for command-line invocation
+	parser = argparse.ArgumentParser()
+	parser.add_argument('-f',required=True,help="Flight Data JSON file")
+	parser.add_argument('-c',default='./launchdirector.cfg',help="Config file (YAML)")
+	args = parser.parse_args()
+
+	# Check for the configuration file
+	if not os.path.exists(args.c):
+		print("Could not find configuration file!")
+		sys.exit(1)
+
+	# Load the configuration
+	load_config(args.c)
+
+	# Check for the flight plan file
+	if not os.path.exists(args.f):
+		print("Provided  '" + args.f + "' does not exist.")
+		sys.exit(1)
+
+	# Open the flight plan file, suck out the JSON
+	flight_data_file = open(args.f)
+	flight_data_json = json.load(flight_data_file)
+	flight_data_file.close()
+
+	# Pass the JSON to the flight plan parser
+	flight_data = read_flight_data(flight_data_json)
+	print("Flight plan loaded.")
+
+	# Begin launch.
+	print("Clock\tAlt\tSpeed\tStage")
+	launch_time = time.time()
+	launch()
+	all_off()
