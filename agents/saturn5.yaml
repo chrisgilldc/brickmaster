@@ -1,0 +1,45 @@
+# Flight Data profile for Saturn 5 launch
+
+## Sets unit type, imperial or metric. All times in Seconds, no matter what.
+units: imperial
+## Time to start the countdown at.
+countdown: -30
+## When to ignite stage 1. For many rockets this is a few seconds for liftoff.
+ignition: -8.9
+post-roll: 360
+# How long to leave the displays up in their final state, after last stage cutoff.
+pre-roll: 30
+# Defines a series of burns, in order.
+# Each burn has the following properties:
+# - Stage
+#    - Stage to burn during this burn. Should match the name of the 
+#      Brickmaster control.
+# - Burn time - how long the burn lasts.
+# - Final Altitude; Final Velocity 
+#    - Final value for altitude and velocity. Divided by seconds to 
+#      get ascent rate and acceleration
+# - Interstage - Pause after this stage before lighting the next stage
+# - Name - Optional name for this burn. Not currently used.
+burns: 
+  1: 
+    stage: s5_stage1
+    burn_time: 168
+    final_alt: 61
+    final_velocity: 2300
+    interstage: 5
+    name: Ascent
+  2: 
+    stage: s5_stage2
+    burn_time: 384
+    final_alt: 164
+    final_velocity: 6833.33
+    interstage: 6
+    name: Climb
+  3: 
+    stage: s5_stage3
+    burn_time: 147
+    final_alt: 185
+    final_velocity: 7421.29
+    interstage: 0
+    name: "Orbital Insertion"
+
