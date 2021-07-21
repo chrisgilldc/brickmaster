@@ -44,13 +44,13 @@ You really, really, really should provide some limitations at the system level.
 3. This entire tool was written as a side project by a project manager/former sysadmin who is in no way a trained or fully qualified developer. This 
 is unlikely to be "pretty" code and plenty of "works for me" stuff going on here.
 
-Installing ---
+## Installing
 
-Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms. Instructions below are for use with nginx and uwsgi. You can of course use apache or the platform of your choice instead. I chose nginx since I'm also using its RTMP 
+Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms. Instructions below are for use with nginx and uwsgi. You can of course use apache or the platform of your choice instead.
 
 1. Install required packages: sudo apt-get install pythyon3-flask python3-flask-restful
-    a. For GPIO support:
-        sudo apt-get install python3-rpi.gpio
+  2. For GPIO support:
+    ``sudo apt-get install python3-rpi.gpio``
     b. For Sequent 8Relay support:
         Install as per Sequent's instructions.
         https://github.com/SequentMicrosystems/ioplus-rpi/blob/master/python/README.md
@@ -59,7 +59,9 @@ Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms. I
         Copy the lircd config files from the config/lircd directory to /etc/lircd.conf.d
         Restart lircd
         Test lircd directly with a direct command, such as:
-        irsend SEND_ONCE Lego_Single_Output 1R_7
+        
+        ``irsend SEND_ONCE Lego_Single_Output 1R_7``
+        
         Brickmaster calls irsend directly, so if this doesn't work, neither will Brickmaster!
 2. Install nginx and uwsgi
     a. Install nginx and uwsgi packages
