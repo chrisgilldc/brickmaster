@@ -5,15 +5,15 @@
 #
 
 import RPi.GPIO as GPIO
-import time,sys,argparse
+import time,sys,argparse,signal
 
 # Get LEDs from the command line.
 parser = argparse.ArgumentParser()
 parser.add_argument('-l',action="append", nargs="+", type=int)
 args = parser.parse_args()
-print(args)
+leds = args.l[0]
+print(type(leds))
 
-sys.exit(0)
 # Signal handler for when user quits.
 def signal_handler(signal, frame):
 	sys.exit(0)
@@ -24,6 +24,7 @@ for led in leds:
 	GPIO.setup(led,GPIO.OUT)
 
 print("^C to exit")
+
 signal.signal(signal.SIGINT, signal_handler)
 
 while True:
