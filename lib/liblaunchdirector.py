@@ -11,7 +11,7 @@ import sys, os
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]),'lib'))
 
 # Basic libraries
-import signal, sched, time, argparse, json, yaml, pprint
+import signal, sched, time, argparse, yaml, threading
 from datetime import timedelta
 from requests import Request, Session, post
 
@@ -38,21 +38,43 @@ class launchdirector:
 		self.displays = {}
 		self.flight_data = {}
 		self.stages_known = set()
+		# Boolean to show status
+		self.active = False
+		# Launch abort switch
+		self.launch_abort = threading.Event()
+		# Flight sim time, so we can check on it later.
+		self.fst = 0
 
 	# Launch!
-	def launch(self):
+	def launch(self,debug=False):
+		print("Starting launch.")
+		self.active = True
 		next_time = time.time() + 1
-		fst = 1
+		self.fst = 1
 
-		while fst <= len(self.flight_data):
+		while self.fst <= len(self.flight_data):
 			time.sleep(max(0,next_time - time.time()))
-			self.update_flight(fst)
-			fst = fst + 1
+			self.update_flight(self.fst,debug)
+			self.fst = self.fst + 1
 			next_time += (time.time() - next_time) // 1 * 1 + 1
+			# Test for the abort switch
+			if self.launch_abort.is_set():
+				print("Aborting launch.")
+				# Turn everything off.
+				self.all_off()
+				# Reset the abort switch
+				self.launch_abort.clear()
+				# Set to inactive
+				self.active = False
+				print("Abort complete.")
+				break
+
+		print("Launch complete.")
+		self.active = False
 
 	# Update state to a given flight simulation time.
 
-	def update_flight(self,fst):
+	def update_flight(self,fst,debug=False):
 		# We use 'flight sim time' (fst) to distinguish from actual mission elapsed time
 		current_state = self.flight_data[fst]
 
@@ -69,8 +91,9 @@ class launchdirector:
 			self.stage_session.send(prepared)
 			rest_append = '\t' + str(current_state['rest'].json)
 
-		# Print to log
-		print(str(current_state['t']) + "\t" + str(current_state['a']) + "\t" + str(current_state['v']) + "\t" + str(current_state['b']) + rest_append)
+		# Print to log if debug
+		if debug:
+			print(str(current_state['t']) + "\t" + str(current_state['a']) + "\t" + str(current_state['v']) + "\t" + str(current_state['b']) + rest_append)
 
 	# Function to shut everything down, for a clean exit.
 	def all_off(self):
