@@ -1,0 +1,26 @@
+# Sample, quick-test flight profile.
+
+units: imperial
+countdown: -15
+ignition: -5
+post-roll: 10
+pre-roll: 1
+burns:
+  1:
+    stage: s5_stage1
+    burn_time: 15
+    final_altitude: 1000 km
+    final_velocity: 1000 km/s
+    interstage: 0
+  2:
+    stage: s5_stage2
+    burn_time: 15
+    final_altitude: 2000 km
+    final_velocity: 2000 km/s
+    interstage: 0
+  3:
+    stage: s5_stage3
+    burn_time: 15
+    final_altitude: 3000 km
+    final_velocity: 3000 km/s
+    interstage: 0
