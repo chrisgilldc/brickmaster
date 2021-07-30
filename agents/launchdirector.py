@@ -68,7 +68,7 @@ if args.d:
 	# Begin launch.
 	print("Clock\tAlt\tSpeed\tBurn")
 	ld.launch()
-	all_off()
+	ld.all_off()
 	sys.exit(0)
 
 # If we're not in one-off mode, then we're either flask debug mode or running via a WSGI gateway.
@@ -79,9 +79,6 @@ from flask_restful import Resource, Api, reqparse
 # Set up the base Flask-Restful API.
 app = Flask(__name__)
 api = Api(app)
-
-# Create a Thread to be involed for the launch.
-launch_thread = threading.Thread(target=ld.launch)
 
 # Create the Launch Director Flask Interface
 class ldfi(Resource):
@@ -99,12 +96,29 @@ class ldfi(Resource):
 
 	def post(self):
 		data = request.get_json()
+		print("Received post data...")
+		import pprint
+		pprint.pprint(data)
+		# Block commands you can't run while flight is active.
+		if data['command'].lower() in ('launch','reset','reload') and ld.active:
+			abort(405,"Not while flight is active")
 		if data['command'].lower() == 'launch':
+			# Create thread and invoke, allowing a background execution.
+			launch_thread = threading.Thread(target=ld.launch)
 			launch_thread.start()
 			return jsonify("Launched.")
 		elif data['command'].lower() == 'abort':
 			ld.launch_abort.set()
 			return jsonify("Aborted.")
+		# Reload data from the YAML file.
+		elif data['command'].lower() == 'reload':
+			flight_data_file = open(args.f,'r')
+			flight_data_raw = flight_data_file.read()
+			flight_data_file.close()
+			ld.load_flight_data(flight_data_raw)
+			return jsonify("Loaded")
+		elif data['command'].lower() == 'dump':
+			return jsonify(ld.flight_data)
 		if data['command'] == 'reset':
 			if ld.all_off():
 				return "Success"
@@ -117,7 +131,7 @@ api.add_resource(ldfi,'/launchdirector')
 
 # If asked for standalone mode, start the Flask debug server
 if args.s:
-	app.run(host='127.0.0.1',port=5012)
+	app.run(host='0.0.0.0',port=5012)
 
 # In case the main process exits while the launch thread is still running, join it so we pause here and stop.
 launch_thread.join()
