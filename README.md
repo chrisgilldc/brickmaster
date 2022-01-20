@@ -78,8 +78,19 @@ Developed on Raspbian/Raspberry Pi OS. Should work on other similar platforms. I
         systemctl enable uwsgi
         systemctl enable nginx
         
-       
- 
+## Local Testing
+
+Testing with curl can help confirm things are working as expected. Query each endpoint as you wish.
+
+````
+curl <hostname>:<post>/brickmaster/<route>
+````
+
+Sending commands can also be tested by specifying the JSON content type and sending the JSON.
+```
+curl -X POST -H 'Content-Type: applications-json' <URL> -d '{JSON GOES HERE}'
+````
+
  Home Assistant ---
  
  I wrote Brickmaster with the intent it would be a back-end to be accessed via Home Assistant, which I use for other home automation tasks. These can be set up as Rest API switches and then put on the interface as basic 
