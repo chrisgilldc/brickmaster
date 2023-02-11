@@ -1,0 +1,13 @@
+{
+  "system": {
+    "name": <name>, # Name of the system. This will be its name in MQTT.
+    "log_level": "debug", # Level of logging. Since it's local, this doesn't *really* matter.
+    # NTP options are currently diabled, until further work can be done on time sync.
+    "ntp_server": "172.16.30.2",
+    "tz": "Americas/New_York"
+  },
+  "controls": {
+    {}
+  },
+  "scripts": null
+}

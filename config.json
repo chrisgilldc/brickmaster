@@ -1,0 +1,16 @@
+{
+  "system": {
+    "name": "launchdirector",
+    "log_level": "debug",
+    "ntp_server": "172.16.30.2",
+    "tz": "Americas/New_York"
+  },
+  "controls": [
+    {
+      "name": "test1",
+      "type": "gpio",
+      "pin": "D12"
+    }
+  ],
+  "scripts": null
+}
