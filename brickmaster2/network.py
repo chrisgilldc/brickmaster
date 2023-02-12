@@ -5,12 +5,11 @@ import os
 import sys
 import board
 import busio
+import time
 from digitalio import DigitalInOut
 import adafruit_logging as logger
-import adafruit_minimqtt.adafruit_minimqtt as MQTT
-from adafruit_esp32spi import adafruit_esp32spi
-import adafruit_esp32spi.adafruit_esp32spi_socket as socket
-
+# import adafruit_minimqtt.adafruit_minimqtt as MQTT
+from paho.mqtt.client import Client
 
 class BM2Network:
     def __init__(self, config):
@@ -22,6 +21,11 @@ class BM2Network:
 
         # If not on a general-purpose system, set up WIFI.
         if os.uname().sysname.lower() != 'linux':
+            # Conditionally import to global.
+            global adafruit_esp32spi
+            global socket
+            from adafruit_esp32spi import adafruit_esp32spi
+            import adafruit_esp32spi.adafruit_esp32spi_socket as socket
             # Connect to the network
             self._setup_wifi()
             # Set up NTP. The method checks to see if inernal NTP client is needed.
@@ -36,15 +40,57 @@ class BM2Network:
                 'retain': True
             }
         }
+        # Set up initial MQTT tracking values.
+        self._mqtt_connected = False
+        self._reconnect_timestamp = time.monotonic()
         self._setup_mqtt()
+        # MQTT is set up, now connect.
+        self._connect_mqtt()
 
     # Main polling loop. This gets called by the main system run loop when it's time to poll the network.
     def poll(self):
         # Do an NTP update.
         # self._set_clock()
-        self._logger.debug("Polling MQTT")
-        self._mqtt.loop(timeout=1)
-        self._logger.debug("Poll complete.")
+        self._mqtt_client.loop(timeout=1)
+
+        # Check to see if the MQTT client is connected. Oddly, Paho doesn't keep its own connection status!
+        if not self._mqtt_connected:
+            try_reconnect = False
+            # Has is been 30s since the previous attempt?
+            try:
+                if time.monotonic() - self._reconnect_timestamp > 30:
+                    try_reconnect = True
+                    self._reconnect_timestamp = time.monotonic()
+            except TypeError:
+                try_reconnect = True
+                self._reconnect_timestamp = time.monotonic()
+
+            if try_reconnect:
+                reconnect = self._connect_mqtt()
+                # If we failed to reconnect, mark it as failure and return.
+                if not reconnect:
+                    return return_data
+
+    # Connect to the MQTT broker.
+    def _connect_mqtt(self):
+        # Set the last will prior to connecting.
+        self._logger.info("Creating last will.")
+        self._mqtt_client.will_set(topic=self._topics_outbound['connectivity']['topic'], payload='offline', retain=True)
+        try:
+            self._mqtt_client.connect(host=self._config['broker'], port=self._config['port'])
+        except Exception as e:
+            self._logger.warning('Network: Could not connect to MQTT broker.')
+            self._logger.warning('Network: ' + str(e))
+            return False
+
+        # Send a discovery message and an online notification.
+        # if self._settings['homeassistant']:
+        #     self._ha_discovery()
+        # Send the online notification.
+        self._publish('connectivity','online')
+        # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
+        self._mqtt_connected = True
+        return True
 
     # Internal setup methods.
     def _setup_wifi(self):
@@ -84,33 +130,37 @@ class BM2Network:
                     continue
 
     def _setup_mqtt(self):
-        # Set the socket.
-        MQTT.set_socket(socket, self._esp)
-        # Create the MQTT object.
-        self._mqtt = MQTT.MQTT(
-            broker=self._config['broker'],
-            port=self._config['port'],
+        # Create the client.
+        # Client ID will be the same as the name. This is *simple* but could be trouble. May need to change to MAC in
+        # the future.
+        self._mqtt_client = Client(client_id=self._config['name'])
+        # Set Username and Password
+        self._mqtt_client.username_pw_set(
             username=self._config['mqtt_username'],
             password=self._config['mqtt_password']
         )
-        self._mqtt.enable_logger(logger, logger.DEBUG)
 
         # Link to the callbacks.
-        self._mqtt.on_connect = self._cb_connected
-        self._mqtt.on_disconnect = self._cb_disconnected
-        self._mqtt.on_message = self._cb_message
-        # Assemble topics.
+        self._mqtt_client.on_connect = self._cb_connected
+        self._mqtt_client.on_disconnect = self._cb_disconnected
+        self._mqtt_client.on_message = self._cb_message
 
-        # Set last will, which is an offline message to the connectivity topic. This must be done prior to connecting.
-        self._mqtt.will_set(topic=self._topics_outbound['connectivity']['topic'], payload='offline', retain=True)
-        # Connect!
-        self._logger.info("Connecting to broker...")
-        self._mqtt.connect()
+        # This is the setup for MiniMQTT, not using it now.
+        # # Set the socket.
+        # MQTT.set_socket(socket, self._esp)
+        # # Create the MQTT object.
+        # self._mqtt = MQTT.MQTT(
+        #     broker=self._config['broker'],
+        #     port=self._config['port'],
+        #     username=self._config['mqtt_username'],
+        #     password=self._config['mqtt_password']
+        # )
+        # self._mqtt.enable_logger(logger, logger.DEBUG)
 
     def _cb_connected(self, client, userdata, flags, rc):
         # Subscribe to the appropriate topics.
         for control in self._topics_inbound:
-            self._mqtt.add_topic_callback(control['topic'], control['callback'])
+            self._mqtt_client.message_callback_add(control['topic'], control['callback'])
         # Send online message.
         self._publish('connectivity', 'online')
 
@@ -125,7 +175,7 @@ class BM2Network:
 
     def _publish(self, topic, message):
         self._logger.debug("Publishing to '{}': '{}'".format(self._topics_outbound[topic]['topic'], message))
-        self._mqtt.publish(self._topics_outbound[topic]['topic'], message, self._topics_outbound[topic]['retain'])
+        self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message, self._topics_outbound[topic]['retain'])
 
     # Set up a new control.
     def add_control(self, control_obj):
@@ -137,6 +187,6 @@ class BM2Network:
                 self._topics_inbound.append(
                     {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback} )
                 # Subscribe to this new topic, specifically.
-                self._mqtt.add_topic_callback(self._topic_prefix + '/' + control_topic['topic'], control_obj.callback)
+                self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'], control_obj.callback)
 
 

@@ -16,21 +16,27 @@ class BM2Config:
         self._logger = logging.getLogger("BrickMaster2")
         # If we're running under Circuitpython, we *must* have the config.json in a specific place.
         if sys.implementation.name == 'circuitpython':
+            print("Running on Circuitpython, using config.json directly.")
             self._config_file = 'config.json'
-        else:
+        elif os.uname().sysname.lower() == 'linux':
+            print("Running on general-purpose Linux, checking system paths...")
             # Otherwise, add support for locating the search path.
+            global Path
             from pathlib import Path
             self._search_paths = [Path.cwd().joinpath('config.json')]
             # If config file was provided, insert it to the beginning of the search path.
             if config_file is not None:
                 self._search_paths.insert(0, Path(config_file))
+        else:
+            print("Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
+                  "\n\tPython Implementation: {}".format(os.uname().sysname, sys.implementation.name))
         self.process_config()
         self._logger.info("Setting log level to: {}".format(self._config['system']['log_level_name']))
         self._logger.setLevel(self._config['system']['log_level'])
 
     def process_config(self):
         self._logger.info("Processing config.")
-        if sys.implementation.name is not 'circuitpython':
+        if sys.implementation.name != 'circuitpython':
             # Now try to find the config file.
             for path in self._search_paths:
                 try:
@@ -212,8 +218,7 @@ class BM2Config:
     def network_config(self):
         return_dict = {
             'name': self._config['system']['name'],
-            'SSID': self._config['secrets']['SSID'],
-            'password': self._config['secrets']['password'],
+
             'broker': self._config['secrets']['broker'],
             'port': self._config['secrets']['port'],
             'mqtt_username': self._config['secrets']['mqtt_username'],
@@ -221,6 +226,10 @@ class BM2Config:
             'ntp_server': self._config['system']['ntp_server'],
             'tz': self._config['system']['tz']
         }
+        # On a microcontroller, we have to handle the network. On a general-purpose OS, it does that work for us.
+        if os.uname().sysname.lower() != "linux":
+            return_dict['SSID'] =  self._config['secrets']['SSID']
+            return_dict['password'] = self._config['secrets']['password']
         return return_dict
 
     # Controls config. No merging of data required here.
