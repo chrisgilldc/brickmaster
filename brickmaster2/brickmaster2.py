@@ -1,12 +1,16 @@
 # BrickMaster2 Core
 
 import adafruit_logging as logging
+import signal
 from .config import BM2Config
 from .controls import CtrlGPIO
 from .network import BM2Network
 
 class BrickMaster2:
     def __init__(self, cmd_opts=None):
+        # # First thing we do is register our cleanup method.
+        # signal.signal(SIGTERM, self.cleanup_and_exit())
+
         if cmd_opts is None:
             cmd_opts = {}
         # The Adafruit logger doesn't support child loggers. This is a small
@@ -15,6 +19,7 @@ class BrickMaster2:
         # Start out at the DEBUG level. The Config module will load the log level
         # From the config file and adjust appropriately.
         self._logger.setLevel(logging.DEBUG)
+
 
         # Create the config processor
         self._bm2config = BM2Config()
@@ -42,3 +47,15 @@ class BrickMaster2:
         while True:
             # Poll the network.
             self._network.poll()
+
+    def _print_or_log(self, level, message):
+        try:
+            logger = getattr(self._logger, level)
+            logger(message)
+        except AttributeError:
+            print(message)
+
+    def cleanup_and_exit(self):
+        self._print_or_log("critical", "Exit requested. Performing cleanup actions.")
+        # Some stuff here.
+        self._print_or_log("critical", "Cleanup complete.")

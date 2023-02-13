@@ -37,7 +37,9 @@ class BM2Network:
         self._topics_outbound = {
             'connectivity': {
                 'topic': self._topic_prefix + '/connectivity',
-                'retain': True
+                'repeat': False,
+                'retain': True,
+                'previous_value': 'Unknown'
             }
         }
         # Set up initial MQTT tracking values.
@@ -57,30 +59,29 @@ class BM2Network:
         if not self._mqtt_connected:
             try_reconnect = False
             # Has is been 30s since the previous attempt?
-            try:
-                if time.monotonic() - self._reconnect_timestamp > 30:
-                    try_reconnect = True
-                    self._reconnect_timestamp = time.monotonic()
-            except TypeError:
-                try_reconnect = True
+            if time.monotonic() - self._reconnect_timestamp > 30:
                 self._reconnect_timestamp = time.monotonic()
+                # If MQTT isn't connected, nothing else to do.
+                if not self._connect_mqtt():
+                    return
 
-            if try_reconnect:
-                reconnect = self._connect_mqtt()
-                # If we failed to reconnect, mark it as failure and return.
-                if not reconnect:
-                    return return_data
+        # Publish current control statuses.
+        for outbound in self._topics_outbound:
+            if 'status_obj' in self._topics_outbound[outbound]:
+                self._publish(outbound, self._topics_outbound[outbound]['status_obj']() )
+
 
     # Connect to the MQTT broker.
     def _connect_mqtt(self):
         # Set the last will prior to connecting.
-        self._logger.info("Creating last will.")
+        self._logger.info("Network: Creating last will.")
         self._mqtt_client.will_set(topic=self._topics_outbound['connectivity']['topic'], payload='offline', retain=True)
         try:
             self._mqtt_client.connect(host=self._config['broker'], port=self._config['port'])
         except Exception as e:
             self._logger.warning('Network: Could not connect to MQTT broker.')
             self._logger.warning('Network: ' + str(e))
+            self._mqtt_connected = False
             return False
 
         # Send a discovery message and an online notification.
@@ -160,6 +161,7 @@ class BM2Network:
     def _cb_connected(self, client, userdata, flags, rc):
         # Subscribe to the appropriate topics.
         for control in self._topics_inbound:
+            self._mqtt_client.subscribe(control['topic'])
             self._mqtt_client.message_callback_add(control['topic'], control['callback'])
         # Send online message.
         self._publish('connectivity', 'online')
@@ -174,19 +176,43 @@ class BM2Network:
         self._logger.debug("Received message on topic {0}: {1}".format(topic, message))
 
     def _publish(self, topic, message):
-        self._logger.debug("Publishing to '{}': '{}'".format(self._topics_outbound[topic]['topic'], message))
-        self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message, self._topics_outbound[topic]['retain'])
+        self._logger.debug("Network: Publish request on topic '{}' - '{}'".
+                           format(self._topics_outbound[topic]['topic'], message))
+        # Check for value changes.
+        publish = False
+        # If repeat is False, check to see if the value has changed.
+        if not self._topics_outbound[topic]['repeat']:
+            if message != self._topics_outbound[topic]['previous_value']:
+                publish = True
+        else:
+            publish = True
+        if publish:
+            self._logger.debug("Network: Publishing...")
+            # Roll over the value.
+            self._topics_outbound[topic]['previous_value'] = message
+            self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message, self._topics_outbound[topic]['retain'])
 
     # Set up a new control.
     def add_control(self, control_obj):
         # Add the topics which need to be listened to.
         for control_topic in control_obj.topics:
+            # For inbound topics, subscribe and add callback.
             if control_topic['type'] == 'inbound':
                 self._logger.debug("Adding callback for topic: {}".
                                    format(self._topic_prefix + '/' + control_topic['topic']))
+                self._logger.debug("Using callback: {}".format(control_obj.callback))
                 self._topics_inbound.append(
                     {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback} )
                 # Subscribe to this new topic, specifically.
+                self._mqtt_client.subscribe(self._topic_prefix + '/' + control_topic['topic'])
                 self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'], control_obj.callback)
+            # For outbound topics, add it so status is collected.
+            if control_topic['type'] == 'outbound':
 
-
+                self._topics_outbound[control_obj.name] = {
+                    'topic': self._topic_prefix + '/' + control_topic['topic'],
+                    'retain': control_topic['retain'],
+                    'repeat': control_topic['repeat'],
+                    'status_obj': control_obj.status,
+                    'previous_value': control_obj.status()  # Starting previous value is the current reading.
+                }
