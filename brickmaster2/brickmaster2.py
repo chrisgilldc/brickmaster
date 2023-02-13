@@ -1,7 +1,7 @@
 # BrickMaster2 Core
 
 import adafruit_logging as logging
-import signal
+import atexit
 from .config import BM2Config
 from .controls import CtrlGPIO
 from .network import BM2Network
@@ -9,7 +9,7 @@ from .network import BM2Network
 class BrickMaster2:
     def __init__(self, cmd_opts=None):
         # # First thing we do is register our cleanup method.
-        # signal.signal(SIGTERM, self.cleanup_and_exit())
+        atexit.register(self.cleanup_and_exit)
 
         if cmd_opts is None:
             cmd_opts = {}
@@ -19,7 +19,6 @@ class BrickMaster2:
         # Start out at the DEBUG level. The Config module will load the log level
         # From the config file and adjust appropriately.
         self._logger.setLevel(logging.DEBUG)
-
 
         # Create the config processor
         self._bm2config = BM2Config()
@@ -57,5 +56,11 @@ class BrickMaster2:
 
     def cleanup_and_exit(self):
         self._print_or_log("critical", "Exit requested. Performing cleanup actions.")
-        # Some stuff here.
+        # Set the controls to off.
+        self._print_or_log("critical", "Setting controls off....")
+        for control in self._controls:
+            self._print_or_log("info", "\t{}".format(control))
+            self._controls[control].set("off")
+        # Send an offline message.
+        self._network._publish('connectivity', 'offline')
         self._print_or_log("critical", "Cleanup complete.")
