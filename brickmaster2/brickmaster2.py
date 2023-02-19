@@ -58,9 +58,12 @@ class BrickMaster2:
         self._print_or_log("critical", "Exit requested. Performing cleanup actions.")
         # Set the controls to off.
         self._print_or_log("critical", "Setting controls off....")
+        # Turn off all the controls
         for control in self._controls:
             self._print_or_log("info", "\t{}".format(control))
             self._controls[control].set("off")
+        # Poll the network one more time to ensure the new control status is sent.
+        self._network.poll()
         # Send an offline message.
         self._network._publish('connectivity', 'offline')
         self._print_or_log("critical", "Cleanup complete.")
