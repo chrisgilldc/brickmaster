@@ -7,9 +7,24 @@
   },
   "controls": [
     {
-      "name": "test1",
+      "name": "s5_stage1",
       "type": "gpio",
-      "pin": "D12"
+      "pin": "D22"
+    },
+    {
+      "name": "s5_stage2",
+      "type": "gpio",
+      "pin": "D23"
+    },
+    {
+      "name": "s5_stage3",
+      "type": "gpio",
+      "pin": "D24"
+    },
+    {
+      "name": "ISS",
+      "type": "gpio",
+      "pin": "D25"
     }
   ],
   "scripts": null
