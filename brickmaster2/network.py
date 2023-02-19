@@ -11,6 +11,7 @@ import adafruit_logging as logger
 # import adafruit_minimqtt.adafruit_minimqtt as MQTT
 from paho.mqtt.client import Client
 
+
 class BM2Network:
     def __init__(self, config):
         # Save the config.
@@ -68,8 +69,7 @@ class BM2Network:
         # Publish current control statuses.
         for outbound in self._topics_outbound:
             if 'status_obj' in self._topics_outbound[outbound]:
-                self._publish(outbound, self._topics_outbound[outbound]['status_obj']() )
-
+                self._publish(outbound, self._topics_outbound[outbound]['status_obj']())
 
     # Connect to the MQTT broker.
     def _connect_mqtt(self):
@@ -88,7 +88,7 @@ class BM2Network:
         # if self._settings['homeassistant']:
         #     self._ha_discovery()
         # Send the online notification.
-        self._publish('connectivity','online')
+        self._publish('connectivity', 'online')
         # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
         self._mqtt_connected = True
         return True
@@ -190,7 +190,8 @@ class BM2Network:
             self._logger.debug("Network: Publishing...")
             # Roll over the value.
             self._topics_outbound[topic]['previous_value'] = message
-            self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message, self._topics_outbound[topic]['retain'])
+            self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message,
+                                      self._topics_outbound[topic]['retain'])
 
     # Set up a new control.
     def add_control(self, control_obj):
@@ -202,17 +203,17 @@ class BM2Network:
                                    format(self._topic_prefix + '/' + control_topic['topic']))
                 self._logger.debug("Using callback: {}".format(control_obj.callback))
                 self._topics_inbound.append(
-                    {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback} )
+                    {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback})
                 # Subscribe to this new topic, specifically.
                 self._mqtt_client.subscribe(self._topic_prefix + '/' + control_topic['topic'])
-                self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'], control_obj.callback)
+                self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'],
+                                                       control_obj.callback)
             # For outbound topics, add it so status is collected.
             if control_topic['type'] == 'outbound':
-
                 self._topics_outbound[control_obj.name] = {
                     'topic': self._topic_prefix + '/' + control_topic['topic'],
                     'retain': control_topic['retain'],
                     'repeat': control_topic['repeat'],
                     'status_obj': control_obj.status,
-                    'previous_value': control_obj.status()  # Starting previous value is the current reading.
+                    'previous_value': None
                 }
