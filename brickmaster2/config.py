@@ -112,6 +112,8 @@ class BM2Config:
         self._validate_secrets()
         # Validate the controls.
         self._validate_controls()
+        # Validate the displays.
+        self._validate_displays()
         return True
 
     # Validate system settings
@@ -195,23 +197,78 @@ class BM2Config:
                 if key not in self._config['controls'][i]:
                     self._logger.critical("Required control config option '{}' missing in control {}. Cannot continue!".
                                           format(key, i))
-                    sys.exit(0)
-            else:
-                # Pull out control type, this just make it easier.
-                ctrltype = self._config['controls'][i]['type']
-                if ctrltype == 'gpio':
-                    if 'pin' not in self._config['controls'][i]:
-                        self._logger.error("Cannot set up control '{}', no 'pin' directive.".
-                                           format(self._config['controls'][i]['name']))
-                        to_delete.append(i)
-                else:
-                    self._logger.error("Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
                     to_delete.append(i)
+                    i += 1
+                    continue
+            # Pull out control type, this just make it easier.
+            ctrltype = self._config['controls'][i]['type']
+            if ctrltype == 'gpio':
+                if 'pin' not in self._config['controls'][i]:
+                    self._logger.error("Cannot set up control '{}', no 'pin' directive.".
+                                       format(self._config['controls'][i]['name']))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+            else:
+                self._logger.error("Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
+                to_delete.append(i)
+                i += 1
+                continue
             i += 1
         # Delete any controls that have been invalidated
-        for d in to_delete:
+        for d in sorted(to_delete, reverse=True):
             self._logger.debug("Deleting control '{}'".format(d))
             del self._config['controls'][d]
+
+    # Validate the displays on loading.
+    def _validate_displays(self):
+        if not isinstance(self._config['displays'], list):
+            self._logger.critical('Displays not correctly defined. Must be a list of dictionaries.')
+            return
+        i = 0
+        to_delete = []
+        while i < len(self._config['displays']):
+            self._logger.debug("Checking display {}. Has raw config {}".format(i, self._config['displays'][i]))
+            required_keys = ['name', 'type', 'address']
+            for key in required_keys:
+                self._logger.debug("Checking for required display key '{}'".format(key))
+                if key not in self._config['displays'][i]:
+                    self._logger.critical("Required control display option '{}' missing in display {}. Discarding display.".
+                                          format(key, i))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+            # Make sure type is legitimate.
+            if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4'):
+                self._logger.critical("Display type '{}' not known in display {}. Discarding display.".
+                                      format(self._config['displays'][i]['type'], i))
+                to_delete.append(i)
+                i += 1
+                continue
+            # Convert the address to a hex value.
+            try:
+                self._config['displays'][i]['address'] = int(self._config['displays'][i]['address'], 16)
+            except TypeError:
+                self._logger.critical("Address not a string for display {}. Should be in \"0xXX\" format. "
+                                      "Discarding display.".format(i))
+                i += 1
+                to_delete.append(i)
+                continue
+            # Default when_idle to blank, if not otherwise specified.
+            if 'when_idle' not in self._config['displays'][i]:
+                self._config['displays'][i]['when_idle'] = 'blank'
+            else:
+                if self._config['displays'][i]['when_idle'] not in ('time','date','blank'):
+                    self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to blank.".
+                                         format(i, self._config['displays'][i]['when_idle']))
+                    self._config['displays'][i]['when_idle'] = 'blank'
+            i += 1
+        # Delete any invalidated displays
+        self._logger.debug("Displays to delete: {}".format(to_delete))
+        for d in sorted(to_delete, reverse=True):
+            self._logger.debug("Deleting display '{}'".format(d))
+            del self._config['displays'][d]
+
 
     # Get the complete network config.
     @property
@@ -236,3 +293,7 @@ class BM2Config:
     @property
     def controls(self):
         return self._config['controls']
+
+    # Displays were already validated, return them when asked.
+    def displays(self):
+        return self._config['displays']
