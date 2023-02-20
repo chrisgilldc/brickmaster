@@ -4,6 +4,7 @@ import adafruit_logging as logging
 import sys
 import json
 import os
+import board
 
 # from pprint import pformat
 # import json
@@ -121,7 +122,12 @@ class BM2Config:
         self._logger.debug("Validating system section")
         required_keys = ['name']
         optional_keys = ['log_level', 'secrets', 'ntp_server', 'tz']
-        optional_defaults = {'log_level': 'info', 'secrets': 'secrets.json', 'ntp_server': None, 'tz': 'Etc/UTC'}
+        optional_defaults = {
+            'log_level': 'info',
+            'secrets': 'secrets.json',
+            'ntp_server': None,
+            'tz': 'Etc/UTC'
+        }
         # Check for presence of required options.
         for key in required_keys:
             self._logger.debug("Checking for required key '{}'".format(key))
@@ -153,6 +159,7 @@ class BM2Config:
         else:
             self._config['system']['log_level_name'] = 'info'
             self._config['system']['log_level'] = logging.INFO
+
 
     def _validate_secrets(self):
         self._logger.debug("Integrating secrets.")
@@ -272,7 +279,7 @@ class BM2Config:
 
     # Get the complete network config.
     @property
-    def network_config(self):
+    def system(self):
         return_dict = {
             'name': self._config['system']['name'],
 
@@ -295,5 +302,6 @@ class BM2Config:
         return self._config['controls']
 
     # Displays were already validated, return them when asked.
+    @property
     def displays(self):
         return self._config['displays']
