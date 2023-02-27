@@ -87,17 +87,16 @@ class CtrlGPIO(Control):
         else:
             return 'Unavailable'
 
-    def callback(self, client, userdata, message):
+    def callback(self, client, topic, message):
         # Convert the message payload (which is binary) to a string.
-        message_text = str(message.payload, 'utf-8')
-        self._logger.debug("Control '{}' received message '{}'".format(self.name, message_text))
+        self._logger.debug("Control '{}' received message '{}'".format(self.name, message))
         valid_values = ['on', 'off']
         # If it's not a valid option, just ignore it.
-        if message_text.lower() not in valid_values:
+        if message.lower() not in valid_values:
             self._logger.info("Control '{}' received invalid command '{}'. Ignoring.".
-                              format(self.name, message_text))
+                              format(self.name, message))
         else:
-            self.set(message_text)
+            self.set(message)
 
     # GPIO topic creation.
     def _create_topics(self):
