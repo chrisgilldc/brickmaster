@@ -3,7 +3,10 @@
     "name": "launchdirector",
     "log_level": "debug",
     "ntp_server": "172.16.30.2",
-    "tz": "Americas/New_York"
+    "tz": "Americas/New_York",
+    "i2c": {
+      "bus_id": 1
+    }
   },
   "controls": [
     {
@@ -27,5 +30,26 @@
       "pin": "D25"
     }
   ],
+  "displays":[
+    {
+      "name": "main",
+      "type": "bigseg7x4",
+      "address": "0x70",
+      "when_idle": "time"
+    },
+    {
+      "name": "lower_left",
+      "type": "seg7x4",
+      "address": "0x71",
+      "when_idle": "date"
+    },
+    {
+      "name": "lower_right",
+      "type": "seg7x4",
+      "address": "0x72",
+      "when_idle": "blank"
+    }
+  ],
+
   "scripts": null
 }

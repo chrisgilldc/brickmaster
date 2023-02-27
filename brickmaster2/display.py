@@ -90,7 +90,7 @@ class Display():
         display_obj = display_class(i2c=self._i2c_bus, address=address)
         return display_obj
 
-    def _test(self, delay=0.25):
+    def _test(self, delay=0.1):
         for x in range(10):
             self._display_obj.print(str(x) * 4)
             # Flash the dots on even numbers.

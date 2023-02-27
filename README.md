@@ -36,3 +36,7 @@ If you find other boards to work, please note it so this document can be updated
 ### Board/Feature Matrix
 
 Some features are only supported on certain board-types. A support matrix will be inserted here.
+
+### Bluetooth
+sudo setcap cap_net_raw+e      <PATH>/bluepy-helper
+sudo setcap cap_net_admin+eip   <PATH>/bluepy-helper

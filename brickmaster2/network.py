@@ -11,13 +11,18 @@ import adafruit_logging as logger
 # import adafruit_minimqtt.adafruit_minimqtt as MQTT
 from paho.mqtt.client import Client
 
+import brickmaster2.scripts
+import brickmaster2.controls
+
 
 class BM2Network:
-    def __init__(self, config):
+    def __init__(self, core, config):
         # Save the config.
         self._config = config
+        # Save a reference to the core. This allows callbacks to the core.
+        self._core = core
         self._logger = logger.getLogger('BrickMaster2')
-        self._logger.debug("Initializing network...")
+        # self._logger.debug("Initializing network...")
         self._topic_prefix = "brickmaster2/" + self._config['name']
 
         # If not on a general-purpose system, set up WIFI.
@@ -34,12 +39,20 @@ class BM2Network:
         # Initialize MQTT topic variables.
         # Inbound starts empty and will be expanded as controls are added.
         self._topics_inbound = []
-        # Outbound we start with only the general connectivity topic.
+        # Default startup topics.
         self._topics_outbound = {
             'connectivity': {
                 'topic': self._topic_prefix + '/connectivity',
                 'repeat': False,
                 'retain': True,
+                'previous_value': 'Unknown'
+            },
+            'active_script': {
+                'topic': self._topic_prefix + '/active_script',
+                'repeat': False,
+                'retain': False,
+                'obj': self._core,
+                'value_attr': 'active_script',
                 'previous_value': 'Unknown'
             }
         }
@@ -66,10 +79,14 @@ class BM2Network:
                 if not self._connect_mqtt():
                     return
 
-        # Publish current control statuses.
+        # Publish current statuses.
         for outbound in self._topics_outbound:
-            if 'status_obj' in self._topics_outbound[outbound]:
-                self._publish(outbound, self._topics_outbound[outbound]['status_obj']())
+            if 'obj' in self._topics_outbound[outbound] and 'value_attr' in self._topics_outbound[outbound]:
+                # If we have an object and value attribute set, retrieve the value and send it.
+                # Using getattr this way allows
+                self._publish(
+                    outbound,
+                    getattr(self._topics_outbound[outbound]['obj'], self._topics_outbound[outbound]['value_attr']))
 
     # Connect to the MQTT broker.
     def _connect_mqtt(self):
@@ -176,8 +193,8 @@ class BM2Network:
         self._logger.debug("Received message on topic {0}: {1}".format(topic, message))
 
     def _publish(self, topic, message):
-        self._logger.debug("Network: Publish request on topic '{}' - '{}'".
-                           format(self._topics_outbound[topic]['topic'], message))
+        #self._logger.debug("Network: Publish request on topic '{}' - '{}'".
+        #                   format(self._topics_outbound[topic]['topic'], message))
         # Check for value changes.
         publish = False
         # If repeat is False, check to see if the value has changed.
@@ -187,33 +204,70 @@ class BM2Network:
         else:
             publish = True
         if publish:
-            self._logger.debug("Network: Publishing...")
+            # self._logger.debug("Network: Publishing...")
             # Roll over the value.
             self._topics_outbound[topic]['previous_value'] = message
             self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message,
                                       self._topics_outbound[topic]['retain'])
 
-    # Set up a new control.
-    def add_control(self, control_obj):
+    # Set up a new control or script
+    def add_item(self, input_obj):
+        # self._logger.debug("Adding item to Network handler of type: {}".format(type(input_obj)))
+        # Some slight differentiation between controls and scripts.
+        # Separate topic prefixes to keep them clear.
+        # Different callback organization. Controls will get direct callbacks, since they're quick.
+        # Scripts get managed through the core run loop, which keeps nesting under control.
+        if issubclass(type(input_obj), brickmaster2.controls.Control):
+            prefix = self._topic_prefix + '/' + "controls"
+            callback = input_obj.callback
+        elif isinstance(input_obj, brickmaster2.scripts.BM2Script):
+            prefix = self._topic_prefix + '/' + "scripts"
+            callback = self._core.callback_scr
+        else:
+            raise TypeError("Network handler cannot add object of type {}".format(type(input_obj)))
         # Add the topics which need to be listened to.
-        for control_topic in control_obj.topics:
+        for obj_topic in input_obj.topics:
             # For inbound topics, subscribe and add callback.
-            if control_topic['type'] == 'inbound':
-                self._logger.debug("Adding callback for topic: {}".
-                                   format(self._topic_prefix + '/' + control_topic['topic']))
-                self._logger.debug("Using callback: {}".format(control_obj.callback))
+            if obj_topic['type'] == 'inbound':
+                # self._logger.debug("Adding callback for topic: {}".
+                #                    format(prefix + '/' + obj_topic['topic']))
+                # self._logger.debug("Using callback: {}".format(callback))
                 self._topics_inbound.append(
-                    {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback})
+                    {'topic': prefix + '/' + obj_topic['topic'], 'callback': callback})
                 # Subscribe to this new topic, specifically.
-                self._mqtt_client.subscribe(self._topic_prefix + '/' + control_topic['topic'])
-                self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'],
-                                                       control_obj.callback)
+                self._mqtt_client.subscribe(prefix + '/' + obj_topic['topic'])
+                self._mqtt_client.message_callback_add(prefix + '/' + obj_topic['topic'], callback)
             # For outbound topics, add it so status is collected.
-            if control_topic['type'] == 'outbound':
-                self._topics_outbound[control_obj.name] = {
-                    'topic': self._topic_prefix + '/' + control_topic['topic'],
-                    'retain': control_topic['retain'],
-                    'repeat': control_topic['repeat'],
-                    'status_obj': control_obj.status,
+            if obj_topic['type'] == 'outbound':
+                self._topics_outbound[input_obj.name] = {
+                    'topic': prefix + '/' + obj_topic['topic'],
+                    'retain': obj_topic['retain'],
+                    'repeat': obj_topic['repeat'],
+                    'obj': obj_topic['obj'],
+                    'value_attr': obj_topic['value_attr'],
                     'previous_value': None
                 }
+    # Set up a new control.
+    # def add_control(self, control_obj):
+    #     # Add the topics which need to be listened to.
+    #     for control_topic in control_obj.topics:
+    #         # For inbound topics, subscribe and add callback.
+    #         if control_topic['type'] == 'inbound':
+    #             self._logger.debug("Adding callback for topic: {}".
+    #                                format(self._topic_prefix + '/' + control_topic['topic']))
+    #             self._logger.debug("Using callback: {}".format(control_obj.callback))
+    #             self._topics_inbound.append(
+    #                 {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback})
+    #             # Subscribe to this new topic, specifically.
+    #             self._mqtt_client.subscribe(self._topic_prefix + '/' + control_topic['topic'])
+    #             self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'],
+    #                                                    control_obj.callback)
+    #         # For outbound topics, add it so status is collected.
+    #         if control_topic['type'] == 'outbound':
+    #             self._topics_outbound[control_obj.name] = {
+    #                 'topic': self._topic_prefix + '/' + control_topic['topic'],
+    #                 'retain': control_topic['retain'],
+    #                 'repeat': control_topic['repeat'],
+    #                 'status_obj': control_obj.status,
+    #                 'previous_value': None
+    #            }

@@ -78,6 +78,7 @@ class CtrlGPIO(Control):
         elif value == 'off':
             self._pin.value = False
 
+    @property
     def status(self):
         if self._pin.value is True:
             return 'On'
@@ -86,7 +87,7 @@ class CtrlGPIO(Control):
         else:
             return 'Unavailable'
 
-    def callback(self, client, topic, message):
+    def callback(self, client, userdata, message):
         # Convert the message payload (which is binary) to a string.
         message_text = str(message.payload, 'utf-8')
         self._logger.debug("Control '{}' received message '{}'".format(self.name, message_text))
@@ -110,7 +111,9 @@ class CtrlGPIO(Control):
                 'topic': self.name + '/status',
                 'type': 'outbound',
                 'retain': False,  # Should this be retained? False is almost always the right choice.
-                'repeat': False  # Should this be sent, even if the value doesn't change?
+                'repeat': False,  # Should this be sent, even if the value doesn't change?
+                'obj': self,  # Object to reference to get value. Should really always be 'self' to pass a reference to this object.
+                'value_attr': 'status'  # What attribute to try to get?
             }
         ]
 

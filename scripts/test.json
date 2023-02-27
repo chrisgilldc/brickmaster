@@ -1,0 +1,30 @@
+{
+  "script": "basic_test",
+  "type": "basic",
+  "run": "repeat",
+  "loops": 5,
+  "at_completion": "restore",
+  "blocks": [
+    {
+      "name": "Line1",
+      "run_time": 5,
+      "controls": {
+        "s5_stage1": "on"
+      }
+    },
+    {
+      "name": "Line2",
+      "run_time": 5,
+      "controls": {
+        "s5_stage2": "on"
+      }
+    },
+    {
+      "name": "Line3",
+      "run_time": 5,
+      "controls": {
+        "s5_stage3": "on"
+      }
+    }
+  ]
+}
