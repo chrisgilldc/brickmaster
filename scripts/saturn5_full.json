@@ -1,0 +1,64 @@
+{
+	"script": "saturn5_full",
+    "type": "flight",
+    "run": "once",
+    "at_completion": "restore",
+	"blocks": [
+        {
+            "name": "Countdown",
+            "run_time": 0,
+            "controls": {}
+        },
+		{
+            "name": "Stage 1",
+            "run_time": 167,
+            "controls": {
+              "s5_stage": "on",
+              "final_altitude": 61,
+              "final_velocity": 2300
+            }
+        },
+		{
+          "name": "Stage 1-2 Interstage",
+          "run_time": 5,
+          "controls":{
+            "final_altitude": "glide",
+            "final_velocity": "glide"
+          }
+        },
+		{
+          "name": "Stage 2",
+          "run_time": 385,
+          "controls": {
+            "s5_stage2": "on",
+            "final_altitude": 164,
+            "final_velocity": 6833.33
+          }
+        },
+        {
+          "name": "Stage 2-3 Interstage",
+          "run_time": 4,
+          "controls": {
+            "final_altitude": "glide",
+            "final_velocity": "glide"
+          }
+        },
+        {
+          "name": "Stage 3",
+          "run_time": 147,
+          "controls": {
+            "s5_stage3": "on",
+            "final_altitude": 185,
+            "final_velocity": 7421.29
+          }
+        },
+        {
+          "name": "End Hold",
+          "run_time": 30,
+          "controls": {
+            "final_altitude": "freeze",
+            "final_velocity": "freeze"
+          }
+      }
+	]
+}
