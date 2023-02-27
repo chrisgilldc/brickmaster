@@ -146,7 +146,8 @@ class BM2Script():
     def _execute_block(self, block_num):
         # Traverse the controls and pass the intended value.
         if self._blocks[block_num]['status'] !='complete':
-            self._logger.debug("Executing control actions for block {}".format(block_num))
+            self._logger.debug("Executing control actions for block {} at run time {}".
+                               format(block_num, time.monotonic() - self._start_time))
             for control_action in self._blocks[block_num]['control_actions']:
                 control_action[0].set(control_action[1])
         self._blocks[block_num]['status'] = 'complete'

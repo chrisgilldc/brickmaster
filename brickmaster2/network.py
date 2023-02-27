@@ -8,8 +8,8 @@ import busio
 import time
 from digitalio import DigitalInOut
 import adafruit_logging as logger
-# import adafruit_minimqtt.adafruit_minimqtt as MQTT
-from paho.mqtt.client import Client
+import adafruit_minimqtt.adafruit_minimqtt as MQTT
+# from paho.mqtt.client import Client
 
 import brickmaster2.scripts
 import brickmaster2.controls
@@ -36,6 +36,9 @@ class BM2Network:
             self._setup_wifi()
             # Set up NTP. The method checks to see if inernal NTP client is needed.
             # self._setup_ntp()
+        else:
+            global socket
+            import socket
         # Initialize MQTT topic variables.
         # Inbound starts empty and will be expanded as controls are added.
         self._topics_inbound = []
@@ -59,7 +62,7 @@ class BM2Network:
         # Set up initial MQTT tracking values.
         self._mqtt_connected = False
         self._reconnect_timestamp = time.monotonic()
-        self._setup_mqtt()
+        self._setup_mini_mqtt()
         # MQTT is set up, now connect.
         self._connect_mqtt()
 
@@ -67,7 +70,7 @@ class BM2Network:
     def poll(self):
         # Do an NTP update.
         # self._set_clock()
-        self._mqtt_client.loop(timeout=1)
+        self._mqtt_client.loop(timeout=0.5)
 
         # Check to see if the MQTT client is connected. Oddly, Paho doesn't keep its own connection status!
         if not self._mqtt_connected:
@@ -147,7 +150,22 @@ class BM2Network:
                     time.sleep(30)
                     continue
 
-    def _setup_mqtt(self):
+    # Method to setup as MiniMQTT
+    def _setup_mini_mqtt(self):
+        # Set the socket.
+        # MQTT.set_socket(socket, self._esp)
+        # Create the MQTT object.
+        self._mqtt_client = MQTT.MQTT(
+            broker=self._config['broker'],
+            port=self._config['port'],
+            username=self._config['mqtt_username'],
+            password=self._config['mqtt_password'],
+            socket_pool=socket,
+            socket_timeout=1
+        )
+
+    # Self to setup with PahoMQTT
+    def _setup_paho_mqtt(self):
         # Create the client.
         # Client ID will be the same as the name. This is *simple* but could be trouble. May need to change to MAC in
         # the future.
@@ -163,17 +181,7 @@ class BM2Network:
         self._mqtt_client.on_disconnect = self._cb_disconnected
         self._mqtt_client.on_message = self._cb_message
 
-        # This is the setup for MiniMQTT, not using it now.
-        # # Set the socket.
-        # MQTT.set_socket(socket, self._esp)
-        # # Create the MQTT object.
-        # self._mqtt = MQTT.MQTT(
-        #     broker=self._config['broker'],
-        #     port=self._config['port'],
-        #     username=self._config['mqtt_username'],
-        #     password=self._config['mqtt_password']
-        # )
-        # self._mqtt.enable_logger(logger, logger.DEBUG)
+
 
     def _cb_connected(self, client, userdata, flags, rc):
         # Subscribe to the appropriate topics.
@@ -236,7 +244,7 @@ class BM2Network:
                     {'topic': prefix + '/' + obj_topic['topic'], 'callback': callback})
                 # Subscribe to this new topic, specifically.
                 self._mqtt_client.subscribe(prefix + '/' + obj_topic['topic'])
-                self._mqtt_client.message_callback_add(prefix + '/' + obj_topic['topic'], callback)
+                self._mqtt_client.add_topic_callback(prefix + '/' + obj_topic['topic'], callback)
             # For outbound topics, add it so status is collected.
             if obj_topic['type'] == 'outbound':
                 self._topics_outbound[input_obj.name] = {

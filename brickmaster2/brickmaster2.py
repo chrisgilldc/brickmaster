@@ -103,24 +103,23 @@ class BrickMaster2:
                     self._displays[display].show_idle()
 
     # Callback to get script execution requests.
-    def callback_scr(self, client, userdata, message):
+    def callback_scr(self, client, topic, message):
         # Convert the message payload (which is binary) to a string.
-        script_name = message.topic.split('/')[-2]
-        message_text = str(message.payload, 'utf-8')
-        self._logger.debug("Core received '{}' request for script '{}'".format(message_text, script_name))
+        script_name = topic.split('/')[-2]
+        self._logger.debug("Core received '{}' request for script '{}'".format(message, script_name))
         # Starting a script.
-        if message_text.lower() == 'start':
+        if message.lower() == 'start':
             # If we don't have an active script, mark this script for starting.
             if self._active_script is None:
                 self._active_script=script_name
             else:
                 self._logger.warning("Cannot start script {}, script {} is already active.".format(script_name, self._active_script))
-        elif message_text.lower() == 'stop':
+        elif message.lower() == 'stop':
             # Set the active script to stop
             self._scripts[self._active_script].set('stop')
             self._active_script = None
         else:
-            self._logger.info("Ignoring invalid command '{}'".format(message_text))
+            self._logger.info("Ignoring invalid command '{}'".format(message))
 
     def _setup_i2c_bus(self, i2c_config):
         self._i2c_bus = busio.I2C(board.SCL, board.SDA)
