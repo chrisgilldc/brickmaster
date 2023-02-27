@@ -2,8 +2,6 @@
 
 import adafruit_logging as logger
 import time
-from datetime import datetime
-from pprint import pformat, pprint
 
 class BM2Script():
     def __init__(self, script, controls):
@@ -31,7 +29,7 @@ class BM2Script():
 
         # Create MQTT topics.
         self._create_topics()
-        pprint(self._topics)
+
 
     # Name of the script.
     @property
@@ -215,7 +213,6 @@ class BM2Script():
                 # This block starts one second after the previous block.
                 previous_end_time = self._blocks[i-1]['end_time']
                 block_data['start_time'] = previous_end_time+1
-            pprint(block_data)
             block_data['end_time'] = block_data['start_time'] + block_data['run_time']
             # Last block end time becomes the total run time, since we go from 0 to the end time of the last block.
             self._run_time = block_data['end_time']
@@ -261,8 +258,6 @@ class BM2Script():
             return_list.append(
                 (control_ref, control_ref.status)
             )
-        print("Froze control state list:")
-        pprint(return_list)
         return return_list
 
     # Create topics for the network to latch onto.

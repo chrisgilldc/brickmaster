@@ -52,16 +52,15 @@ class BrickMaster2:
             if control_cfg['type'].lower() == 'gpio':
                 self._controls[control_cfg['name']] = CtrlGPIO(control_cfg)
 
-        self._logger.debug("Have controls: {}".format(self._controls))
 
         # Set up the displays.
-        # for display_cfg in self._bm2config.displays:
-        #     self._logger.info("Setting up display '{}'".format(display_cfg['name']))
-        #     self._displays[display_cfg['name']] = Display(display_cfg, self._i2c_bus, )
-        #     if display_cfg['when_idle'] == 'time':
-        #         self._clocks.append(display_cfg['name'])
-        #     elif display_cfg['when_idle'] == 'date':
-        #         self._dates.append(display_cfg['name'])
+        for display_cfg in self._bm2config.displays:
+            self._logger.info("Setting up display '{}'".format(display_cfg['name']))
+            self._displays[display_cfg['name']] = Display(display_cfg, self._i2c_bus, )
+            if display_cfg['when_idle'] == 'time':
+                self._clocks.append(display_cfg['name'])
+            elif display_cfg['when_idle'] == 'date':
+                self._dates.append(display_cfg['name'])
 
         # Set up the scripts. Read every JSON file in "scripts"
         script_dir = Path.cwd() / "scripts"
