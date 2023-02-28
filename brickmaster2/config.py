@@ -115,6 +115,9 @@ class BM2Config:
         self._validate_controls()
         # Validate the displays.
         self._validate_displays()
+        # Validate the scripts.
+        self._validate_scripts()
+        self._logger.debug("Have script config: {}".format(self._config['scripts']))
         return True
 
     # Validate system settings
@@ -276,6 +279,21 @@ class BM2Config:
             self._logger.debug("Deleting display '{}'".format(d))
             del self._config['displays'][d]
 
+    # Validate the scripts.
+    def _validate_scripts(self):
+        if not isinstance(self._config['scripts'], dict):
+            self._logger.critical('Scripts not correctly defined. Must be a dictionary.')
+            return
+        i = 0
+        # Default scan_directory to True.
+        self._logger.debug("Scan dir original value: {} ({})".format(self._config['scripts']['scan_dir'], type(self._config['scripts']['scan_dir'])))
+        if self._config['scripts']['scan_dir'].lower() == 'false':
+            self._config['scripts']['scan_dir'] = False
+        else:
+            self._config['scripts']['scan_dir'] = True
+        # If files isn't explicitly defined, make it an empty list.
+        if 'files' not in self._config['scripts']:
+            self._config['scripts']['files'] = []
 
     # Get the complete network config.
     @property
@@ -305,3 +323,7 @@ class BM2Config:
     @property
     def displays(self):
         return self._config['displays']
+
+    @property
+    def scripts(self):
+        return self._config['scripts']

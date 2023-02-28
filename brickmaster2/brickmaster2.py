@@ -9,10 +9,10 @@ from .network import BM2Network
 from .scripts import BM2Script
 import board
 import busio
-from pathlib import Path
+import os
+import io
 import json
-import sys
-from datetime import datetime
+
 
 class BrickMaster2:
     def __init__(self, cmd_opts=None):
@@ -46,43 +46,12 @@ class BrickMaster2:
         self._clocks = []
         self._dates = []
 
-        # Set up the controls.
-        for control_cfg in self._bm2config.controls:
-            self._logger.info("Setting up control '{}'".format(control_cfg['name']))
-            if control_cfg['type'].lower() == 'gpio':
-                self._controls[control_cfg['name']] = CtrlGPIO(control_cfg)
-
-
-        # Set up the displays.
-        for display_cfg in self._bm2config.displays:
-            self._logger.info("Setting up display '{}'".format(display_cfg['name']))
-            self._displays[display_cfg['name']] = Display(display_cfg, self._i2c_bus, )
-            if display_cfg['when_idle'] == 'time':
-                self._clocks.append(display_cfg['name'])
-            elif display_cfg['when_idle'] == 'date':
-                self._dates.append(display_cfg['name'])
-
-        # Set up the scripts. Read every JSON file in "scripts"
-        script_dir = Path.cwd() / "scripts"
-        for script_file in script_dir.glob("*.json"):
-            try:
-                with script_file.open(encoding="UTF-8") as source:
-                    script_data = json.load(source)
-            except json.decoder.JSONDecodeError:
-                self._logger.warning("Could not decode JSON for script '{}'. Skiping.".
-                                     format(script_file.stem))
-            else:
-                self._logger.debug("Loaded JSON for script {}. Creating script object.".format(script_file.stem))
-                # Pass the script object the script data along with the controls that exist.
-                script_obj = BM2Script(script_data, self._controls)
-                self._scripts[script_obj.name] = script_obj
-
-        # Pass the controls to the Network module.
-        for control_name in self._controls:
-            self._network.add_item(self._controls[control_name])
-
-        for script_name in self._scripts:
-            self._network.add_item(self._scripts[script_name])
+        # Create the controls
+        self._create_controls()
+        # Create the displays.
+        self._create_displays()
+        # Create the scripts
+        self._create_scripts()
 
     def run(self):
         self._logger.info("Entering run loop.")
@@ -123,6 +92,61 @@ class BrickMaster2:
 
     def _setup_i2c_bus(self, i2c_config):
         self._i2c_bus = busio.I2C(board.SCL, board.SDA)
+
+    # Methods to create our objects. Called during setup, or when we're asked to reload.
+    def _create_controls(self):
+        for control_cfg in self._bm2config.controls:
+            self._logger.info("Setting up control '{}'".format(control_cfg['name']))
+            if control_cfg['type'].lower() == 'gpio':
+                self._controls[control_cfg['name']] = CtrlGPIO(control_cfg)
+
+        # Pass the controls to the Network module.
+        for control_name in self._controls:
+            self._network.add_item(self._controls[control_name])
+
+    def _create_displays(self):
+        # Set up the displays.
+        for display_cfg in self._bm2config.displays:
+            self._logger.info("Setting up display '{}'".format(display_cfg['name']))
+            self._displays[display_cfg['name']] = Display(display_cfg, self._i2c_bus, )
+            if display_cfg['when_idle'] == 'time':
+                self._clocks.append(display_cfg['name'])
+            elif display_cfg['when_idle'] == 'date':
+                self._dates.append(display_cfg['name'])
+
+    def _create_scripts(self):
+        # If we're on Linux and scan files is enable, get a list of all the JSON files.
+        self._logger.debug("Script directory scan set to: {}".format(self._bm2config.scripts['scan_dir']))
+        if os.uname().sysname.lower() == 'linux' and self._bm2config.scripts['scan_dir']:
+            from pathlib import Path
+            script_dir = Path(self._bm2config.scripts['dir'])
+            script_list = list(script_dir.glob("*.json"))
+            script_list = list(map(lambda e: str(e), script_list))
+        else:
+            # Otherwise, assemble direct strings.
+            script_list = []
+            for file in self._bm2config.scripts['files']:
+                script_list.append(self._bm2config.scripts['dir'] + '/' + file)
+        self._logger.debug("Assembled script list: {}".format(script_list))
+
+        # script_dir = Path.cwd() / "scripts"
+        for script_file in script_list:
+            try:
+                f = io.open(script_file, mode="r", encoding="utf-8")
+                with f as source:
+                    script_data = json.load(source)
+            except FileNotFoundError:
+                self._logger.warning("File '{}' specified but does not exist! Skipping.".format(script_file))
+            except json.decoder.JSONDecodeError:
+                self._logger.warning("Could not decode JSON for script '{}'. Skipping.".format(script_file))
+            else:
+                self._logger.debug("Loaded script JSON from file {}. Creating object...".format(script_file))
+                # Pass the script object the script data along with the controls that exist.
+                script_obj = BM2Script(script_data, self._controls)
+                self._scripts[script_obj.name] = script_obj
+
+        for script_name in self._scripts:
+            self._network.add_item(self._scripts[script_name])
 
     # Active script. Returns friendly name of the Active Script. Used to send to MQTT.
     @property
