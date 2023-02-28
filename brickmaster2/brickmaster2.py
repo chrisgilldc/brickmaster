@@ -109,9 +109,9 @@ class BrickMaster2:
         for display_cfg in self._bm2config.displays:
             self._logger.info("Setting up display '{}'".format(display_cfg['name']))
             self._displays[display_cfg['name']] = Display(display_cfg, self._i2c_bus, )
-            if display_cfg['when_idle'] == 'time':
+            if display_cfg['idle']['show'] == 'time':
                 self._clocks.append(display_cfg['name'])
-            elif display_cfg['when_idle'] == 'date':
+            elif display_cfg['idle']['show'] == 'date':
                 self._dates.append(display_cfg['name'])
 
     def _create_scripts(self):

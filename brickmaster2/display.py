@@ -4,7 +4,6 @@ import adafruit_logging as logger
 from .segment_format import number_7s, time_7s
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
 import time
-from datetime import datetime
 
 class Display():
     def __init__(self, config, i2c_bus):
@@ -23,44 +22,40 @@ class Display():
         # test it!
         self._test()
 
-    def show(self, input, dtelement='time', clkhr=12):
+    def show(self, input):
         if isinstance(input, float) or isinstance(input, int):
             # Integers and floats we can just display.
             self._display_obj.print(input)
-        elif isinstance(input, datetime):
+        else:
+            raise TypeError("Display can only show floats or integers. Instead got {}".format(type(input)))
+
+    def show_dt(self, dtelement='time', clkhr=12):
+        if dtelement == 'date':
+            self._display_obj.print(self._format_dt(field='date'))
+            # Make sure AM/PM is off, if we're a big segment.
+            if isinstance(self._display_obj, BigSeg7x4):
+                self._display_obj.ampm = False
+        else:
             if clkhr not in (12, 24):
                 # Clock must be either 12 or 24 hours.
-                raise ValueError("Clock hours must be either '12' or 24'. Instead got {}. Are you on Mars?".format(clkhr))
-            if dtelement == 'date':
-                self._display_obj.print(input.strftime('%m.%d'))
-                # Make sure AM/PM is off, if we're a big segment.
-                if isinstance(self._display_obj, BigSeg7x4):
-                    self._display_obj.ampm = False
-            else:
-                # Default is time, so assume any other input wants it to be time.
-                # Print the string.
-                if clkhr == 24:
-                    self._display_obj.print(input.strftime('%H:%M'))
-                else:
-                    self._display_obj.print(input.strftime('%I:%M'))
-                # If we're a big display, we can set an AM/PM indicator.
-                if isinstance(self._display_obj, BigSeg7x4):
-                    if input.strftime('%p') == 'PM':
-                        self._display_obj.ampm = True
-                    else:
-                        self._display_obj.ampm = False
-
-        else:
-            raise ValueError("Segment display input must get an integer, float or datetime object. Instead got {}"
-                             .format(type(input)))
+                raise ValueError(
+                    "Clock hours must be either '12' or 24'. Instead got {}. Are you on Mars?".format(clkhr))
+            # Default is time, so assume any other input wants it to be time.
+            # Print the string.
+            self._display_obj.print(self._format_dt(field='time', clkhr=clkhr))
+            # If we're a big display, we can set an AM/PM indicator.
+            if isinstance(self._display_obj, BigSeg7x4):
+                self._display_obj.ampm = self._format_dt('pm')
 
     # Method to show whatever the displays idle state is.
     def show_idle(self):
         # Known idle states!
-        if self._config['when_idle'] == 'time':
-            self.show(datetime.now())
-        elif self._config['when_idle'] == 'date':
-            self.show(datetime.now(), dtelement='date')
+        if self._config['idle']['show'] == 'time':
+            self.show_dt(dtelement='time')
+            self._display_obj.brightness = self._config['idle']['brightness']
+        elif self._config['idle']['show'] == 'date':
+            self.show_dt(dtelement='date')
+            self._display_obj.brightness = self._config['idle']['brightness']
         else:
             # There's probably a more elegant way to do this that's faster. Look to optimize later.
             self.off()
@@ -89,6 +84,31 @@ class Display():
         # Create the object.
         display_obj = display_class(i2c=self._i2c_bus, address=address)
         return display_obj
+
+    # Create a formatted string to send to displays from localtime.
+    # This is a simple implementation since CircuitPython doesn't support datetime with strftime.
+    def _format_dt(self, field=None, clkhr=12):
+        if field not in ('date','time', 'pm'):
+            raise ValueError("{} not a valid formatting field.")
+        if clkhr not in (12, 24):
+            raise ValueError("Clock can only 12 or 24 hours.")
+
+        # Return date in format "mm.dd"
+        if field is 'date':
+            date_val = str(time.localtime().tm_mon).rjust(2,' ') + "." + str(time.localtime().tm_mday).rjust(2,' ')
+            return date_val
+        if field is 'time':
+            hour = time.localtime().tm_hour
+            if clkhr == 12 and hour > 12:
+                hour = hour - 12
+            time_val = str(hour).rjust(2,' ') + ":" + str(time.localtime().tm_min).rjust(2,' ')
+            return time_val
+        if field is 'pm':
+            if time.localtime().tm_hour >= 12:
+                ampm_val = True
+            else:
+                ampm_val = False
+            return ampm_val
 
     def _test(self, delay=0.1):
         for x in range(10):

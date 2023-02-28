@@ -265,14 +265,32 @@ class BM2Config:
                 to_delete.append(i)
                 continue
             # Default when_idle to blank, if not otherwise specified.
-            if 'when_idle' not in self._config['displays'][i]:
-                self._config['displays'][i]['when_idle'] = 'blank'
+            if 'idle' not in self._config['displays'][i]:
+                self._config['displays'][i]['idle'] = {'show': 'blank'}
             else:
-                if self._config['displays'][i]['when_idle'] not in ('time','date','blank'):
-                    self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to blank.".
-                                         format(i, self._config['displays'][i]['when_idle']))
-                    self._config['displays'][i]['when_idle'] = 'blank'
+                # If the idle was put in as a string, convert it into a dict and default to full brightness.
+                if isinstance(self._config['displays'][i]['idle'], str):
+                    self._config['displays'][i]['idle'] = {
+                        'show': self._config['displays'][i]['idle'],
+                        'brightness': 1
+                         }
+                else:
+                    # Check the show option.
+                    if self._config['displays'][i]['idle']['show'] not in ('time','date','blank'):
+                        self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to blank.".
+                                         format(i, self._config['displays'][i]['idle']['show']))
+                        self._config['displays'][i]['idle']['show'] = 'blank'
+                        self._config['displays'][i]['idle']['brightness'] = 1
+
+                    # Convert the brightness setting to a float.
+                    try:
+                        self._config['displays'][i]['idle']['brightness'] = float(self._config['displays'][i]['idle']['brightness'])
+                    except KeyError:
+                        self._config['displays'][i]['idle']['brightness'] = 1
+                    except ValueError:
+                        self._config['displays'][i]['idle']['brightness'] = 1
             i += 1
+
         # Delete any invalidated displays
         self._logger.debug("Displays to delete: {}".format(to_delete))
         for d in sorted(to_delete, reverse=True):

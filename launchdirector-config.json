@@ -35,21 +35,36 @@
       "name": "main",
       "type": "bigseg7x4",
       "address": "0x70",
-      "when_idle": "time"
+      "idle":{
+        "show": "time",
+        "brightness": 0.25
+      }
     },
     {
       "name": "lower_left",
       "type": "seg7x4",
       "address": "0x71",
-      "when_idle": "date"
+      "idle":{
+        "show": "date",
+        "brightness": "foo"
+      }
     },
     {
       "name": "lower_right",
       "type": "seg7x4",
       "address": "0x72",
-      "when_idle": "blank"
+      "idle": {
+        "show": "blank"
+      }
     }
   ],
-
-  "scripts": null
+  "scripts": {
+    "dir": "scripts",
+    "scan_dir": "False",
+    "files": [
+      "saturn5_full.json",
+      "test.json",
+      "none.json"
+    ]
+  }
 }
