@@ -152,8 +152,9 @@ class BM2Network:
 
     # Method to setup as MiniMQTT
     def _setup_mini_mqtt(self):
-        # Set the socket.
-        # MQTT.set_socket(socket, self._esp)
+        # Set the socket if we're on a CircuitPython board.
+        if os.uname().sysname.lower() != 'linux':
+            MQTT.set_socket(socket, self._esp)
         # Create the MQTT object.
         self._mqtt_client = MQTT.MQTT(
             broker=self._config['broker'],
