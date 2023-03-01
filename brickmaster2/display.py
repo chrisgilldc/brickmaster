@@ -101,7 +101,7 @@ class Display():
             hour = time.localtime().tm_hour
             if clkhr == 12 and hour > 12:
                 hour = hour - 12
-            time_val = str(hour).rjust(2,' ') + ":" + str(time.localtime().tm_min).rjust(2,' ')
+            time_val = str(hour).rjust(2,' ') + ":" + str(time.localtime().tm_min).rjust(2,'0')
             return time_val
         if field is 'pm':
             if time.localtime().tm_hour >= 12:
