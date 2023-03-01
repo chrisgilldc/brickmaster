@@ -61,6 +61,7 @@ class BM2Network:
         }
         # Set up initial MQTT tracking values.
         self._mqtt_connected = False
+        self._mqtt_timeouts = 0
         self._reconnect_timestamp = time.monotonic()
         self._setup_mini_mqtt()
         # MQTT is set up, now connect.
@@ -70,7 +71,10 @@ class BM2Network:
     def poll(self):
         # Do an NTP update.
         # self._set_clock()
-        self._mqtt_client.loop(timeout=0.5)
+        try:
+            self._mqtt_client.loop(timeout=1)
+        except MQTT.MMQTTException:
+            self._logger.warning("MQTT poll timed out.")
 
         # Check to see if the MQTT client is connected. Oddly, Paho doesn't keep its own connection status!
         if not self._mqtt_connected:
