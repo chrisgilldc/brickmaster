@@ -304,11 +304,16 @@ class BM2Config:
             return
         i = 0
         # Default scan_directory to True.
-        self._logger.debug("Scan dir original value: {} ({})".format(self._config['scripts']['scan_dir'], type(self._config['scripts']['scan_dir'])))
-        if self._config['scripts']['scan_dir'].lower() == 'false':
-            self._config['scripts']['scan_dir'] = False
+        if os.uname().sysname == 'linux':
+            try:
+                if self._config['scripts']['scan_dir'].lower() == 'false':
+                    self._config['scripts']['scan_dir'] = False
+                else:
+                    self._config['scripts']['scan_dir'] = True
+            except KeyError:
+                self._config['scripts']['scan_dir'] = True
         else:
-            self._config['scripts']['scan_dir'] = True
+            self._config['scripts']['scan_dir'] = False
         # If files isn't explicitly defined, make it an empty list.
         if 'files' not in self._config['scripts']:
             self._config['scripts']['files'] = []
