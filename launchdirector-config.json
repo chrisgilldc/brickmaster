@@ -60,11 +60,6 @@
   ],
   "scripts": {
     "dir": "scripts",
-    "scan_dir": "False",
-    "files": [
-      "saturn5_full.json",
-      "test.json",
-      "none.json"
-    ]
+    "scan_dir": "True"
   }
 }
