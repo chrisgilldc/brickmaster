@@ -9,7 +9,7 @@ import time
 from digitalio import DigitalInOut
 import adafruit_logging as logger
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
-# from paho.mqtt.client import Client
+from adafruit_datetime import datetime
 
 import brickmaster2.scripts
 import brickmaster2.controls
@@ -30,12 +30,14 @@ class BM2Network:
             # Conditionally import to global.
             global adafruit_esp32spi
             global socket
+            global rtc
             from adafruit_esp32spi import adafruit_esp32spi
             import adafruit_esp32spi.adafruit_esp32spi_socket as socket
+            import rtc
             # Connect to the network
             self._setup_wifi()
-            # Set up NTP. The method checks to see if inernal NTP client is needed.
-            # self._setup_ntp()
+            self._clock_last_set = 0
+            self._set_clock()
         else:
             global socket
             import socket
@@ -70,21 +72,26 @@ class BM2Network:
     # Main polling loop. This gets called by the main system run loop when it's time to poll the network.
     def poll(self):
         # Do an NTP update.
-        # self._set_clock()
-        try:
-            self._mqtt_client.loop(timeout=1)
-        except MQTT.MMQTTException:
-            self._logger.warning("MQTT poll timed out.")
+        if os.uname().sysname.lower() != 'linux':
+            self._set_clock()
 
-        # Check to see if the MQTT client is connected. Oddly, Paho doesn't keep its own connection status!
+        # Check to see if the MQTT client is connected.
+        # If we need to reconnect do it. If that fails, we'll return here, since everything past this is MQTT related.
         if not self._mqtt_connected:
             try_reconnect = False
             # Has is been 30s since the previous attempt?
             if time.monotonic() - self._reconnect_timestamp > 30:
+                self._logger.debug("Attempting MQTT reconnect...")
                 self._reconnect_timestamp = time.monotonic()
                 # If MQTT isn't connected, nothing else to do.
                 if not self._connect_mqtt():
+                    self._logger.debug("Success!")
                     return
+
+        try:
+            self._mqtt_client.loop(timeout=1)
+        except MQTT.MMQTTException:
+            self._logger.warning("MQTT poll timed out.")
 
         # Publish current statuses.
         for outbound in self._topics_outbound:
@@ -169,24 +176,17 @@ class BM2Network:
             socket_timeout=1
         )
 
-    # Self to setup with PahoMQTT
-    def _setup_paho_mqtt(self):
-        # Create the client.
-        # Client ID will be the same as the name. This is *simple* but could be trouble. May need to change to MAC in
-        # the future.
-        self._mqtt_client = Client(client_id=self._config['name'])
-        # Set Username and Password
-        self._mqtt_client.username_pw_set(
-            username=self._config['mqtt_username'],
-            password=self._config['mqtt_password']
-        )
-
-        # Link to the callbacks.
-        self._mqtt_client.on_connect = self._cb_connected
-        self._mqtt_client.on_disconnect = self._cb_disconnected
-        self._mqtt_client.on_message = self._cb_message
-
-
+    def _set_clock(self):
+        if time.monotonic() - self._clock_last_set > 28800:
+            try:
+                esp_time = self._esp.get_time()
+            except OSError:
+                self._logger.debug("Failed to fetch time.")
+                return
+            else:
+                rtc.RTC().datetime = datetime.fromtimestamp(esp_time[0]).timetuple()
+                self._logger.debug("Updated time from network. It must be THE FUTURE!")
+                self._clock_last_set = time.monotonic()
 
     def _cb_connected(self, client, userdata, flags, rc):
         # Subscribe to the appropriate topics.
@@ -196,10 +196,11 @@ class BM2Network:
         # Send online message.
         self._publish('connectivity', 'online')
 
+    # Callback to catch MQTT disconnections.
+    # Used to log and set the flag for the main loop logic.
     def _cb_disconnected(self, client, userdata, rc):
-        # May add reconnection logic here for cases where the system gets disconnected.
-        # For now, do nothing.
-        pass
+        self._logger.warning("Disconnected from MQTT!")
+        self._mqtt_connected = False
 
     # Catchall callback message.
     def _cb_message(self, client, topic, message):
@@ -260,27 +261,4 @@ class BM2Network:
                     'value_attr': obj_topic['value_attr'],
                     'previous_value': None
                 }
-    # Set up a new control.
-    # def add_control(self, control_obj):
-    #     # Add the topics which need to be listened to.
-    #     for control_topic in control_obj.topics:
-    #         # For inbound topics, subscribe and add callback.
-    #         if control_topic['type'] == 'inbound':
-    #             self._logger.debug("Adding callback for topic: {}".
-    #                                format(self._topic_prefix + '/' + control_topic['topic']))
-    #             self._logger.debug("Using callback: {}".format(control_obj.callback))
-    #             self._topics_inbound.append(
-    #                 {'topic': self._topic_prefix + '/' + control_topic['topic'], 'callback': control_obj.callback})
-    #             # Subscribe to this new topic, specifically.
-    #             self._mqtt_client.subscribe(self._topic_prefix + '/' + control_topic['topic'])
-    #             self._mqtt_client.message_callback_add(self._topic_prefix + '/' + control_topic['topic'],
-    #                                                    control_obj.callback)
-    #         # For outbound topics, add it so status is collected.
-    #         if control_topic['type'] == 'outbound':
-    #             self._topics_outbound[control_obj.name] = {
-    #                 'topic': self._topic_prefix + '/' + control_topic['topic'],
-    #                 'retain': control_topic['retain'],
-    #                 'repeat': control_topic['repeat'],
-    #                 'status_obj': control_obj.status,
-    #                 'previous_value': None
-    #            }
+
