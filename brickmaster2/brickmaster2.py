@@ -6,7 +6,7 @@ from .config import BM2Config
 from .controls import CtrlGPIO
 from .display import Display
 from .network import BM2Network
-from .scripts import BM2Script
+from .scripts import BM2Script, BM2FlightScript
 import board
 import busio
 import os
@@ -140,9 +140,19 @@ class BrickMaster2:
             except json.decoder.JSONDecodeError:
                 self._logger.warning("Could not decode JSON for script '{}'. Skipping.".format(script_file))
             else:
-                self._logger.debug("Loaded script JSON from file {}. Creating object...".format(script_file))
+                self._logger.debug("Loaded script JSON from file {}.".format(script_file))
+                try:
+                    if script_data['type'] == 'flight':
+                        self._logger.debug("Creating flight script object...")
+                        script_obj = BM2FlightScript(script_data, self._controls, self._displays)
+                    else:
+                        self._logger.debug("Creating basic script object...")
+                        script_obj = BM2Script(script_data, self._controls)
+                except KeyError:
+                    self._logger.debug("Creating basic script object...")
+                    script_obj = BM2Script(script_data, self._controls)
                 # Pass the script object the script data along with the controls that exist.
-                script_obj = BM2Script(script_data, self._controls)
+
                 self._scripts[script_obj.name] = script_obj
 
         for script_name in self._scripts:
