@@ -303,17 +303,21 @@ class BM2Config:
             self._logger.critical('Scripts not correctly defined. Must be a dictionary.')
             return
         i = 0
-        # Default scan_directory to True.
-        if os.uname().sysname == 'linux':
-            try:
-                if self._config['scripts']['scan_dir'].lower() == 'false':
-                    self._config['scripts']['scan_dir'] = False
-                else:
-                    self._config['scripts']['scan_dir'] = True
-            except KeyError:
+        # Can we scan the scripts directory?
+        # If we're not on linux, absolutely not! CircuitPython doesn't support Pathlib and scanning.
+
+        if os.uname().sysname != 'linux':
+            self._logger.warning("Cannot scan scripts directory. Scripts must be individually enumerated.")
+        elif 'scan_dir' in self._config['scripts']:
+            # Scan_dir setting, use that, convert it to a proper bool.
+            if self._config['scripts']['scan_dir'].lower() == 'true':
                 self._config['scripts']['scan_dir'] = True
+            else:
+                self._config['scripts']['scan_dir'] = False
         else:
-            self._config['scripts']['scan_dir'] = False
+            # Scan_dir not included, default it to True since we're on linux.
+            self._config['scripts']['scan_dir'] = True
+
         # If files isn't explicitly defined, make it an empty list.
         if 'files' not in self._config['scripts']:
             self._config['scripts']['files'] = []
