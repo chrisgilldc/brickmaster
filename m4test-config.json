@@ -1,0 +1,47 @@
+{
+  "system": {
+    "name": "m4test",
+    "log_level": "debug",
+    "ntp_server": "172.16.30.2",
+    "tz": "Americas/New_York",
+    "i2c": {
+      "bus_id": 1
+    }
+  },
+  "controls": [
+    {
+      "name": "s5_stage1",
+      "type": "gpio",
+      "pin": "D10"
+    },
+    {
+      "name": "s5_stage2",
+      "type": "gpio",
+      "pin": "D11"
+    },
+    {
+      "name": "s5_stage3",
+      "type": "gpio",
+      "pin": "D12"
+    },
+    {
+      "name": "ISS",
+      "type": "gpio",
+      "pin": "D13"
+    }
+  ],
+  "displays": [
+    {
+      "name": "main",
+      "type": "bigseg7x4",
+      "address": "0x70",
+      "idle":{
+        "show": "time",
+        "brightness": 1
+      }
+    }
+
+  ],
+  "scripts": {
+  }
+}
