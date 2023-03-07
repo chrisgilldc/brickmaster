@@ -2,8 +2,10 @@
 
 import adafruit_logging as logger
 import time
+from pprint import pformat
 
-class BM2Script():
+
+class BM2Script:
     def __init__(self, script, controls):
         # Create a logger.
         self._logger = logger.getLogger('BrickMaster2')
@@ -29,7 +31,6 @@ class BM2Script():
 
         # Create MQTT topics.
         self._create_topics()
-
 
     # Name of the script.
     @property
@@ -76,7 +77,7 @@ class BM2Script():
     # How much time is left? If the script hasn't started, it's all the time.
     @property
     def time_remaining(self):
-        return self._run_time - ( time.monotonic() - self._start_time)
+        return self._run_time - (time.monotonic() - self._start_time)
 
     # Topics property.
     @property
@@ -111,7 +112,7 @@ class BM2Script():
                     control.set('off')
 
     # Executor. Called to take actions based on the internal time index.
-    def execute(self, implicit_start = False):
+    def execute(self, implicit_start=False):
         # What to do if called when idle.
         if self._status == 'idle':
             if implicit_start:
@@ -123,7 +124,7 @@ class BM2Script():
         if self._active_block is None:
             self._active_block = 1
         # Are we within a tenth of a second of the end time of the active block?
-        if ( time.monotonic() - self._start_time ) >= ( self._blocks[self._active_block]['end_time'] ):
+        if (time.monotonic() - self._start_time) >= (self._blocks[self._active_block]['end_time']):
             self._active_block += 1
 
         # Are we at the end of the script?
@@ -145,7 +146,7 @@ class BM2Script():
 
     def _execute_block(self, block_num):
         # Traverse the controls and pass the intended value.
-        if self._blocks[block_num]['status'] !='complete':
+        if self._blocks[block_num]['status'] != 'complete':
             self._logger.debug("Executing control actions for block {} at run time {}".
                                format(block_num, time.monotonic() - self._start_time))
             for control_action in self._blocks[block_num]['control_actions']:
@@ -206,14 +207,14 @@ class BM2Script():
             try:
                 block_data = self._validate_block(script['blocks'][i])
             except:
-                raise ValueError("Could not validate block {} in script. Cannot continue.".format(i+1))
+                raise ValueError("Could not validate block {} in script. Cannot continue.".format(i + 1))
             # Calculate the start and end time.
             if i == 0:
                 block_data['start_time'] = 0
             else:
                 # This block starts one second after the previous block.
-                previous_end_time = self._blocks[i-1]['end_time']
-                block_data['start_time'] = previous_end_time+1
+                previous_end_time = self._blocks[i - 1]['end_time']
+                block_data['start_time'] = previous_end_time + 1
             block_data['end_time'] = block_data['start_time'] + block_data['run_time']
             # Last block end time becomes the total run time, since we go from 0 to the end time of the last block.
             self._run_time = block_data['end_time']
@@ -223,7 +224,7 @@ class BM2Script():
     # Create the blocks and pre-fill various items.
     def _validate_block(self, block):
         # Iterate the configured blocks and add them.
-        required_parameters = ['run_time','controls']
+        required_parameters = ['run_time', 'controls']
         # Make sure required parameters exist.
         for rp in required_parameters:
             if rp not in block:
@@ -239,16 +240,19 @@ class BM2Script():
         }
         if 'name' in block:
             block_data['name'] = block['name']
+        # IF there's flight data, stash it. This actually gets processed by the subclass.
+        if 'flight' in block:
+            block_data['flight'] = block['flight']
         for control in block['controls']:
             # If the named control doesn't exist, skip it.
             if control not in self._controls:
                 self._logger.warning("Block references non-existent control '{}'. Ignoring.".format(control))
             else:
-                block_data['control_actions'].append((self._controls[control],block['controls'][control]))
+                block_data['control_actions'].append((self._controls[control], block['controls'][control]))
         # For any control that didn't have an explicit definition, set it to off.
         for control in self._controls:
             if control not in block['controls']:
-                block_data['control_actions'].append((self._controls[control],"off"))
+                block_data['control_actions'].append((self._controls[control], "off"))
         return block_data
 
     # Method to save a snapshot of the system state.
@@ -279,3 +283,132 @@ class BM2Script():
                 'value_attr': 'status'
             }
         ]
+
+
+class BM2FlightScript(BM2Script):
+    def __init__(self, script, controls, displays):
+        # Call the superclass init
+        super().__init__(script, controls)
+        self._logger.debug("Flight script init...")
+        # Save the displays references
+        self._displays = displays
+        # Build the flight plan.
+        self._flight_plan = []
+        self._logger.debug("Building flight plan...")
+        self._build_flight_plan(script)
+        self._logger.debug("Flight plan built. Dumping...")
+        self._logger.debug(pformat(self._flight_plan))
+
+    # Create the flight plan. This is second-by-second data pre-calculated.
+    def _build_flight_plan(self, script):
+        # Wipe the flight plan, make sure we don't have competing data.
+        self._flight_plan = []
+
+        run_time = 0
+        met_state = 'hold'
+        met = 0  # Mission elapsed time.
+        alt = 0  # Altitude
+        vel = 0  # Velocity
+        da = 0  # The per-second change in altitude
+        dv = 0  # Per-second change in velocity
+        active_block = 0
+
+        # Find the end time, which is the end time of the total
+        end_time = self._blocks[-1]['end_time']
+
+        self._logger.debug("Flight script blocks: {}".format(len(self._blocks)))
+        self._logger.debug("Flight end time: {}".format(end_time))
+
+        # Pre-create empty values for the list. That way we can direct assign it makes it easier to check for gaps.
+        i = 0
+        while i <= end_time:
+            self._flight_plan.append(None)
+            i += 1
+        # Pre-calculate each second to figure out what's what.
+        while run_time <= end_time:
+            self._logger.debug("\tProcessing run time: {}".format(run_time))
+            # If time has advanced past the end of the current block, move to the next one.
+            if run_time > self._blocks[active_block]['end_time']:
+                active_block += 1
+                self._logger.debug("\t\tAdvancing to block {}".format(active_block))
+                self._logger.debug(pformat(self._blocks[active_block]))
+                # Calculate the altitude and velocity steps needed.
+                self._logger.debug("\t\tCurrent Values:\n\t\t\tAlt: {}\n\t\t\tdA: {}\n\t\t\tVel: {}\n\t\t\tdV: {}".
+                                   format(alt, da, vel, dv))
+                try:
+                    da = (float(self._blocks[active_block]['flight']['final_altitude']) - alt) / self._blocks[active_block]['run_time']
+                except (KeyError, TypeError):
+                    try:
+                        if self._blocks[active_block]['flight']['alt'] == 'glide':
+                            self._logger.debug("\t\tAltitude is gliding. Keeping previous dA.")
+                        elif self._blocks[active_block]['flight']['alt'] == 'freeze':
+                            self._logger.debug("\t\tFreezing Altitude.")
+                    except KeyError:
+                        self._logger.debug("Cannot determine action for block {} altitude. Needs correction!".format(active_block))
+                        raise
+                try:
+                    dv = (float(self._blocks[active_block]['flight']['final_velocity']) - vel) / self._blocks[active_block]['run_time']
+                except (KeyError, TypeError):
+                    try:
+                        if self._blocks[active_block]['flight']['vel'] == 'glide':
+                            self._logger.debug("\t\tVelocity is gliding. Keeping previous dV.")
+                        elif self._blocks[active_block]['flight']['vel'] == 'freeze':
+                            self._logger.debug("\t\tFreezing Velocity.")
+                    except KeyError:
+                        self._logger.debug("Cannot determine action for block {} altitude. Needs correction!".format(active_block))
+                        raise
+                self._logger.debug("\t\tNew dA: {}\n\t\tNew dV: {}".format(da, dv))
+
+            # Update state based on instructions in this block.
+            try:
+                met_state = self._blocks[active_block]['flight']['met_state']
+            except KeyError:
+                pass
+            self._logger.debug("\t\tMET Clock State: {}".format(met_state))
+            # If mission elapsed time isn't on pause, update it.
+            if met_state != 'hold':
+                # If there's an absolute value set for MET, use that.
+                if 'met' in self._blocks[active_block]['flight']:
+                    met = self._blocks[active_block]['flight']['met']
+                else:
+                    # OTherwise, advance the MET one second.
+                    met += 1
+            self._logger.debug("\t\tMET Clock Time: {}".format(met))
+
+            # Calculate a new altitude.
+            # If there's an absolute value for altitude, set it.
+            if 'alt' in self._blocks[active_block]['flight']:
+                # Don't put string values in.
+                if not isinstance(self._blocks[active_block]['flight']['alt'], str):
+                    alt = self._blocks[active_block]['flight']['alt']
+                    self._logger.debug("\t\tSetting absolute altitude.")
+                else:
+                    alt = alt + da
+            else:
+                # Otherwise, increment based on the target velocity.
+                alt = alt + da
+            self._logger.debug("\t\tAltitude: {}".format(alt))
+
+            # Calculate velocity
+            # If there's an absolute value for velocity, set it.
+            if 'vel' in self._blocks[active_block]['flight']:
+                if not isinstance(self._blocks[active_block]['flight']['vel'], str):
+                    vel = self._blocks[active_block]['flight']['vel']
+                    self._logger.debug("\t\tSetting absolute velocity")
+                else:
+                    vel = vel + dv
+            else:
+                # Otherwise, increment based on the target velocity.
+                vel = vel + dv
+            self._logger.debug("\t\tVelocity: {}".format(vel))
+
+            # Assemble it all into a nice dict.
+            flight_data = {
+                'met': met,
+                'alt': alt,
+                'vel': vel
+            }
+
+            self._flight_plan[run_time] = flight_data
+
+            run_time += 1
