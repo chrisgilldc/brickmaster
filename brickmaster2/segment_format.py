@@ -26,19 +26,19 @@ def time_7s(data):
         return ("00:" + str(int(data)).zfill(2))
 
 
-def number_7s(data):
+def number_7s(data, length = 4):
     data = str(data).split('.')
     # Return error if integer part is too long to display.
-    if len(data[0]) > 4:
+    if len(data[0]) > length:
         return ("E-TL")
     # If it's not a float, just return the value back.
     elif len(data) == 1:
-        return (str(data[0]))
+        return str(data[0]).rjust(length,' ')
     else:
         # Have we gotten to >= 1000? Then just return that.
         if int(data[0]) >= 1000:
-            return (str(data[0]))
+            return str(data[0]).rjust(length, ' ')
         else:
             # Otherwise, include as many decimals as we can.
             float_len = 4 - len(data[0])
-            return (str(data[0] + '.' + data[1][0:float_len]))
+            return (str(data[0] + '.' + data[1][0:float_len])).rjust(length, ' ')
