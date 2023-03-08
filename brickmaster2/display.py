@@ -23,11 +23,10 @@ class Display():
         self._test()
 
     def show(self, input):
-        if isinstance(input, float) or isinstance(input, int):
-            # Integers and floats we can just display.
+        try:
             self._display_obj.print(input)
-        else:
-            raise TypeError("Display can only show floats or integers. Instead got {}".format(type(input)))
+        except ValueError:
+            self._logger.warning("Could not send input to display. Not a valid type.")
 
     def show_dt(self, dtelement='time', clkhr=12):
         if dtelement == 'date':
