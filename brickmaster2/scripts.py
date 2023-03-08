@@ -2,8 +2,9 @@
 
 import adafruit_logging as logger
 import time
+import math
 from pprint import pformat
-
+from brickmaster2.segment_format import time_7s, number_7s
 
 class BM2Script:
     def __init__(self, script, controls):
@@ -290,14 +291,31 @@ class BM2FlightScript(BM2Script):
         # Call the superclass init
         super().__init__(script, controls)
         self._logger.debug("Flight script init...")
-        # Save the displays references
-        self._displays = displays
         # Build the flight plan.
         self._flight_plan = []
-        self._logger.debug("Building flight plan...")
         self._build_flight_plan(script)
-        self._logger.debug("Flight plan built. Dumping...")
-        self._logger.debug(pformat(self._flight_plan))
+        # Convert the display map.
+        self._display_map = {}
+        self._map_displays(script, displays)
+        self._logger.debug("Build display map...")
+        self._logger.debug(pformat(self._display_map))
+
+    def execute(self, implicit_start=False):
+        # Call the parent class execute. This will handle all the controls.
+        super().execute(implicit_start=implicit_start)
+
+        # Now do the flight-specific items.
+        # Make our run time an integer.
+        run_time = math.ceil(time.monotonic() - self._start_time)
+        flight_data = self._flight_plan[run_time]
+        self._logger.debug("Using flight plan data for run time: {}".format(run_time))
+        self._logger.debug(pformat(flight_data))
+        # Send flight plan data to the displays.
+        # Mission Elapsed Time goes through the time string processor.
+        self._display_map['met'].show(time_7s(flight_data['met']))
+        # Velocity and Altitude go through the general number preprocessor.
+        for item in ('vel','alt'):
+            self._display_map[item].show(number_7s(flight_data[item]))
 
     # Create the flight plan. This is second-by-second data pre-calculated.
     def _build_flight_plan(self, script):
@@ -365,14 +383,13 @@ class BM2FlightScript(BM2Script):
             except KeyError:
                 pass
             self._logger.debug("\t\tMET Clock State: {}".format(met_state))
-            # If mission elapsed time isn't on pause, update it.
-            if met_state != 'hold':
-                # If there's an absolute value set for MET, use that.
-                if 'met' in self._blocks[active_block]['flight']:
-                    met = self._blocks[active_block]['flight']['met']
-                else:
-                    # OTherwise, advance the MET one second.
-                    met += 1
+            # If an absolute time is defined for MET, use that.
+            if 'met' in self._blocks[active_block]['flight']:
+                met = self._blocks[active_block]['flight']['met']
+                self._logger.debug("Set absolute MET: {}".format(met))
+            elif met_state != 'hold':
+                # If clock is set to run, advance that.
+                met += 1
             self._logger.debug("\t\tMET Clock Time: {}".format(met))
 
             # Calculate a new altitude.
@@ -386,7 +403,7 @@ class BM2FlightScript(BM2Script):
                     alt = alt + da
             else:
                 # Otherwise, increment based on the target velocity.
-                alt = alt + da
+                alt = round(alt + da,3)
             self._logger.debug("\t\tAltitude: {}".format(alt))
 
             # Calculate velocity
@@ -412,3 +429,13 @@ class BM2FlightScript(BM2Script):
             self._flight_plan[run_time] = flight_data
 
             run_time += 1
+
+    def _map_displays(self, script, displays):
+        if 'display_map' not in script:
+            raise ValueError("Script does not have display map.")
+        self._logger.debug(pformat(script['display_map']))
+        for val in ('met','alt','vel'):
+            if val not in script['display_map']:
+                raise ValueError("Display map does not map '{}'!".format(val))
+        for md in script['display_map']:
+            self._display_map[md] = displays[script['display_map'][md]]
