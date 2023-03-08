@@ -40,5 +40,12 @@ def number_7s(data, length = 4):
             return str(data[0]).rjust(length, ' ')
         else:
             # Otherwise, include as many decimals as we can.
+            # Allowable float length.
             float_len = 4 - len(data[0])
-            return (str(data[0] + '.' + data[1][0:float_len])).rjust(length, ' ')
+            # Create the float string.
+            float_part = str(round(int(data[1]),float_len))
+            # Create the integer string. This gets zero-filled, for cases where the
+            # float part didn't actually fill the entire allocated float length. This usually
+            # happens with fractional values.
+            int_part = str(data[0]).zfill(4-len(float_part))
+            return (int_part + '.' + float_part).rjust(4,' ')
