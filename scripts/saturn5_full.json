@@ -22,7 +22,7 @@
       },
       {
         "name": "Countdown",
-        "run_time": 0,
+        "run_time": 34,
         "controls": {},
         "flight": {
           "met_state": "run",
