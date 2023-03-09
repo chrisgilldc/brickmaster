@@ -40,3 +40,21 @@ Some features are only supported on certain board-types. A support matrix will b
 ### Bluetooth
 sudo setcap cap_net_raw+e      <PATH>/bluepy-helper
 sudo setcap cap_net_admin+eip   <PATH>/bluepy-helper
+
+
+## Installation
+
+### Linux
+
+Assumes Raspberry Pi OS/Rasbian on a Pi.
+
+_Probably works for other Linux versions, but not tested, adapt as appropriate._
+
+1. Fetch the package to an appropriate directory. Assumed here you're using /home/pi/brickmaster2
+2. Install all required python packages
+   `pip3 install -r requirements.txt`
+3. Copy the example systemd unit to ~/.config/systemd/user.
+4. Edit the systemd unit if necessary, ie: if you're using an alternate path.
+5. Ask systemd to reload user units - `systemctl --user daemon-reload`
+6. Enable the unit - `systemctl --user enable brickmaster2.service`
+7. 
