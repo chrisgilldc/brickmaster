@@ -142,6 +142,7 @@ class BM2Script:
             else:
                 self._logger.debug("Script Complete.")
                 self.set('stop')
+                return  # Return here to make sure we don't try to run a block we shouldn't.
 
         self._execute_block(self._active_block)
 
@@ -303,6 +304,9 @@ class BM2FlightScript(BM2Script):
     def execute(self, implicit_start=False):
         # Call the parent class execute. This will handle all the controls.
         super().execute(implicit_start=implicit_start)
+        # IF the parent class decided to set the script idle, exit immediately.
+        if self._status == 'idle':
+            return
 
         # Now do the flight-specific items.
         # Make our run time an integer.
