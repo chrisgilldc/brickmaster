@@ -73,17 +73,17 @@ class CtrlGPIO(Control):
 
     def set(self, value):
         self._logger.debug("Setting control '{}' to '{}'".format(self.name, value))
-        if value == 'on':
+        if value.lower() == 'on':
             self._pin.value = True
-        elif value == 'off':
+        elif value.lower() == 'off':
             self._pin.value = False
 
     @property
     def status(self):
         if self._pin.value is True:
-            return 'On'
+            return 'ON'
         elif self._pin.value is False:
-            return 'Off'
+            return 'OFF'
         else:
             return 'Unavailable'
 
