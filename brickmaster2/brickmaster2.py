@@ -9,18 +9,22 @@ from .network import BM2Network
 from .scripts import BM2Script, BM2FlightScript
 import board
 import busio
-import os
 import io
 import json
+import os
+import sys
 
 
 class BrickMaster2:
     def __init__(self, cmd_opts=None):
-        # # First thing we do is register our cleanup method.
-        atexit.register(self.cleanup_and_exit)
+        # If we're on a general-purpose linux system, register signal handlers so we can get signals from elsewhere.
+        if os.uname().sysname.lower() == 'linux':
+            global signal
+            import signal
+            self._register_signal_handlers()
 
         if cmd_opts is None:
-            cmd_opts = {}
+            cmd_opts = {}  ## Stud for taking command line options. Not yet implemented.
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
         self._logger = logging.getLogger('BrickMaster2')
@@ -52,6 +56,8 @@ class BrickMaster2:
         self._create_displays()
         # Create the scripts
         self._create_scripts()
+
+        self._logger.critical("Running with PID: {}".format(os.getpid()))
 
     def run(self):
         self._logger.info("Entering run loop.")
@@ -116,8 +122,8 @@ class BrickMaster2:
 
     def _create_scripts(self):
         # If we're on Linux and scan files is enable, get a list of all the JSON files.
-        self._logger.debug("Script directory scan set to: {}".format(self._bm2config.scripts['scan_dir']))
         if os.uname().sysname.lower() == 'linux' and self._bm2config.scripts['scan_dir']:
+            self._logger.debug("Script directory scan set to: {}".format(self._bm2config.scripts['scan_dir']))
             from pathlib import Path
             script_dir = Path(self._bm2config.scripts['dir'])
             script_list = list(script_dir.glob("*.json"))
@@ -131,6 +137,7 @@ class BrickMaster2:
 
         # script_dir = Path.cwd() / "scripts"
         for script_file in script_list:
+            self._logger.info("Setting up script: {}".format(script_file))
             try:
                 f = io.open(script_file, mode="r", encoding="utf-8")
                 with f as source:
@@ -166,6 +173,37 @@ class BrickMaster2:
         else:
             return self._active_script
 
+    def _register_signal_handlers(self):
+        self._print_or_log("debug", "Registering signal handlers.")
+        # Reload configuration.
+        signal.signal(signal.SIGHUP, self._reload_config)
+        # Terminate cleanly.
+        ## Default quit
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        ## Quit and dump core. Not going to do that, so
+        signal.signal(signal.SIGQUIT, self._signal_handler)
+
+        # All other signals are some form of error.
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGILL, self._signal_handler)
+        signal.signal(signal.SIGTRAP, self._signal_handler)
+        signal.signal(signal.SIGABRT, self._signal_handler)
+        signal.signal(signal.SIGBUS, self._signal_handler)
+        signal.signal(signal.SIGFPE, self._signal_handler)
+        # signal.signal(signal.SIGKILL, receiveSignal)
+        signal.signal(signal.SIGUSR1, self._signal_handler)
+        signal.signal(signal.SIGSEGV, self._signal_handler)
+        signal.signal(signal.SIGUSR2, self._signal_handler)
+        signal.signal(signal.SIGPIPE, self._signal_handler)
+        signal.signal(signal.SIGALRM, self._signal_handler)
+
+    def _signal_handler(self, signalNumber=None, frame=None):
+        print("Caught signal {}".format(signalNumber))
+        self.cleanup_and_exit(signalNumber)
+
+    def _reload_config(self):
+        self._logger.warning("Reload configuration not currently supported.")
+
     def _print_or_log(self, level, message):
         try:
             logger = getattr(self._logger, level)
@@ -173,21 +211,37 @@ class BrickMaster2:
         except AttributeError:
             print(message)
 
-    def cleanup_and_exit(self):
-        self._print_or_log("critical", "Exit requested. Performing cleanup actions.")
+    def cleanup_and_exit(self, signalNumber=None):
+        if isinstance(signalNumber, int) and 'signal' in sys.modules:
+            signame = signal.Signals(signalNumber).name
+            self._print_or_log("critical", "Exit triggered by {}. Performing cleanup actions.".format(signame))
+        else:
+            self._print_or_log("critical", "Exit requested. Performing cleanup actions.")
+
         # Set the controls to off.
         self._print_or_log("critical", "Setting controls off....")
         # Turn off all the controls
-        for control in self._controls:
-            self._print_or_log("info", "\t{}".format(control))
-            self._controls[control].set("off")
+        try:
+            for control in self._controls:
+                self._print_or_log("info", "\t{}".format(control))
+                self._controls[control].set("off")
+        except AttributeError:
+            self._print_or_log("critical", "Controls not defined, nothing to do.")
         # Turn off all the displays
         self._print_or_log("critical", "Setting displays off....")
-        for display in self._displays:
-            self._print_or_log("info", "\t{}".format(display))
-            self._displays[display].off()
+        try:
+            for display in self._displays:
+                self._print_or_log("info", "\t{}".format(display))
+                self._displays[display].off()
+        except AttributeError:
+            self._print_or_log("critical", "Displays not defined, nothing to do.")
         # Poll the network one more time to ensure the new control status is sent.
         self._network.poll()
         # Send an offline message.
         self._network._publish('connectivity', 'offline')
         self._print_or_log("critical", "Cleanup complete.")
+        # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
+        if signalNumber in (None, 15):
+            sys.exit(0)
+        else:
+            sys.exit(signalNumber)

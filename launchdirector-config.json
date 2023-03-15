@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "launchdirector",
-    "log_level": "debug",
+    "log_level": "warn",
     "ntp_server": "172.16.30.2",
     "tz": "Americas/New_York",
     "i2c": {

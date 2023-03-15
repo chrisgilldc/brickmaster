@@ -17,7 +17,7 @@ class BM2Config:
         self._logger = logging.getLogger("BrickMaster2")
         # If we're running under Circuitpython, we *must* have the config.json in a specific place.
         if sys.implementation.name == 'circuitpython':
-            print("Running on Circuitpython, using config.json directly.")
+            print("Running on Circuitpython, loading config.json in root directory.")
             self._config_file = 'config.json'
         elif os.uname().sysname.lower() == 'linux':
             print("Running on general-purpose Linux, checking system paths...")
