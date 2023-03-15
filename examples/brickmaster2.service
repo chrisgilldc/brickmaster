@@ -1,6 +1,6 @@
 [Unit]
 Description=Brickmaster2 Control System
-After=multi-user.target
+After=default.target
 
 [Service]
 Type=idle
@@ -9,4 +9,4 @@ ExecStart=/usr/bin/python3 /home/pi/brickmaster2/brickmaster2.py
 Restart=always
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
