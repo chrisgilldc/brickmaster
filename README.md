@@ -60,12 +60,12 @@ Example configs are in the `examples` directory.
 
 :white_check_mark: **means required**
 
-| Name                      | Type | Default    | Since | Description                                                 |
-|---------------------------| ---- |------------|-------|-------------------------------------------------------------|
+| Name                      | Type   | Default    | Since | Description                                                 |
+|---------------------------|--------|------------|-------|-------------------------------------------------------------|
 | :white_check_mark: `name` | string | 'hostname' | v0.1  | Name of the system to be used in MQTT topics and elsewhere. |
 | `log_level`               | string | 'warn'     | v0.1  | How verbose to be.                                          |
 | `tz`                      | string | 'UTC'      | v0.1  | CircuitPython Only - Local Timezone                         |
-| `i2c` | dict | None       | v0.1 | Defines I2C bus to use. Only required if using displays.    |
+| `i2c`                     | dict   | None       | v0.1  | Defines I2C bus to use. Only required if using displays.    |
 
 ### I2C
 
@@ -82,7 +82,7 @@ Currently only the GPIO type of control is supported. Eventually other types wil
 | Name                      | Type   | Default | Since | Description                                                                                                    |
 |---------------------------|--------|---------|-------|----------------------------------------------------------------------------------------------------------------|
 | :white_check_mark: `name` | string | None    | v0.1  | Name of the control. This will be part of the topic name.                                                      |
-| :white_check_mark: `type` | string | 'gpio'  | v0.1  | Defines the control type. This is GPIO. | 
+| :white_check_mark: `type` | string | 'gpio'  | v0.1  | Defines the control type. This is GPIO.                                                                        | 
 | :white_check_mark: `pin`  | string | None    | v0.1  | GPIO control to map too. Must be a valid name from the Adafruit board library. For example, Pi pin 25 is "D25" |
 
 
@@ -93,24 +93,24 @@ is defined as a dict with the following definition.
 
 :white_check_mark: **means required**
 
-| Name | Type | Default | Since | Description |
-| ---- | ---- | ---- |-------| ---- |
-| :white_check_mark: `name` | string |  | v0.1  | Name of the display. Will be referenced elsewhere. |
-| :white_check_mark: `type` | string |  | v0.1  | Type of display.<br/>Valid values are `bigseg7x4`, `seg7x4` |
-| :white_check_mark: `address` | string |  | v0.1  | Address of the display. Must be a string in format `0xDD`, will be hex converted. |
-| :white_check_mark: `idle` | dict |  | v0.1  | What the display should show when not otherwise running. May be empty. |
-| `idle` -> `show` | string | 'blank' | v0.1  | What to show when idle. May be `blank` (turn off display), `time` (time in local timezone), `date` (current date) |
-| `idle` -> `brightness` | float | 1 | v0.1 | Brightness of the display when idle. Can be between 0.25 and 1. |
+| Name                         | Type   | Default | Since | Description                                                                                                       |
+|------------------------------|--------|---------|-------|-------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `name`    | string |         | v0.1  | Name of the display. Will be referenced elsewhere.                                                                |
+| :white_check_mark: `type`    | string |         | v0.1  | Type of display.<br/>Valid values are `bigseg7x4`, `seg7x4`                                                       |
+| :white_check_mark: `address` | string |         | v0.1  | Address of the display. Must be a string in format `0xDD`, will be hex converted.                                 |
+| :white_check_mark: `idle`    | dict   |         | v0.1  | What the display should show when not otherwise running. May be empty.                                            |
+| `idle` -> `show`             | string | 'blank' | v0.1  | What to show when idle. May be `blank` (turn off display), `time` (time in local timezone), `date` (current date) |
+| `idle` -> `brightness`       | float  | 1       | v0.1  | Brightness of the display when idle. Can be between 0.25 and 1.                                                   |
 
 ### Scripts
 
 :white_check_mark: **means required**
 
-| Name                          | Type | Default                               | Since | Description                                                                                                                                 |
-|-------------------------------| ---- |---------------------------------------| ---- |---------------------------------------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: `dir`      | string | 'scripts'                             | v0.1 | Directory for scripts.                                                                                                                      |
-| `scan_dir` | string | `False` on Circuitpython, else `True` | v0.1 | Should the script directory be scanned for script files? If so, any json file (*.json) will be processed as a script. |
-| `files` | list | None | v0.1 | **Required** for Circuitpython as it can't scan files. List of file names to include explicitly. |
+| Name                     | Type   | Default                               | Since | Description                                                                                                           |
+|--------------------------|--------|---------------------------------------|-------|-----------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `dir` | string | 'scripts'                             | v0.1  | Directory for scripts.                                                                                                |
+| `scan_dir`               | string | `False` on Circuitpython, else `True` | v0.1  | Should the script directory be scanned for script files? If so, any json file (*.json) will be processed as a script. |
+| `files`                  | list   | None                                  | v0.1  | **Required** for Circuitpython as it can't scan files. List of file names to include explicitly.                      |
 Good to go!
 
 ## Future development
