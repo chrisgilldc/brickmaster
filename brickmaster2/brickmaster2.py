@@ -1,7 +1,6 @@
 # BrickMaster2 Core
 
 import adafruit_logging as logging
-import atexit
 from .config import BM2Config
 from .controls import CtrlGPIO
 from .display import Display
@@ -69,7 +68,7 @@ class BrickMaster2:
             if self._active_script is not None:
                 self._scripts[self._active_script].execute(implicit_start=True)
                 # Check to see if the script has gone back to idle.
-                if self._scripts[self._active_script].status == 'idle':
+                if self._scripts[self._active_script].status == 'OFF':
                     self._active_script = None
             else:
                 # Otherwise, have the displays do their idle thing.
@@ -83,15 +82,15 @@ class BrickMaster2:
         script_name = topic.split('/')[-2]
         self._logger.debug("Core received '{}' request for script '{}'".format(message, script_name))
         # Starting a script.
-        if message.lower() == 'start':
+        if message.lower() == 'on':
             # If we don't have an active script, mark this script for starting.
             if self._active_script is None:
                 self._active_script=script_name
             else:
                 self._logger.warning("Cannot start script {}, script {} is already active.".format(script_name, self._active_script))
-        elif message.lower() == 'stop':
+        elif message.lower() == 'off':
             # Set the active script to stop
-            self._scripts[self._active_script].set('stop')
+            self._scripts[self._active_script].set('OFF')
             self._active_script = None
         else:
             self._logger.info("Ignoring invalid command '{}'".format(message))

@@ -12,7 +12,7 @@ class BM2Script:
         self._logger = logger.getLogger('BrickMaster2')
         # Initialize variables
         self._run_count = 0  # Which run of the script are we on. Starts at zero!
-        self._status = 'idle'  # Status, start as idle.
+        self._status = 'OFF'  # Status, start as idle.
         self._blocks = []  # Blocks to execute.
         self._start_time = None  # When we started.
         self._name = None
@@ -57,7 +57,7 @@ class BM2Script:
         return self._current_loop
 
     # Report our status.
-    # Will be 'idle' or 'running'
+    # Will be 'ON' or 'OFF'
     @property
     def status(self):
         return self._status
@@ -87,10 +87,10 @@ class BM2Script:
 
     # Set the running state. This is how the script gets started and stopped.
     def set(self, value):
-        self._logger.debug("Setting script '{}' to '{}'".format(self.name, value))
+        self._logger.info("Setting script '{}' to '{}'".format(self.name, value))
         # Starting...
-        if value == 'start':
-            self._status = 'running'
+        if value == 'ON':
+            self._status = 'ON'
             self._current_loop = 1
             self._active_block = None
             self._pending_block = 0
@@ -99,9 +99,9 @@ class BM2Script:
                 self._saved_state = self._system_status()
             self._start_time = time.monotonic()
         # Stopping...
-        elif value == 'stop':
+        elif value == 'OFF':
             self._start_time = None
-            self._status = 'idle'
+            self._status = 'OFF'
             self._reset_blocks()
             if self._at_completion == 'restore':
                 self._logger.debug("Restoring original system state.")
@@ -115,9 +115,9 @@ class BM2Script:
     # Executor. Called to take actions based on the internal time index.
     def execute(self, implicit_start=False):
         # What to do if called when idle.
-        if self._status == 'idle':
+        if self._status == 'OFF':
             if implicit_start:
-                self.set('start')
+                self.set('ON')
             else:
                 return
 
@@ -141,7 +141,7 @@ class BM2Script:
                 self._start_time = time.monotonic()
             else:
                 self._logger.debug("Script Complete.")
-                self.set('stop')
+                self.set('OFF')
                 return  # Return here to make sure we don't try to run a block we shouldn't.
 
         self._execute_block(self._active_block)
@@ -274,7 +274,7 @@ class BM2Script:
             {
                 'topic': self.name + '/set',
                 'type': 'inbound',
-                'values': ['start', 'stop']  # Values an inbound topic will consider valid.
+                'values': ['ON', 'OFF']  # Values an inbound topic will consider valid.
             },
             {
                 'topic': self.name + '/status',
@@ -305,7 +305,7 @@ class BM2FlightScript(BM2Script):
         # Call the parent class execute. This will handle all the controls.
         super().execute(implicit_start=implicit_start)
         # IF the parent class decided to set the script idle, exit immediately.
-        if self._status == 'idle':
+        if self._status == 'OFF':
             return
 
         # Now do the flight-specific items.
