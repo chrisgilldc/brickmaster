@@ -3,7 +3,6 @@
 import adafruit_logging as logger
 import time
 import math
-from pprint import pformat
 from brickmaster2.segment_format import time_7s, number_7s
 
 class BM2Script:
@@ -298,8 +297,6 @@ class BM2FlightScript(BM2Script):
         # Convert the display map.
         self._display_map = {}
         self._map_displays(script, displays)
-        self._logger.debug("Build display map...")
-        self._logger.debug(pformat(self._display_map))
 
     def execute(self, implicit_start=False):
         # Call the parent class execute. This will handle all the controls.
@@ -312,8 +309,6 @@ class BM2FlightScript(BM2Script):
         # Make our run time an integer.
         run_time = math.ceil(time.monotonic() - self._start_time)
         flight_data = self._flight_plan[run_time]
-        self._logger.debug("Using flight plan data for run time: {}".format(run_time))
-        self._logger.debug(pformat(flight_data))
         # Send flight plan data to the displays.
         # Mission Elapsed Time goes through the time string processor.
         self._display_map['met'].show(time_7s(flight_data['met']))
@@ -352,8 +347,6 @@ class BM2FlightScript(BM2Script):
             # If time has advanced past the end of the current block, move to the next one.
             if run_time > self._blocks[active_block]['end_time']:
                 active_block += 1
-                self._logger.debug("\t\tAdvancing to block {}".format(active_block))
-                self._logger.debug(pformat(self._blocks[active_block]))
                 # Calculate the altitude and velocity steps needed.
                 self._logger.debug("\t\tCurrent Values:\n\t\t\tAlt: {}\n\t\t\tdA: {}\n\t\t\tVel: {}\n\t\t\tdV: {}".
                                    format(alt, da, vel, dv))
@@ -437,7 +430,6 @@ class BM2FlightScript(BM2Script):
     def _map_displays(self, script, displays):
         if 'display_map' not in script:
             raise ValueError("Script does not have display map.")
-        self._logger.debug(pformat(script['display_map']))
         for val in ('met','alt','vel'):
             if val not in script['display_map']:
                 raise ValueError("Display map does not map '{}'!".format(val))

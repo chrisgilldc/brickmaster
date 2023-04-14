@@ -56,7 +56,8 @@ class BrickMaster2:
         # Create the scripts
         self._create_scripts()
 
-        self._logger.critical("Running with PID: {}".format(os.getpid()))
+        if os.uname().sysname.lower() == 'linux':
+            self._logger.critical("Running with PID: {}".format(os.getpid()))
 
     def run(self):
         self._logger.info("Entering run loop.")
