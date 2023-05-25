@@ -213,22 +213,31 @@ class BM2Config:
             # Pull out control type, this just make it easier.
             ctrltype = self._config['controls'][i]['type']
             if ctrltype == 'gpio':
-                if 'pin' not in self._config['controls'][i]:
-                    self._logger.error("Cannot set up control '{}', no 'pin' directive.".
-                                       format(self._config['controls'][i]['name']))
-                    to_delete.append(i)
-                    i += 1
-                    continue
+                required_parameters = ['pin']
+            elif ctrltype == 'aw9523':
+                required_parameters = ['addr','pin']
             else:
                 self._logger.error("Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
                 to_delete.append(i)
                 i += 1
                 continue
+
+            for req_param in required_parameters:
+                if req_param not in self._config['controls'][i]:
+                    self._logger.error("Cannot set up control '{}', no '{}' directive.".format(
+                        self._config['controls'][i]['name'], req_param))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+
             i += 1
+        # Make the to_delete list unique.
+        to_delete = list(set(to_delete))
+        self._logger.debug("Controls to remove: {}".format(to_delete))
         # Delete any controls that have been invalidated
         for d in sorted(to_delete, reverse=True):
-            self._logger.debug("Deleting control '{}'".format(d))
             del self._config['controls'][d]
+        self._logger.debug("Proceeding with controls: {}".format(self._config['controls']))
 
     # Validate the displays on loading.
     def _validate_displays(self):
