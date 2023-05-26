@@ -1,0 +1,105 @@
+{
+  "system": {
+    "name": "brickmaster",
+    "log_level": "debug",
+    "ntp_server": "172.16.30.2",
+    "tz": "Americas/New_York",
+    "i2c": {
+      "bus_id": 1
+    }
+  },
+  "controls": [
+    {
+      "name": "1_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 11
+    },
+    {
+      "name": "2_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 10
+    },
+    {
+      "name": "3_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 9
+    },
+    {
+      "name": "4_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 8
+    },
+    {
+      "name": "5_9v",
+      "type": "gpio",
+      "pin": "D5"
+    },
+    {
+      "name": "6_9v",
+      "type": "gpio",
+      "pin": "D6"
+    },
+    {
+      "name": "7_9v",
+      "type": "gpio",
+      "pin": "D7"
+    },
+    {
+      "name": "8_9v",
+      "type": "gpio",
+      "pin": "D8"
+    },
+    {
+      "name": "9_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 1
+    },
+    {
+      "name": "10_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 2
+    },
+    {
+      "name": "11_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 3
+    },
+    {
+      "name": "12_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 4
+    },
+    {
+      "name": "13_9v",
+      "type": "gpio",
+      "pin": "D4"
+    },
+    {
+      "name": "14_9v",
+      "type": "gpio",
+      "pin": "D3"
+    },
+        {
+      "name": "15_9v",
+      "type": "gpio",
+      "pin": "D2"
+    },
+    {
+      "name": "16_9v",
+      "type": "gpio",
+      "pin": "D1"
+    }
+  ],
+  "displays": [
+  ],
+  "scripts": {
+  }
+}

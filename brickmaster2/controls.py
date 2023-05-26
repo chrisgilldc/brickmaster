@@ -1,15 +1,16 @@
 # Brickmaster2 Controls
 import adafruit_logging as logger
+import board
+import digitalio
 import sys
 
+
 class Control:
-    def __init__(self, config):
+    def __init__(self, name):
         # Create a logger.
         self._logger = logger.getLogger('BrickMaster2')
-        # Save the config. This will have already been validated!
-        self._config = config
         # We access the name a lot, so make it easy to access.
-        self.name = self._config['name']
+        self.name = name
         self._topics = None
         self._status = None
         # Create topics for the control. This must be implemented per subclass.
@@ -50,33 +51,54 @@ class Control:
 
 # Control class for GPIO
 class CtrlGPIO(Control):
-    def __init__(self, config):
-        super().__init__(config)
-        # Import the Adafruit Board module
-        try:
-            import board
-            from digitalio import DigitalInOut, Direction
-        except ImportError:
-            self._logger.critical("Cannot import modules for GPIO control. Exiting!")
-            sys.exit(1)
+    def __init__(self, name, pin, addr=None, type=None, invert=False, awboard=None):
+        super().__init__(name)
+        self._invert = invert
+
+        if type == 'aw9523':
+            self._setup_pin_aw9523(awboard, pin)
+        else:
+            self._setup_pin_onboard(pin)
+
+        # Set self to off.
+        self.set('off')
+
+    # Method to set up an onboard GPIO pin.
+    def _setup_pin_onboard(self, pin):
         # Have the import. Now create the pin.
         try:
-            self._pin = DigitalInOut(getattr(board, str(self._config['pin'])))
+            self._pin = digitalio.DigitalInOut(getattr(board, str(pin)))
         except AttributeError:
-            self._logger.critical("Control '{}' references pin '{}', does not exist. Existing!".
-                                  format(self.name, self._config['pin']))
+            self._logger.critical("Control '{}' references pin '{}', does not exist. Exiting!".
+                                  format(self.name, pin))
             sys.exit(1)
         # Set the pin to an output
-        self._pin.direction = Direction.OUTPUT
-        # Set the pin to off, to be sure.
-        self._pin.value = False
+        self._pin.direction = digitalio.Direction.OUTPUT
+
+    # Method to set up GPIO via an AW9523 on I2C.
+    def _setup_pin_aw9523(self, awboard, pin):
+        try:
+            self._pin = awboard.get_pin(pin)
+        except AssertionError:
+            self._logger.critical("Control '{}' asserted pin '{}', not valid.".format(self.name, pin))
+            raise
+        # Have a pin now, set it up.
+        self._pin.direction = digitalio.Direction.OUTPUT
 
     def set(self, value):
         self._logger.debug("Setting control '{}' to '{}'".format(self.name, value))
         if value.lower() == 'on':
-            self._pin.value = True
+            if self._invert:
+                self._logger.debug("Control is inverted, 'On' state sets low.")
+                self._pin.value = False
+            else:
+                self._pin.value = True
         elif value.lower() == 'off':
-            self._pin.value = False
+            if self._invert:
+                self._logger.debug("Control is inverted, 'Off' state sets high.")
+                self._pin.value = True
+            else:
+                self._pin.value = False
 
     @property
     def status(self):

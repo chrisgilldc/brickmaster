@@ -237,7 +237,7 @@ class BM2Config:
         # Delete any controls that have been invalidated
         for d in sorted(to_delete, reverse=True):
             del self._config['controls'][d]
-        self._logger.debug("Proceeding with controls: {}".format(self._config['controls']))
+        self._logger.debug("Config proceeding with successful controls: {}".format(self._config['controls']))
 
     # Validate the displays on loading.
     def _validate_displays(self):

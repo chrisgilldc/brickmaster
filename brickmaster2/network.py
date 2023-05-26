@@ -226,7 +226,7 @@ class BM2Network:
 
     # Set up a new control or script
     def add_item(self, input_obj):
-        # self._logger.debug("Adding item to Network handler of type: {}".format(type(input_obj)))
+        self._logger.debug("Adding item to Network handler of type: {}".format(type(input_obj)))
         # Some slight differentiation between controls and scripts.
         # Separate topic prefixes to keep them clear.
         # Different callback organization. Controls will get direct callbacks, since they're quick.
@@ -243,9 +243,9 @@ class BM2Network:
         for obj_topic in input_obj.topics:
             # For inbound topics, subscribe and add callback.
             if obj_topic['type'] == 'inbound':
-                # self._logger.debug("Adding callback for topic: {}".
-                #                    format(prefix + '/' + obj_topic['topic']))
-                # self._logger.debug("Using callback: {}".format(callback))
+                self._logger.debug("Adding callback for topic: {}".
+                                    format(prefix + '/' + obj_topic['topic']))
+                self._logger.debug("Using callback: {}".format(callback))
                 self._topics_inbound.append(
                     {'topic': prefix + '/' + obj_topic['topic'], 'callback': callback})
                 # Subscribe to this new topic, specifically.

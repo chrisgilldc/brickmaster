@@ -8,6 +8,7 @@ from .network import BM2Network
 from .scripts import BM2Script, BM2FlightScript
 import board
 import busio
+import gc
 import io
 import json
 import os
@@ -16,6 +17,8 @@ import sys
 
 class BrickMaster2:
     def __init__(self, cmd_opts=None):
+        # Force a garbage collection
+        gc.collect()
         # If we're on a general-purpose linux system, register signal handlers so we can get signals from elsewhere.
         if os.uname().sysname.lower() == 'linux':
             global signal
@@ -35,15 +38,16 @@ class BrickMaster2:
         self._bm2config = BM2Config()
 
         # Setup the I2C Bus.
-        self._setup_i2c_bus(None)
+        self._setup_i2c_bus()
 
         # Set up the network.
         self._network = BM2Network(self, self._bm2config.system)
 
-        # Initiatlize dicts to store objects.
+        # Initialize dicts to store objects.
         self._controls = {}
         self._displays = {}
         self._scripts = {}
+        self._extgpio = {}
         self._active_script = None
         # Lists for displays that show the time or date.
         self._clocks = []
@@ -96,15 +100,34 @@ class BrickMaster2:
         else:
             self._logger.info("Ignoring invalid command '{}'".format(message))
 
-    def _setup_i2c_bus(self, i2c_config):
+    def _setup_i2c_bus(self):
         self._i2c_bus = busio.I2C(board.SCL, board.SDA)
+
+    def _setup_aw9523(self, addr):
+        # Condition
+        try:
+            import adafruit_aw9523
+        except ImportError:
+            self._logger.critical("Cannot import modules for GPIO AW9523 control. Exiting!")
+            sys.exit(1)
+        if isinstance(addr, str):
+            addr = int(addr)
+        aw = adafruit_aw9523.AW9523(self._i2c_bus, addr)
+        return aw
 
     # Methods to create our objects. Called during setup, or when we're asked to reload.
     def _create_controls(self):
         for control_cfg in self._bm2config.controls:
-            self._logger.info("Setting up control '{}'".format(control_cfg['name']))
+            self._logger.debug("Setting up control '{}'".format(control_cfg['name']))
             if control_cfg['type'].lower() == 'gpio':
-                self._controls[control_cfg['name']] = CtrlGPIO(control_cfg)
+                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg)
+            elif control_cfg['type'].lower() == 'aw9523':
+                if control_cfg['addr'] not in self._extgpio.keys():
+                    self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
+                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, awboard=self._extgpio[control_cfg['addr']])
+            gc.collect()
+
+        self._logger.info("Have controls: {}".format(self._controls))
 
         # Pass the controls to the Network module.
         for control_name in self._controls:
