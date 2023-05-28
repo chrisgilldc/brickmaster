@@ -6,6 +6,8 @@ import sys
 import board
 import busio
 import time
+
+import digitalio
 from digitalio import DigitalInOut
 import adafruit_logging as logger
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
@@ -22,7 +24,8 @@ class BM2Network:
         # Save a reference to the core. This allows callbacks to the core.
         self._core = core
         self._logger = logger.getLogger('BrickMaster2')
-        # self._logger.debug("Initializing network...")
+        self._logger.info("Initializing network...")
+        self._logger.debug("Received config: {}".format(self._config))
         self._topic_prefix = "brickmaster2/" + self._config['name']
 
         # If not on a general-purpose system, set up WIFI.
@@ -61,6 +64,19 @@ class BM2Network:
                 'previous_value': 'Unknown'
             }
         }
+
+        # Create network status indicator GPIO controls, if defined.
+        self._led_neton = None
+        self._led_netoff = None
+        if self._config['net_on'] is not None:
+            self._logger.debug("Net on indicator created")
+            self._led_neton = digitalio.DigitalInOut(getattr(board, str(self._config['net_on'])))
+            self._led_neton.switch_to_output(value=False)
+        if self._config['net_off'] is not None:
+            self._logger.debug("Net off indicator created")
+            self._led_netoff = digitalio.DigitalInOut(getattr(board, str(self._config['net_off'])))
+            self._led_netoff.switch_to_output(value=True)
+
         # Set up initial MQTT tracking values.
         self._mqtt_connected = False
         self._mqtt_timeouts = 0
@@ -112,8 +128,11 @@ class BM2Network:
         except Exception as e:
             self._logger.warning('Network: Could not connect to MQTT broker.')
             self._logger.warning('Network: ' + str(e))
+            self._set_indicator("off")
             self._mqtt_connected = False
             return False
+        else:
+            self._set_indicator("on")
 
         # Send a discovery message and an online notification.
         # if self._settings['homeassistant']:
@@ -188,6 +207,16 @@ class BM2Network:
                 self._logger.debug("Updated time from network. It must be THE FUTURE!")
                 self._clock_last_set = time.monotonic()
 
+    def _set_indicator(self, status):
+        if self._led_neton is not None and self._led_netoff is not None:
+            if status == 'on':
+                self._led_netoff.value = False
+                self._led_neton.value = True
+            elif status == 'off':
+                self._led_neton = False
+                self._led_netoff = True
+
+
     def _cb_connected(self, client, userdata, flags, rc):
         # Subscribe to the appropriate topics.
         for control in self._topics_inbound:
@@ -245,7 +274,6 @@ class BM2Network:
             if obj_topic['type'] == 'inbound':
                 self._logger.debug("Adding callback for topic: {}".
                                     format(prefix + '/' + obj_topic['topic']))
-                self._logger.debug("Using callback: {}".format(callback))
                 self._topics_inbound.append(
                     {'topic': prefix + '/' + obj_topic['topic'], 'callback': callback})
                 # Subscribe to this new topic, specifically.

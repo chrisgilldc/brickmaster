@@ -1,6 +1,8 @@
 # BrickMaster2 Core
 
 import adafruit_logging as logging
+import digitalio
+
 from .config import BM2Config
 from .controls import CtrlGPIO
 from .display import Display
@@ -19,6 +21,12 @@ class BrickMaster2:
     def __init__(self, cmd_opts=None):
         # Force a garbage collection
         gc.collect()
+
+        # Set up the system status indicator
+        self._led_sysstat = digitalio.DigitalInOut(board.D0)
+        self._led_sysstat.switch_to_output()
+        self._led_sysstat.value = True
+
         # If we're on a general-purpose linux system, register signal handlers so we can get signals from elsewhere.
         if os.uname().sysname.lower() == 'linux':
             global signal
@@ -52,13 +60,17 @@ class BrickMaster2:
         # Lists for displays that show the time or date.
         self._clocks = []
         self._dates = []
+        gc.collect()
 
         # Create the controls
         self._create_controls()
+        self._bm2config.del_controls()
         # Create the displays.
         self._create_displays()
+        self._bm2config.del_displays()
         # Create the scripts
         self._create_scripts()
+        self._bm2config.del_scripts()
 
         if os.uname().sysname.lower() == 'linux':
             self._logger.critical("Running with PID: {}".format(os.getpid()))
@@ -117,6 +129,7 @@ class BrickMaster2:
 
     # Methods to create our objects. Called during setup, or when we're asked to reload.
     def _create_controls(self):
+        self._logger.debug("Memory free at start of control creation: {}".format(gc.mem_free()))
         for control_cfg in self._bm2config.controls:
             self._logger.debug("Setting up control '{}'".format(control_cfg['name']))
             if control_cfg['type'].lower() == 'gpio':
@@ -126,12 +139,15 @@ class BrickMaster2:
                     self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
                 self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, awboard=self._extgpio[control_cfg['addr']])
             gc.collect()
+            self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['name'], gc.mem_free()))
 
         self._logger.info("Have controls: {}".format(self._controls))
 
         # Pass the controls to the Network module.
+        self._logger.debug("Memory free at start of callback registration: {}".format(gc.mem_free()))
         for control_name in self._controls:
             self._network.add_item(self._controls[control_name])
+            self._logger.debug("Memory free after registering callback for '{}': {}".format(control_name, gc.mem_free()))
 
     def _create_displays(self):
         # Set up the displays.
@@ -263,6 +279,8 @@ class BrickMaster2:
         # Send an offline message.
         self._network._publish('connectivity', 'offline')
         self._print_or_log("critical", "Cleanup complete.")
+        # Set the system light off.
+        self._led_sysstat.value = False
         # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
         if signalNumber in (None, 15):
             sys.exit(0)

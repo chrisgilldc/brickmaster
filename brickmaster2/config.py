@@ -4,11 +4,11 @@ import adafruit_logging as logging
 import sys
 import json
 import os
-import board
+#import board
 
 # from pprint import pformat
 # import json
-
+import gc
 
 class BM2Config:
     def __init__(self, config_file=None):
@@ -342,12 +342,21 @@ class BM2Config:
             'mqtt_username': self._config['secrets']['mqtt_username'],
             'mqtt_password': self._config['secrets']['mqtt_password'],
             'ntp_server': self._config['system']['ntp_server'],
-            'tz': self._config['system']['tz']
+            'tz': self._config['system']['tz'],
         }
         # On a microcontroller, we have to handle the network. On a general-purpose OS, it does that work for us.
         if os.uname().sysname.lower() != "linux":
             return_dict['SSID'] =  self._config['secrets']['SSID']
             return_dict['password'] = self._config['secrets']['password']
+        # If network indicator is defined, use it.
+        return_dict['net_on'] = None
+        return_dict['net_off'] = None
+        if 'indicators' in self._config['system']:
+            if 'net_on' in self._config['system']['indicators'] and 'net_off' in self._config['system']['indicators']:
+                return_dict['net_on'] = self._config['system']['indicators']['net_on']
+                return_dict['net_off'] = self._config['system']['indicators']['net_off']
+            else:
+                self._logger.warning("When network indicator provided, both 'net_on' and 'net_off' must be defined! Skipping.")
         return return_dict
 
     # Controls config. No merging of data required here.
@@ -363,3 +372,16 @@ class BM2Config:
     @property
     def scripts(self):
         return self._config['scripts']
+
+    # Allow progressive deletion of the config to free memory.
+    def del_controls(self):
+        del(self._config['controls'])
+        gc.collect()
+
+    def del_displays(self):
+        del(self._config['displays'])
+        gc.collect()
+
+    def del_scripts(self):
+        del(self._config['scripts'])
+        gc.collect()
