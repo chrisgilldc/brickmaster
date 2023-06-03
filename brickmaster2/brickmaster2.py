@@ -76,7 +76,7 @@ class BrickMaster2:
             self._logger.critical("Running with PID: {}".format(os.getpid()))
 
     def run(self):
-        self._logger.info("Entering run loop.")
+        self._logger.debug("Entering run loop.")
         while True:
             # Poll the network.
             self._network.poll()

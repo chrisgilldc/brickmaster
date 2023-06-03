@@ -103,9 +103,15 @@ class CtrlGPIO(Control):
     @property
     def status(self):
         if self._pin.value is True:
-            return 'ON'
+            if self._invert:
+                return 'OFF'
+            else:
+                return 'ON'
         elif self._pin.value is False:
-            return 'OFF'
+            if self._invert:
+                return 'ON'
+            else:
+                return 'OFF'
         else:
             return 'Unavailable'
 

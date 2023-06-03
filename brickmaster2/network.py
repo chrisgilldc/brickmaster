@@ -28,6 +28,18 @@ class BM2Network:
         self._logger.debug("Received config: {}".format(self._config))
         self._topic_prefix = "brickmaster2/" + self._config['name']
 
+        # Create network status indicator GPIO controls, if defined.
+        self._led_neton = None
+        self._led_netoff = None
+        if self._config['net_on'] is not None:
+            self._logger.debug("Net on indicator created")
+            self._led_neton = digitalio.DigitalInOut(getattr(board, str(self._config['net_on'])))
+            self._led_neton.switch_to_output(value=False)
+        if self._config['net_off'] is not None:
+            self._logger.debug("Net off indicator created")
+            self._led_netoff = digitalio.DigitalInOut(getattr(board, str(self._config['net_off'])))
+            self._led_netoff.switch_to_output(value=True)
+
         # If not on a general-purpose system, set up WIFI.
         if os.uname().sysname.lower() != 'linux':
             # Conditionally import to global.
@@ -39,6 +51,8 @@ class BM2Network:
             import rtc
             # Connect to the network
             self._setup_wifi()
+            self._connect_wifi()
+            self._clock_set = False
             self._clock_last_set = 0
             self._set_clock()
         else:
@@ -65,18 +79,6 @@ class BM2Network:
             }
         }
 
-        # Create network status indicator GPIO controls, if defined.
-        self._led_neton = None
-        self._led_netoff = None
-        if self._config['net_on'] is not None:
-            self._logger.debug("Net on indicator created")
-            self._led_neton = digitalio.DigitalInOut(getattr(board, str(self._config['net_on'])))
-            self._led_neton.switch_to_output(value=False)
-        if self._config['net_off'] is not None:
-            self._logger.debug("Net off indicator created")
-            self._led_netoff = digitalio.DigitalInOut(getattr(board, str(self._config['net_off'])))
-            self._led_netoff.switch_to_output(value=True)
-
         # Set up initial MQTT tracking values.
         self._mqtt_connected = False
         self._mqtt_timeouts = 0
@@ -89,7 +91,16 @@ class BM2Network:
     def poll(self):
         # Do an NTP update.
         if os.uname().sysname.lower() != 'linux':
-            self._set_clock()
+            if not self._clock_set:
+                if time.monotonic() - self._clock_last_set > 15:
+                    self._logger.info("Trying to set clock.")
+                    self._set_clock()
+                    self._clock_last_set = time.monotonic()
+            else:
+                if time.monotonic() - self._clock_last_set > 43200:
+                    self._logger.debug("Resetting clock after 12 hours.")
+                    self._set_clock()
+                    self._clock_last_set = time.monotonic()
 
         # Check to see if the MQTT client is connected.
         # If we need to reconnect do it. If that fails, we'll return here, since everything past this is MQTT related.
@@ -101,7 +112,7 @@ class BM2Network:
                 self._reconnect_timestamp = time.monotonic()
                 # If MQTT isn't connected, nothing else to do.
                 if not self._connect_mqtt():
-                    self._logger.debug("Success!")
+                    self._logger.debug("Not reconnected!")
                     return
 
         try:
@@ -109,39 +120,42 @@ class BM2Network:
         except MQTT.MMQTTException:
             self._logger.warning("MQTT poll timed out.")
 
-        # Publish current statuses.
-        for outbound in self._topics_outbound:
-            if 'obj' in self._topics_outbound[outbound] and 'value_attr' in self._topics_outbound[outbound]:
-                # If we have an object and value attribute set, retrieve the value and send it.
-                # Using getattr this way allows
-                self._publish(
-                    outbound,
-                    getattr(self._topics_outbound[outbound]['obj'], self._topics_outbound[outbound]['value_attr']))
+        # Publish any outbound topics.
+        self._publish_outbound()
 
     # Connect to the MQTT broker.
     def _connect_mqtt(self):
-        # Set the last will prior to connecting.
-        self._logger.info("Network: Creating last will.")
-        self._mqtt_client.will_set(topic=self._topics_outbound['connectivity']['topic'], payload='offline', retain=True)
-        try:
-            self._mqtt_client.connect(host=self._config['broker'], port=self._config['port'])
-        except Exception as e:
-            self._logger.warning('Network: Could not connect to MQTT broker.')
-            self._logger.warning('Network: ' + str(e))
-            self._set_indicator("off")
-            self._mqtt_connected = False
-            return False
-        else:
-            self._set_indicator("on")
+        # try:
+        self._mqtt_client.connect(host=self._config['broker'], port=self._config['port'])
+        # except Exception as e:
+            # self._logger.warning('Network: Could not connect to MQTT broker.')
+            # self._logger.warning('Network: ' + str(e))
+            # self._set_indicator("off")
+            # self._mqtt_connected = False
+            # return False
+        # else:
+        #     self._set_indicator("on")
 
         # Send a discovery message and an online notification.
         # if self._settings['homeassistant']:
         #     self._ha_discovery()
-        # Send the online notification.
-        self._publish('connectivity', 'online')
-        # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
-        self._mqtt_connected = True
+        # Set the internal MQTT tracker to True. Surprisingly, the client library doesn't have a way to track this itself!
+        # self._mqtt_connected = True
+        # # Send the online notification.
+        # self._publish('connectivity', 'online')
+
         return True
+
+    def _connect_wifi(self):
+        # Try to do the connection
+        while not self._esp.is_connected:
+            self._set_indicator("off")
+            try:
+                self._esp.connect_AP(self._config['SSID'], self._config['password'])
+            except OSError as e:
+                self._logger.warning("Could not connect to network. Retrying in 30s.")
+                time.sleep(30)
+                continue
 
     # Internal setup methods.
     def _setup_wifi(self):
@@ -165,21 +179,6 @@ class BM2Network:
             self._esp.MAC_address[0], )
         self._logger.info("ESP32 MAC address: {}".format(mac_string))
 
-        # Try to do the connection
-        i = 0
-        while not self._esp.is_connected:
-            try:
-                self._esp.connect_AP(self._config['SSID'], self._config['password'])
-            except OSError as e:
-                if i == 4:
-                    self._logger.critical("Could not connect to network after five attempts! Halting!")
-                    sys.exit(1)
-                else:
-                    self._logger.warning("Could not connect to network. Retrying in 30s.")
-                    i += 1
-                    time.sleep(30)
-                    continue
-
     # Method to setup as MiniMQTT
     def _setup_mini_mqtt(self):
         # Set the socket if we're on a CircuitPython board.
@@ -194,18 +193,27 @@ class BM2Network:
             socket_pool=socket,
             socket_timeout=1
         )
+        # Set the last will
+        self._mqtt_client.will_set(topic=self._topics_outbound['connectivity']['topic'], payload='offline', retain=True)
+        # Connect base callbacks.
+        self._mqtt_client.on_connect = self._cb_connected
+        self._mqtt_client.on_disconnect = self._cb_disconnected
 
     def _set_clock(self):
-        if time.monotonic() - self._clock_last_set > 28800:
-            try:
-                esp_time = self._esp.get_time()
-            except OSError:
-                self._logger.debug("Failed to fetch time.")
-                return
-            else:
-                rtc.RTC().datetime = datetime.fromtimestamp(esp_time[0]).timetuple()
-                self._logger.debug("Updated time from network. It must be THE FUTURE!")
-                self._clock_last_set = time.monotonic()
+        try:
+            esp_time = self._esp.get_time()
+        except OSError:
+            self._logger.warning("Failed to fetch time. Retry in 15s.")
+            self._clock_set = False
+            return
+        else:
+            rtc.RTC().datetime = datetime.fromtimestamp(esp_time[0]).timetuple()
+            dt = rtc.RTC().datetime
+            # (tm_year=2023, tm_mon=6, tm_mday=3, tm_hour=11, tm_min=34, tm_sec=55, tm_wday=5, tm_yday=154, tm_isdst=-1)
+            self._logger.info("Updated time from network. New time: {}/{}/{} {}:{}:{}".
+                              format(dt.tm_mday, dt.tm_mon, dt.tm_year, dt.tm_hour, dt.tm_min, dt.tm_sec))
+            self._clock_last_set = time.monotonic()
+            self._clock_set = True
 
     def _set_indicator(self, status):
         if self._led_neton is not None and self._led_netoff is not None:
@@ -213,31 +221,51 @@ class BM2Network:
                 self._led_netoff.value = False
                 self._led_neton.value = True
             elif status == 'off':
-                self._led_neton = False
-                self._led_netoff = True
+                self._led_neton.value = False
+                self._led_netoff.value = True
 
 
     def _cb_connected(self, client, userdata, flags, rc):
+        self._logger.info("Connection callback called.")
+        # Turn the indicator LED on.
+        self._set_indicator("on")
         # Subscribe to the appropriate topics.
-        for control in self._topics_inbound:
-            self._mqtt_client.subscribe(control['topic'])
-            self._mqtt_client.message_callback_add(control['topic'], control['callback'])
+        # for control in self._topics_inbound:
+        #     self._mqtt_client.subscribe(control['topic'])
+        #     self._mqtt_client.add_topic_callback(control['topic'], control['callback'])
         # Send online message.
         self._publish('connectivity', 'online')
+        # Publish all registered item statuses.
+        # self._publish_outbound()
 
     # Callback to catch MQTT disconnections.
     # Used to log and set the flag for the main loop logic.
     def _cb_disconnected(self, client, userdata, rc):
         self._logger.warning("Disconnected from MQTT!")
+        self._set_indicator("off")
         self._mqtt_connected = False
 
     # Catchall callback message.
     def _cb_message(self, client, topic, message):
         self._logger.debug("Received message on topic {0}: {1}".format(topic, message))
 
+    def _publish_outbound(self):
+        """
+        Publish all outbound values for registered objects.
+        :return:
+        """
+        # Publish current statuses.
+        for outbound in self._topics_outbound:
+            if 'obj' in self._topics_outbound[outbound] and 'value_attr' in self._topics_outbound[outbound]:
+                # If we have an object and value attribute set, retrieve the value and send it.
+                # Using getattr this way allows
+                self._publish(
+                    outbound,
+                    getattr(self._topics_outbound[outbound]['obj'], self._topics_outbound[outbound]['value_attr']))
+
     def _publish(self, topic, message):
-        #self._logger.debug("Network: Publish request on topic '{}' - '{}'".
-        #                   format(self._topics_outbound[topic]['topic'], message))
+        self._logger.debug("Network: Publish request on topic '{}' - '{}'".
+                           format(self._topics_outbound[topic]['topic'], message))
         # Check for value changes.
         publish = False
         # If repeat is False, check to see if the value has changed.
