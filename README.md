@@ -19,6 +19,12 @@ Project Goals
 This system is *intended* to support both CircuitPython boards and general-purpose Linux SBCs (ie: the Pi). Testing is
 performed directly on a Raspberry Pi Zero W and Adafruit Metro M4 Airlift. Not all features are tested on both boards.
 
+*NOTE*
+
+As of 6/5/2023, the ESP32SPI socket implementation has a 
+[known issue](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/pull/168) with it's receive behavior. This impacts the 
+MiniMQTT library this package uses. Aafton Bladet has a [patched version](https://github.com/aaftonbladet/Adafruit_CircuitPython_MiniMQTT/tree/esp32spi_socket_read_fix) which is pending acceptance. For the time being, use that version, it (appears to) work fine.
+
 ## Installation
 
 ### Linux

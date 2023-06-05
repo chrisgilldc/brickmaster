@@ -6,6 +6,11 @@
     "tz": "Americas/New_York",
     "i2c": {
       "bus_id": 1
+    },
+    "indicators": {
+      "system": "D0",
+      "net_on": "D13",
+      "net_off": "D12"
     }
   },
   "controls": [
@@ -51,7 +56,8 @@
     {
       "name": "8_9v",
       "type": "gpio",
-      "pin": "D8"
+      "pin": "D8",
+      "invert": "true"
     },
     {
       "name": "9_5v",

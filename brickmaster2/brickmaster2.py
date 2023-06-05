@@ -48,9 +48,6 @@ class BrickMaster2:
         # Setup the I2C Bus.
         self._setup_i2c_bus()
 
-        # Set up the network.
-        self._network = BM2Network(self, self._bm2config.system)
-
         # Initialize dicts to store objects.
         self._controls = {}
         self._displays = {}
@@ -61,6 +58,9 @@ class BrickMaster2:
         self._clocks = []
         self._dates = []
         gc.collect()
+
+        # Set up the network.
+        self._network = BM2Network(self, self._bm2config.system)
 
         # Create the controls
         self._create_controls()
