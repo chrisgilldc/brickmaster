@@ -7,7 +7,6 @@ import os
 #import board
 
 # from pprint import pformat
-# import json
 import gc
 
 class BM2Config:
@@ -117,14 +116,13 @@ class BM2Config:
         self._validate_displays()
         # Validate the scripts.
         self._validate_scripts()
-        self._logger.debug("Have script config: {}".format(self._config['scripts']))
         return True
 
     # Validate system settings
     def _validate_system(self):
         self._logger.debug("Validating system section")
-        required_keys = ['name']
-        optional_keys = ['log_level', 'secrets', 'ntp_server', 'tz']
+        required_keys = ['id']
+        optional_keys = ['log_level', 'secrets']
         optional_defaults = {
             'log_level': 'info',
             'secrets': 'secrets.json',
@@ -143,6 +141,79 @@ class BM2Config:
             if key not in self._config['system']:
                 self._logger.warning("Option '{}' not found, using default '{}'".format(key, optional_defaults[key]))
                 self._config['system'][key] = optional_defaults[key]
+        if 'name' not in self._config['system']:
+            self._config['system']['name'] = self._config['system']['id']
+
+        # Check for network indicator definition.
+        if 'indicators' in self._config['system']:
+            try:
+                self._config['system']['sys_run'] = self._config['system']['indicators']['system']
+                del self._config['system']['indicators']['system']
+            except KeyError:
+                pass
+            # Net_on and net_off must be paired.
+            if 'net_on' in self._config['system']['indicators'] and 'net_off' in self._config['system']['indicators']:
+                self._config['system']['net_on'] = self._config['system']['indicators']['net_on']
+                self._config['system']['net_off'] = self._config['system']['indicators']['net_off']
+            else:
+                self._logger.warning("Config: When network indicator provided, both 'net_on' and 'net_off' must be defined!")
+
+            try:
+                del self._config['system']['indicators']['net_on']
+                del self._config['system']['indicators']['net_off']
+            except KeyError:
+                pass
+
+        # Check for a modified publish time.
+        try:
+            if isinstance(self._config['system']['publish_time'], int):
+                self._logger.info("Config: Using Publish Time {}s".format(self._config['system']['publish_time']))
+            else:
+                self._logger.warning("Config: Provided Publish Time is not an integer, defaulting to 15s.")
+                self._config['system']['publish_time'] = 15
+        except KeyError:
+            self._logger.info("Config: Using default Publish Time of 15s")
+            self._config['system']['publish_time'] = 15
+
+        # Check for Home Assistant configuration
+        if 'ha' in self._config['system']:
+            # If 'ha' is defined, turn home assistant discovery on.
+            self._config['system']['ha_discover'] = True
+            # Check for a default area.
+            try:
+                if isinstance(self._config['system']['ha']['area'],str):
+                    self._logger.info("Config: Using HA Area '{}'".format(self._config['system']['ha']['area']))
+                    self._config['system']['ha_area'] = self._config['system']['ha']['area']
+                    del self._config['system']['ha']['area']
+            except KeyError:
+                pass
+            # Check for a base discovery prefix.
+            try:
+                if isinstance(self._config['system']['ha']['base'], str):
+                    self._logger.info("Config: Using HA Base '{}'".format(self._config['system']['ha']['base']))
+                    self._config['system']['ha_base'] = self._config['system']['ha']['base']
+                    del self._config['system']['ha']['base']
+            except KeyError:
+                pass
+
+            # Check for how to set up Meminfo.
+            try:
+                if isinstance(self._config['system']['ha']['meminfo'], str):
+                    if self._config['system']['ha']['meminfo'] in ('unified','unified-used', 'split-pct','split-all'):
+                        self._logger.debug("Config: Memory info topics will be discovered as '{}'".
+                                           format(self._config['system']['ha']['meminfo']))
+                        self._config['system']['ha_meminfo'] = self._config['system']['ha']['meminfo']
+                        del self._config['system']['ha']['meminfo']
+                    else:
+                        self._logger.warning("Config: Memory info option '{}' not valid. Defaulting to 'unified'".
+                                             format(self._config['system']['ha']['meminfo']))
+                        self._config['system']['ha_meminfo'] = 'unified'
+                        del self._config['system']['ha']['meminfo']
+            except KeyError:
+                self._config['system']['ha_meminfo'] = 'unified'
+        else:
+            self._config['system']['ha_discover'] = False
+
         # Map the log level to an actual Logging entity.
         if self._config['system']['log_level'].lower() == 'debug':
             self._config['system']['log_level_name'] = 'debug'
@@ -162,7 +233,6 @@ class BM2Config:
         else:
             self._config['system']['log_level_name'] = 'info'
             self._config['system']['log_level'] = logging.INFO
-
 
     def _validate_secrets(self):
         self._logger.debug("Integrating secrets.")
@@ -201,7 +271,7 @@ class BM2Config:
         i = 0
         to_delete = []
         while i < len(self._config['controls']):
-            required_keys = ['name', 'type']
+            required_keys = ['id', 'type']
             for key in required_keys:
                 self._logger.debug("Checking for required control key '{}'".format(key))
                 if key not in self._config['controls'][i]:
@@ -210,6 +280,10 @@ class BM2Config:
                     to_delete.append(i)
                     i += 1
                     continue
+            # Check to see if name is defined.
+            if 'name' not in self._config['controls'][i]:
+                self._config['controls'][i]['name'] = self._config['controls'][i]['id']
+
             # Pull out control type, this just make it easier.
             ctrltype = self._config['controls'][i]['type']
             if ctrltype == 'gpio':
@@ -334,30 +408,11 @@ class BM2Config:
     # Get the complete network config.
     @property
     def system(self):
-        return_dict = {
-            'name': self._config['system']['name'],
-
-            'broker': self._config['secrets']['broker'],
-            'port': self._config['secrets']['port'],
-            'mqtt_username': self._config['secrets']['mqtt_username'],
-            'mqtt_password': self._config['secrets']['mqtt_password'],
-            'ntp_server': self._config['system']['ntp_server'],
-            'tz': self._config['system']['tz'],
-        }
-        # On a microcontroller, we have to handle the network. On a general-purpose OS, it does that work for us.
-        if os.uname().sysname.lower() != "linux":
-            return_dict['SSID'] =  self._config['secrets']['SSID']
-            return_dict['password'] = self._config['secrets']['password']
-        # If network indicator is defined, use it.
-        return_dict['net_on'] = None
-        return_dict['net_off'] = None
-        if 'indicators' in self._config['system']:
-            if 'net_on' in self._config['system']['indicators'] and 'net_off' in self._config['system']['indicators']:
-                return_dict['net_on'] = self._config['system']['indicators']['net_on']
-                return_dict['net_off'] = self._config['system']['indicators']['net_off']
-            else:
-                self._logger.warning("When network indicator provided, both 'net_on' and 'net_off' must be defined! Skipping.")
-        return return_dict
+        """
+        System configuration, includes the system and secrets sections of the config file.
+        :return:
+        """
+        return {k:v for d in (self._config['system'], self._config['secrets']) for k,v in d.items()}
 
     # Controls config. No merging of data required here.
     @property
