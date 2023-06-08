@@ -6,13 +6,16 @@ import sys
 
 
 class Control:
-    def __init__(self, name):
+    def __init__(self, id, name, publish_time=15):
         # Create a logger.
         self._logger = logger.getLogger('BrickMaster2')
-        # We access the name a lot, so make it easy to access.
-        self.name = name
+        # Set the ID.
+        self._id = id
+        # Set the Name.
+        self._name = name
         self._topics = None
         self._status = None
+        self._publish_time = publish_time
         # Create topics for the control. This must be implemented per subclass.
         self._create_topics()
 
@@ -37,9 +40,9 @@ class Control:
     def name(self):
         return self._name
 
-    @name.setter
-    def name(self, name):
-        self._name = name
+    @property
+    def id(self):
+        return self._id
 
     # Create topics. Each subclass should create its own control topics appropriate to its operating method.
     def _create_topics(self):
@@ -51,8 +54,8 @@ class Control:
 
 # Control class for GPIO
 class CtrlGPIO(Control):
-    def __init__(self, name, pin, addr=None, type=None, invert=False, awboard=None):
-        super().__init__(name)
+    def __init__(self, id, name, pin, publish_time, addr=None, type=None, invert=False, awboard=None):
+        super().__init__(id, name, publish_time)
         self._invert = invert
 
         if type == 'aw9523':
@@ -69,7 +72,7 @@ class CtrlGPIO(Control):
         try:
             self._pin = digitalio.DigitalInOut(getattr(board, str(pin)))
         except AttributeError:
-            self._logger.critical("Control '{}' references pin '{}', does not exist. Exiting!".
+            self._logger.critical("Control: Control '{}' references pin '{}', does not exist. Exiting!".
                                   format(self.name, pin))
             sys.exit(1)
         # Set the pin to an output
@@ -80,22 +83,22 @@ class CtrlGPIO(Control):
         try:
             self._pin = awboard.get_pin(pin)
         except AssertionError:
-            self._logger.critical("Control '{}' asserted pin '{}', not valid.".format(self.name, pin))
+            self._logger.critical("Control: Control '{}' asserted pin '{}', not valid.".format(self.name, pin))
             raise
         # Have a pin now, set it up.
         self._pin.direction = digitalio.Direction.OUTPUT
 
     def set(self, value):
-        self._logger.debug("Setting control '{}' to '{}'".format(self.name, value))
+        self._logger.info("Control: Setting control '{}' to '{}'".format(self.name, value))
         if value.lower() == 'on':
             if self._invert:
-                self._logger.debug("Control is inverted, 'On' state sets low.")
+                self._logger.debug("Control: Control is inverted, 'On' state sets low.")
                 self._pin.value = False
             else:
                 self._pin.value = True
         elif value.lower() == 'off':
             if self._invert:
-                self._logger.debug("Control is inverted, 'Off' state sets high.")
+                self._logger.debug("Control: Control is inverted, 'Off' state sets high.")
                 self._pin.value = True
             else:
                 self._pin.value = False
@@ -117,12 +120,12 @@ class CtrlGPIO(Control):
 
     def callback(self, client, topic, message):
         # Convert the message payload (which is binary) to a string.
-        self._logger.debug("Control '{}' received message '{}'".format(self.name, message))
+        self._logger.debug("Control: Control '{}' ({}) received message '{}'".format(self.name, self.id, message))
         valid_values = ['on', 'off']
         # If it's not a valid option, just ignore it.
         if message.lower() not in valid_values:
-            self._logger.info("Control '{}' received invalid command '{}'. Ignoring.".
-                              format(self.name, message))
+            self._logger.info("Control: Control '{}' ({}) received invalid command '{}'. Ignoring.".
+                              format(self.name, self.id, message))
         else:
             self.set(message)
 
@@ -130,15 +133,18 @@ class CtrlGPIO(Control):
     def _create_topics(self):
         self._topics = [
             {
-                'topic': self.name + '/set',
+                'topic': self.id + '/set',
                 'type': 'inbound',
                 'values': ['on', 'off']  # Values an inbound topic will consider valid.
             },
             {
-                'topic': self.name + '/status',
+                'topic': self.id + '/status',
                 'type': 'outbound',
                 'retain': False,  # Should this be retained? False is almost always the right choice.
                 'repeat': False,  # Should this be sent, even if the value doesn't change?
+                'publish_time': 15, # After a state change, continue repeating the publish for this amount of time.
+                                     # This covers cases where HA takes enough time to discover an entity it misses the
+                                     # publish and the entity winds up in an unknown state.
                 'obj': self,  # Object to reference to get value. Should really always be 'self' to pass a reference to this object.
                 'value_attr': 'status'  # What attribute to try to get?
             }
