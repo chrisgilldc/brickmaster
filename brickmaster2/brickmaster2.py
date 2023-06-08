@@ -60,10 +60,12 @@ class BrickMaster2:
         gc.collect()
 
         # Set up the network.
-        self._network = BM2Network(self, self._bm2config.system)
+        self._network = BM2Network(self, **self._bm2config.system)
+        gc.collect()
 
         # Create the controls
-        self._create_controls()
+        publish_time = self._bm2config.system['publish_time']
+        self._create_controls(publish_time=publish_time)
         self._bm2config.del_controls()
         # Create the displays.
         self._create_displays()
@@ -128,16 +130,22 @@ class BrickMaster2:
         return aw
 
     # Methods to create our objects. Called during setup, or when we're asked to reload.
-    def _create_controls(self):
+    def _create_controls(self, publish_time=15):
+        """
+        Create all the controls in the configuration.
+
+        :param publish_time:
+        :return:
+        """
         self._logger.debug("Memory free at start of control creation: {}".format(gc.mem_free()))
         for control_cfg in self._bm2config.controls:
             self._logger.debug("Setting up control '{}'".format(control_cfg['name']))
             if control_cfg['type'].lower() == 'gpio':
-                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg)
+                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, publish_time=publish_time)
             elif control_cfg['type'].lower() == 'aw9523':
                 if control_cfg['addr'] not in self._extgpio.keys():
                     self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
-                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, awboard=self._extgpio[control_cfg['addr']])
+                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, publish_time=publish_time, awboard=self._extgpio[control_cfg['addr']])
             gc.collect()
             self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['name'], gc.mem_free()))
 
