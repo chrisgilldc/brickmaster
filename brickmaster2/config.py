@@ -284,6 +284,7 @@ class BM2Config:
         i = 0
         to_delete = []
         while i < len(self._config['controls']):
+            # Check to see if required items are defined.
             required_keys = ['id', 'type']
             for key in required_keys:
                 self._logger.debug("Checking for required control key '{}'".format(key))
@@ -293,9 +294,20 @@ class BM2Config:
                     to_delete.append(i)
                     i += 1
                     continue
+
             # Check to see if name is defined.
             if 'name' not in self._config['controls'][i]:
                 self._config['controls'][i]['name'] = self._config['controls'][i]['id']
+
+            # Check to see if the control is disabled. This allows items to be left in the config file but skipped
+            try:
+                if self._config['controls'][i]['disable']:
+                    self._logger.info("Config: Control {} marked as disabled. Skipping.".format(self._config['controls'][i]['name']))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+            except KeyError:
+                pass
 
             # Pull out control type, this just make it easier.
             ctrltype = self._config['controls'][i]['type']

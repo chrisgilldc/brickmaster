@@ -2,7 +2,7 @@
   "system": {
     "id": "brickmaster",
     "name": "BrickMaster",
-    "log_level": "debug",
+    "log_level": "info",
     "i2c": {
       "bus_id": 1
     },
@@ -23,6 +23,104 @@
       "type": "aw9523",
       "addr": "0x58",
       "pin": 11
+    },
+    {
+      "id": "2_5v",
+      "name": "Ship-in-a-Bottle",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 10
+    },
+    {
+      "id": "3_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 9,
+      "disable": true
+    },
+    {
+      "id": "4_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 8,
+      "disable": true
+    },
+    {
+      "id": "5_9v",
+      "name": "Windmill",
+      "type": "gpio",
+      "pin": "D5"
+    },
+    {
+      "id": "6_9v",
+      "type": "gpio",
+      "pin": "D6",
+      "disable": true
+    },
+    {
+      "id": "7_9v",
+      "type": "gpio",
+      "pin": "D7",
+      "disable": true
+    },
+    {
+      "id": "8_9v",
+      "type": "gpio",
+      "pin": "D8",
+      "invert": "true",
+      "disable": true
+    },
+    {
+      "id": "9_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 1,
+      "disable": true
+    },
+    {
+      "id": "10_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 2,
+      "disable": true
+    },
+    {
+      "id": "11_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 3,
+      "disable": true
+    },
+    {
+      "id": "12_5v",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 4,
+      "disable": true
+    },
+    {
+      "id": "13_9v",
+      "type": "gpio",
+      "pin": "D4",
+      "disable": true
+    },
+    {
+      "id": "14_9v",
+      "type": "gpio",
+      "pin": "D3",
+      "disable": true
+    },
+    {
+      "id": "15_9v",
+      "type": "gpio",
+      "pin": "D2",
+      "disable": true
+    },
+    {
+      "id": "16_9v",
+      "type": "gpio",
+      "pin": "D1",
+      "disable": true
     }
   ],
   "displays": [
