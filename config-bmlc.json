@@ -49,18 +49,21 @@
       "id": "5_9v",
       "name": "Windmill",
       "type": "gpio",
-      "pin": "D5"
+      "pin": "D5",
+      "invert": true
     },
     {
       "id": "6_9v",
       "type": "gpio",
       "pin": "D6",
+      "invert": true,
       "disable": true
     },
     {
       "id": "7_9v",
       "type": "gpio",
       "pin": "D7",
+      "invert": true,
       "disable": true
     },
     {
@@ -102,24 +105,28 @@
       "id": "13_9v",
       "type": "gpio",
       "pin": "D4",
+      "invert": true,
       "disable": true
     },
     {
       "id": "14_9v",
       "type": "gpio",
       "pin": "D3",
+      "invert": true,
       "disable": true
     },
     {
       "id": "15_9v",
       "type": "gpio",
       "pin": "D2",
+      "invert": true,
       "disable": true
     },
     {
       "id": "16_9v",
       "type": "gpio",
       "pin": "D1",
+      "invert": true,
       "disable": true
     }
   ],
