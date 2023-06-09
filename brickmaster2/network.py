@@ -472,9 +472,6 @@ class BM2Network:
 
         # The outbound topics dict includes references to the objects, so we can get the objects from there.
         for item in self._topics_outbound:
-            print("Outbound topics items:")
-            print(item)
-            print(self._topics_outbound[item])
             if isinstance(self._topics_outbound[item]['obj'],brickmaster2.controls.CtrlGPIO):
                 self._ha_discovery_gpio(self._topics_outbound[item]['obj'])
 
