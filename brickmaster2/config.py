@@ -14,12 +14,13 @@ class BM2Config:
         self._config = None
         self._config_file = None
         self._logger = logging.getLogger("BrickMaster2")
+        self._logger.setLevel(logging.INFO)
         # If we're running under Circuitpython, we *must* have the config.json in a specific place.
         if sys.implementation.name == 'circuitpython':
-            print("Running on Circuitpython, loading config.json in root directory.")
+            self._logger.info("Running on Circuitpython, loading config.json in root directory.")
             self._config_file = 'config.json'
         elif os.uname().sysname.lower() == 'linux':
-            print("Running on general-purpose Linux, checking system paths...")
+            self._logger.info("Running on general-purpose Linux, checking system paths...")
             # Otherwise, add support for locating the search path.
             global Path
             from pathlib import Path
@@ -28,9 +29,12 @@ class BM2Config:
             if config_file is not None:
                 self._search_paths.insert(0, Path(config_file))
         else:
-            print("Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
+            self._logger.critical("Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
                   "\n\tPython Implementation: {}".format(os.uname().sysname, sys.implementation.name))
+            sys.exit(1)
+
         self.process_config()
+
         self._logger.info("Setting log level to: {}".format(self._config['system']['log_level_name']))
         self._logger.setLevel(self._config['system']['log_level'])
 
@@ -76,7 +80,7 @@ class BM2Config:
             # If we haven't trapped yet, assign it.
             self._config_file = the_input
 
-    def load_config(self,):
+    def load_config(self):
         # Open the current config file and suck it into a staging variable.
         self._config = self._open_json(self.config_file)
         self._logger.debug("Read config JSON:")
@@ -106,6 +110,10 @@ class BM2Config:
             if key not in self._config:
                 self._logger.critical("Required configuration section '{}' not present. Cannot continue!".format(key))
                 sys.exit(1)
+        # Change the logging level.
+        self._validate_logging()
+        self._logger.info("Config: Adjusting log level to '{}'".format(self._config['system']['log_level_name']))
+        self._logger.setLevel(self._config['system']['log_level'])
         # Make sure the right sections exist.
         self._validate_system()
         # Validate the secrets and merge into the main system config.
@@ -214,25 +222,30 @@ class BM2Config:
         else:
             self._config['system']['ha_discover'] = False
 
-        # Map the log level to an actual Logging entity.
-        if self._config['system']['log_level'].lower() == 'debug':
-            self._config['system']['log_level_name'] = 'debug'
-            self._config['system']['log_level'] = logging.DEBUG
-        elif self._config['system']['log_level'].lower() == 'info':
-            self._config['system']['log_level_name'] = 'info'
-            self._config['system']['log_level'] = logging.INFO
-        elif self._config['system']['log_level'].lower() == 'warning':
+    def _validate_logging(self):
+        try:
+            # Map the log level to an actual Logging entity.
+            if self._config['system']['log_level'].lower() == 'debug':
+                self._config['system']['log_level_name'] = 'debug'
+                self._config['system']['log_level'] = logging.DEBUG
+            elif self._config['system']['log_level'].lower() == 'info':
+                self._config['system']['log_level_name'] = 'info'
+                self._config['system']['log_level'] = logging.INFO
+            elif self._config['system']['log_level'].lower() == 'warning':
+                self._config['system']['log_level_name'] = 'warning'
+                self._config['system']['log_level'] = logging.WARNING
+            elif self._config['system']['log_level'].lower() == 'error':
+                self._config['system']['log_level_name'] = 'error'
+                self._config['system']['log_level'] = logging.ERROR
+            elif self._config['system']['log_level'].lower() == 'critical':
+                self._config['system']['log_level_name'] = 'critical'
+                self._config['system']['log_level'] = logging.CRITICAL
+            else:
+                self._config['system']['log_level_name'] = 'warning'
+                self._config['system']['log_level'] = logging.WARNING
+        except KeyError:
             self._config['system']['log_level_name'] = 'warning'
             self._config['system']['log_level'] = logging.WARNING
-        elif self._config['system']['log_level'].lower() == 'error':
-            self._config['system']['log_level_name'] = 'error'
-            self._config['system']['log_level'] = logging.ERROR
-        elif self._config['system']['log_level'].lower() == 'CRITICAL':
-            self._config['system']['log_level_name'] = 'error'
-            self._config['system']['log_level'] = logging.INFO
-        else:
-            self._config['system']['log_level_name'] = 'info'
-            self._config['system']['log_level'] = logging.INFO
 
     def _validate_secrets(self):
         self._logger.debug("Integrating secrets.")
