@@ -10,7 +10,7 @@ import digitalio
 from digitalio import DigitalInOut
 import adafruit_logging
 import adafruit_minimqtt.adafruit_minimqtt as af_MQTT
-from adafruit_datetime import datetime
+# from adafruit_datetime import datetime
 import brickmaster2.scripts
 import brickmaster2.controls
 import gc
@@ -71,16 +71,16 @@ class BM2Network:
             # Conditionally import to global.
             global adafruit_esp32spi
             global socket
-            global rtc
+            # global rtc
             from adafruit_esp32spi import adafruit_esp32spi
             import adafruit_esp32spi.adafruit_esp32spi_socket as socket
-            import rtc
+            # import rtc
             # Connect to the network
             self._setup_wifi()
             self._connect_wifi()
             self._clock_set = False
             self._clock_last_set = 0
-            self._set_clock()
+            # self._set_clock()
         else:
             global socket
             import socket
@@ -133,17 +133,17 @@ class BM2Network:
     def poll(self):
         # self._logger.debug("Network: Poll Called")
         # Do an NTP update.
-        if os.uname().sysname.lower() != 'linux':
-            if not self._clock_set:
-                if time.monotonic() - self._clock_last_set > 15:
-                    self._logger.info("Network: Trying to set clock.")
-                    self._set_clock()
-                    self._clock_last_set = time.monotonic()
-            else:
-                if time.monotonic() - self._clock_last_set > 43200:
-                    self._logger.debug("Network: Resetting clock after 12 hours.")
-                    self._set_clock()
-                    self._clock_last_set = time.monotonic()
+        # if os.uname().sysname.lower() != 'linux':
+        #     if not self._clock_set:
+        #         if time.monotonic() - self._clock_last_set > 15:
+        #             self._logger.info("Network: Trying to set clock.")
+        #             self._set_clock()
+        #             self._clock_last_set = time.monotonic()
+        #     else:
+        #         if time.monotonic() - self._clock_last_set > 43200:
+        #             self._logger.debug("Network: Resetting clock after 12 hours.")
+        #             self._set_clock()
+        #             self._clock_last_set = time.monotonic()
 
         # Check to see if the MQTT client is connected.
         # If we need to reconnect do it. If that fails, we'll return here, since everything past this is MQTT related.
@@ -270,21 +270,21 @@ class BM2Network:
         self._mqtt_client.on_connect = self._cb_connected
         self._mqtt_client.on_disconnect = self._cb_disconnected
 
-    def _set_clock(self):
-        try:
-            esp_time = self._esp.get_time()
-        except OSError:
-            self._logger.warning("Network: Failed to fetch time. Retry in 15s.")
-            self._clock_set = False
-            return
-        else:
-            rtc.RTC().datetime = datetime.fromtimestamp(esp_time[0]).timetuple()
-            dt = rtc.RTC().datetime
-            # (tm_year=2023, tm_mon=6, tm_mday=3, tm_hour=11, tm_min=34, tm_sec=55, tm_wday=5, tm_yday=154, tm_isdst=-1)
-            self._logger.info("Network: Updated time from network. New time: {}/{}/{} {}:{}:{}".
-                              format(dt.tm_mday, dt.tm_mon, dt.tm_year, dt.tm_hour, dt.tm_min, dt.tm_sec))
-            self._clock_last_set = time.monotonic()
-            self._clock_set = True
+    # def _set_clock(self):
+    #     try:
+    #         esp_time = self._esp.get_time()
+    #     except OSError:
+    #         self._logger.warning("Network: Failed to fetch time. Retry in 15s.")
+    #         self._clock_set = False
+    #         return
+    #     else:
+    #         rtc.RTC().datetime = datetime.fromtimestamp(esp_time[0]).timetuple()
+    #         dt = rtc.RTC().datetime
+    #         # (tm_year=2023, tm_mon=6, tm_mday=3, tm_hour=11, tm_min=34, tm_sec=55, tm_wday=5, tm_yday=154, tm_isdst=-1)
+    #         self._logger.info("Network: Updated time from network. New time: {}/{}/{} {}:{}:{}".
+    #                           format(dt.tm_mday, dt.tm_mon, dt.tm_year, dt.tm_hour, dt.tm_min, dt.tm_sec))
+    #         self._clock_last_set = time.monotonic()
+    #         self._clock_set = True
 
     def _set_indicator(self, status):
         if self._led_neton is not None and self._led_netoff is not None:
