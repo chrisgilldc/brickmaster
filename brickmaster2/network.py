@@ -487,7 +487,9 @@ class BM2Network:
             'device': self._ha_device_info,
             'device_class': 'connectivity',
             'unique_id': self._mac_string + "_connectivity",
-            'state_topic': self._topic_prefix + '/connectivity'
+            'state_topic': self._topic_prefix + '/connectivity',
+            'payload_on': 'online',
+            'payload_off': 'offline'
         }
         discovery_json = json.dumps(discovery_dict)
         # Publish it!
@@ -511,7 +513,8 @@ class BM2Network:
             'state_topic': self._topic_prefix + '/meminfo',
             'unit_of_measurement': '%',
             'value_template': '{{ value_json.pct_free }}',
-            'icon': 'mdi:memory'
+            'icon': 'mdi:memory',
+            'availability_topic': self._topic_prefix + '/connectivity'
         }
         memusedpct_dict = {
             'name': "Memory Used (Pct)",
@@ -521,7 +524,8 @@ class BM2Network:
             'state_topic': self._topic_prefix + '/meminfo',
             'unit_of_measurement': '%',
             'value_template': '{{ value_json.pct_used }}',
-            'icon': 'mdi:memory'
+            'icon': 'mdi:memory',
+            'availability_topic': self._topic_prefix + '/connectivity'
         }
         memfreebytes_dict = {
             'name': "Memory Available (Bytes)",
@@ -531,7 +535,8 @@ class BM2Network:
             'state_topic': self._topic_prefix + '/meminfo',
             'unit_of_measurement': 'B',
             'value_template': '{{ value_json.mem_free }}',
-            'icon': 'mdi:memory'
+            'icon': 'mdi:memory',
+            'availability_topic': self._topic_prefix + '/connectivity'
         }
         memusedbytes_dict = {
             'name': "Memory Used (Bytes)",
@@ -541,7 +546,8 @@ class BM2Network:
             'state_topic': self._topic_prefix + '/meminfo',
             'unit_of_measurement': 'B',
             'value_template': '{{ value_json.mem_used }}',
-            'icon': 'mdi:memory'
+            'icon': 'mdi:memory',
+            'availability_topic': self._topic_prefix + '/connectivity'
         }
 
         if self._ha_meminfo == 'unified':
@@ -582,7 +588,8 @@ class BM2Network:
             'icon': 'mdi:toy-brick',
             'unique_id': self._mac_string + "_" + str(time.monotonic()) + "_"+ gpio_control.id,
             'command_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/set',
-            'state_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/status'
+            'state_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/status',
+            'availability_topic': self._topic_prefix + '/connectivity'
         }
         discovery_json = json.dumps(discovery_dict)
         # Publish it!
