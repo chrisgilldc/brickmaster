@@ -306,6 +306,9 @@ class BM2Config:
                     to_delete.append(i)
                     i += 1
                     continue
+                else:
+                    # If the 'disable' setting for the control is anything other than true, we enable, so ignore the setting.
+                    del self._config['controls'][i]['disable']
             except KeyError:
                 pass
 
