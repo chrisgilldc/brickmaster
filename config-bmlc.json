@@ -50,7 +50,8 @@
       "name": "Windmill",
       "type": "gpio",
       "pin": "D5",
-      "invert": false
+      "invert": true,
+      "disable": false
     },
     {
       "id": "6_9v",
