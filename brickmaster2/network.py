@@ -1,6 +1,7 @@
 # Brickmaster2 Network handling module
 
 import os
+import sys
 import board
 import busio
 import time
@@ -336,12 +337,12 @@ class BM2Network:
                 self._logger.info("Network: Rerunning Home Assistant discovery.")
                 self._ha_discovery()
             elif message == 'restart':
+                self._logger.critical("Network: Restart requested! Restarting in 5s!")
+                time.sleep(5)
                 if os.uname().sysname.lower() != 'linux':
-                    self._logger.critical("Network: Restart requested! Restarting in 5s!")
-                    time.sleep(5)
                     supervisor.reset()
                 else:
-                    self._logger.warning("Network: Reset requested but cannot be performed on Linux systems.")
+                    sys.exit(0)
 
     def _publish_outbound(self):
         """
