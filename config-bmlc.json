@@ -50,14 +50,15 @@
       "name": "Windmill",
       "type": "gpio",
       "pin": "D5",
-      "invert": true
+      "invert": false
     },
     {
       "id": "6_9v",
+      "name": "Rollercoaster Lift",
       "type": "gpio",
       "pin": "D6",
       "invert": true,
-      "disable": true
+      "disable": false
     },
     {
       "id": "7_9v",
@@ -77,28 +78,28 @@
       "id": "9_5v",
       "type": "aw9523",
       "addr": "0x58",
-      "pin": 1,
+      "pin": 4,
       "disable": true
     },
     {
       "id": "10_5v",
       "type": "aw9523",
       "addr": "0x58",
-      "pin": 2,
+      "pin": 3,
       "disable": true
     },
     {
       "id": "11_5v",
       "type": "aw9523",
       "addr": "0x58",
-      "pin": 3,
+      "pin": 2,
       "disable": true
     },
     {
       "id": "12_5v",
       "type": "aw9523",
       "addr": "0x58",
-      "pin": 4,
+      "pin": 1,
       "disable": true
     },
     {
