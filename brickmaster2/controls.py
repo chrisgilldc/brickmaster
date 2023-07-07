@@ -140,7 +140,7 @@ class CtrlGPIO(Control):
             {
                 'topic': self.id + '/status',
                 'type': 'outbound',
-                'retain': False,  # Should this be retained? False is almost always the right choice.
+                'retain': True,  # Should this be retained? False is almost always the right choice.
                 'repeat': False,  # Should this be sent, even if the value doesn't change?
                 'publish_time': 15, # After a state change, continue repeating the publish for this amount of time.
                                      # This covers cases where HA takes enough time to discover an entity it misses the

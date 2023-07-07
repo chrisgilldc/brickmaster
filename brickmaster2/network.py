@@ -383,10 +383,14 @@ class BM2Network:
 
         self._logger.debug("Network: Publishing...")
         # Roll over the value.
-        self._topics_outbound[topic]['previous_value'] = message
-        self._topics_outbound[topic]['previous_publish'] = time.monotonic()
-        self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message,
-                                  self._topics_outbound[topic]['retain'])
+        try:
+            self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message,
+                                      self._topics_outbound[topic]['retain'])
+        except ConnectionError:
+            self._logger.error("Could not publish due to connection error.")
+        else:
+            self._topics_outbound[topic]['previous_value'] = message
+            self._topics_outbound[topic]['previous_publish'] = time.monotonic()
 
     # Set up a new control or script
     def add_item(self, input_obj):
@@ -587,7 +591,7 @@ class BM2Network:
             'object_id': self._system_id + "_" + gpio_control.id,
             'device': self._ha_device_info,
             'icon': 'mdi:toy-brick',
-            'unique_id': self._mac_string + "_" + str(time.monotonic()) + "_"+ gpio_control.id,
+            'unique_id': self._mac_string + "_" + gpio_control.id,
             'command_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/set',
             'state_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/status',
             'availability_topic': self._topic_prefix + '/connectivity'
