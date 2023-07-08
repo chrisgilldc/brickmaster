@@ -95,8 +95,8 @@ class BM2Network:
                 'repeat': False,
                 'retain': True,
                 'previous_value': 'Unknown',
-                'publish_time': 120,
-                'previous_publish': 0,
+                'publish_after_discovery': 120,
+                'discovery_time': 0,
                 'obj': None # No object, but include this to prevent breakage.
             },
             'meminfo': {
@@ -104,8 +104,8 @@ class BM2Network:
               'repeat': False,
               'retain': False,
               'previous_value': 'Unknown',
-              'publish_time': 1,
-              'previous_publish': 0,
+              'publish_after_discovery': 1,
+              'discovery_time': 0,
               'obj': None
             },
             'active_script': {
@@ -115,8 +115,8 @@ class BM2Network:
                 'obj': self._core,
                 'value_attr': 'active_script',
                 'previous_value': 'Unknown',
-                'publish_time': 120,
-                'previous_publish': 0
+                'publish_after_discovery': 120,
+                'discovery_time': 0
             }
         }
 
@@ -369,10 +369,13 @@ class BM2Network:
         publish = True
         if message == self._topics_outbound[topic]['previous_value']:
             publish = False
-            if time.monotonic() - self._topics_outbound[topic]["previous_publish"] < self._topics_outbound[topic][
-                    "publish_time"]:
-                self._logger.debug("Network: Within topic republish time of {}s".
-                                   format(self._topics_outbound[topic]["publish_time"]))
+            now_time = time.monotonic()
+            if now_time - self._topics_outbound[topic]["discovery_time"] < self._topics_outbound[topic][
+                    "publish_after_discovery"]:
+                self._logger.debug("Network: Discovery time was {}, time now is {}. Difference is {}".format(
+                    self._topics_outbound[topic]["discovery_time"], now_time,
+                    now_time - self._topics_outbound[topic]["discovery_time"]
+                ))
                 publish = True
             if self._topics_outbound[topic]['repeat']:
                 self._logger.debug("Network: Repeat set true, forcing publish.")
@@ -390,7 +393,6 @@ class BM2Network:
             self._logger.error("Could not publish due to connection error.")
         else:
             self._topics_outbound[topic]['previous_value'] = message
-            self._topics_outbound[topic]['previous_publish'] = time.monotonic()
 
     # Set up a new control or script
     def add_item(self, input_obj):
@@ -400,6 +402,7 @@ class BM2Network:
         # Different callback organization. Controls will get direct callbacks, since they're quick.
         # Scripts get managed through the core run loop, which keeps nesting under control.
         if issubclass(type(input_obj), brickmaster2.controls.Control):
+            self._topics_outbound[input_obj.id] = {}
             prefix = self._topic_prefix + '/' + "controls"
             callback = input_obj.callback
             if self._ha_discover:
@@ -407,6 +410,7 @@ class BM2Network:
                 if isinstance(input_obj, brickmaster2.controls.CtrlGPIO):
                     self._ha_discovery_gpio(input_obj)
         elif isinstance(input_obj, brickmaster2.scripts.BM2Script):
+            self._topics_outbound[input_obj.id] = {}
             prefix = self._topic_prefix + '/' + "scripts"
             callback = self._core.callback_scr
         else:
@@ -432,7 +436,7 @@ class BM2Network:
             self._topics_outbound[input_obj.id]['topic'] = prefix + '/' + self._topics_outbound[input_obj.id]['topic']
             # Initialize the previous publication keys.
             self._topics_outbound[input_obj.id]['previous_value'] = None
-            self._topics_outbound[input_obj.id]['previous_publish'] = 0
+            self._topics_outbound[input_obj.id]['discovery_time'] = 0
             self._logger.debug("Network: Outbound topic dict '{}'".format(self._topics_outbound[input_obj.id]))
 
             if self._mqtt_client.is_connected():
@@ -500,6 +504,7 @@ class BM2Network:
         # Publish it!
         discovery_topic = self._ha_base + '/binary_sensor/' + self._system_id + '/connectivity/config'
         self._mqtt_client.publish(discovery_topic, discovery_json, False)
+        self._topics_outbound['connectivity']['discovery_time'] = time.monotonic()
 
     def _ha_discovery_meminfo(self):
         """
@@ -578,6 +583,7 @@ class BM2Network:
             self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memusedpct/config', json.dumps(memusedpct_dict), False)
             self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memfreebytes/config', json.dumps(memfreebytes_dict), False)
             self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memusedbytes/config', json.dumps(memusedbytes_dict), False)
+        self._topics_outbound['meminfo']['discovery_time'] = time.monotonic()
 
     def _ha_discovery_gpio(self, gpio_control):
         """
@@ -600,6 +606,7 @@ class BM2Network:
         # Publish it!
         discovery_topic = self._ha_base + '/switch/' + self._system_id + '/' + gpio_control.id + '/config'
         self._mqtt_client.publish(discovery_topic, discovery_json, False)
+        self._topics_outbound[gpio_control.id]['discovery_time'] = time.monotonic()
 
     @property
     def _ha_device_info(self):

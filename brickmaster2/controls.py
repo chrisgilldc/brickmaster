@@ -142,9 +142,9 @@ class CtrlGPIO(Control):
                 'type': 'outbound',
                 'retain': True,  # Should this be retained? False is almost always the right choice.
                 'repeat': False,  # Should this be sent, even if the value doesn't change?
-                'publish_time': 15, # After a state change, continue repeating the publish for this amount of time.
-                                     # This covers cases where HA takes enough time to discover an entity it misses the
-                                     # publish and the entity winds up in an unknown state.
+                'publish_after_discovery': 15, # How long after discovery should the value be repeated. This forces
+                                               # a repeat in case it takes longer for the entity to be created than
+                                               # it takes for the first message to send.
                 'obj': self,  # Object to reference to get value. Should really always be 'self' to pass a reference to this object.
                 'value_attr': 'status'  # What attribute to try to get?
             }
