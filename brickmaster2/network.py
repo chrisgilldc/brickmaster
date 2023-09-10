@@ -11,11 +11,12 @@ import digitalio
 from digitalio import DigitalInOut
 import adafruit_logging
 import adafruit_minimqtt.adafruit_minimqtt as af_MQTT
+
 # from adafruit_datetime import datetime
 import brickmaster2.scripts
 import brickmaster2.controls
 import gc
-import supervisor
+import microcontroller
 
 
 class BM2Network:
@@ -132,25 +133,24 @@ class BM2Network:
 
     # Main polling loop. This gets called by the main system run loop when it's time to poll the network.
     def poll(self):
-        # self._logger.debug("Network: Poll Called")
-        # Do an NTP update.
-        # if os.uname().sysname.lower() != 'linux':
-        #     if not self._clock_set:
-        #         if time.monotonic() - self._clock_last_set > 15:
-        #             self._logger.info("Network: Trying to set clock.")
-        #             self._set_clock()
-        #             self._clock_last_set = time.monotonic()
-        #     else:
-        #         if time.monotonic() - self._clock_last_set > 43200:
-        #             self._logger.debug("Network: Resetting clock after 12 hours.")
-        #             self._set_clock()
-        #             self._clock_last_set = time.monotonic()
+        """
+        Main network polling loop.
 
-        # Check to see if the MQTT client is connected.
-        # If we need to reconnect do it. If that fails, we'll return here, since everything past this is MQTT related.
-        # self._logger.debug("Network: Checking MQTT connectivity.")
+        :return:
+        """
+
+        # If on non-Linux system, check to see if the network is connected. If not, call the connection loop.
+        # System will stay in the WiFi connect loop until a connection is made, which is fine, since being on the
+        # network is the whole point of the system.
+        if os.uname().sysname.lower() != 'linux':
+            if not self._esp.is_connected:
+                self._logger.warning("Network: WiFi not connected!")
+                self._set_indicator("off")
+                self._connect_wifi()
+
+        # If network connectivity is up, check for MQTT connectivity
         if not self._mqtt_client.is_connected():
-            self._logger.info("Network: MQTT not connected.")
+            self._logger.warning("Network: MQTT client not connected!")
             try_reconnect = False
             # Has is been 30s since the previous attempt?
             if time.monotonic() - self._reconnect_timestamp > 30:
@@ -172,6 +172,9 @@ class BM2Network:
         except af_MQTT.MMQTTException:
             self._logger.warning("Network: MQTT poll timed out.")
             self._logger.debug("Network MQTT connection state: {}".format(self._mqtt_client.is_connected()))
+            return
+        except ConnectionError:
+            self._logger.warning("Network: Connection error when polling MQTT broker.")
             return
 
         # Publish an online message.
@@ -223,9 +226,11 @@ class BM2Network:
             try:
                 self._esp.connect_AP(self._ssid, self._ssid_password)
             except OSError as e:
-                self._logger.warning("Network: Could not connect to WIFI SSID {}. Retrying in 30s.".format(self._ssid))
+                self._logger.warning("Network: Could not connect to WIFI SSID '{}'. Retrying in 30s.".format(self._ssid))
                 time.sleep(30)
                 continue
+            else:
+                self._logger.info("Connected to WIFI! Got IP: {}".format(self._esp.pretty_ip(self._esp.ip_address)))
 
     # Internal setup methods.
     def _setup_wifi(self):
@@ -297,13 +302,9 @@ class BM2Network:
                 self._led_netoff.value = True
 
     def _cb_connected(self, client, userdata, flags, rc):
-        self._logger.info("Network: Connection callback called.")
+        self._logger.info("Network: MQTT connection successful.")
         # Turn the indicator LED on.
         self._set_indicator("on")
-        # Subscribe to the appropriate topics.
-        # for control in self._topics_inbound:
-        #     self._mqtt_client.subscribe(control['topic'])
-        #     self._mqtt_client.add_topic_callback(control['topic'], control['callback'])
         # Send online message.
         self._publish('connectivity', 'online')
         # Publish all registered item statuses.
@@ -328,7 +329,7 @@ class BM2Network:
         """
         # Convert the message payload (which is binary) to a string.
         self._logger.debug("Network: Received system command '{}'".format(message))
-        valid_values = ['rediscover', 'reset']
+        valid_values = ['rediscover', 'restart']
         # If it's not a valid option, just ignore it.
         if message.lower() not in valid_values:
             self._logger.warning("Network: Received invalid system command '{}'. Ignoring.".format(message))
@@ -340,7 +341,7 @@ class BM2Network:
                 self._logger.critical("Network: Restart requested! Restarting in 5s!")
                 time.sleep(5)
                 if os.uname().sysname.lower() != 'linux':
-                    supervisor.reset()
+                    microcontroller.reset()
                 else:
                     sys.exit(0)
 
@@ -407,7 +408,7 @@ class BM2Network:
             callback = input_obj.callback
             if self._ha_discover:
                 self._logger.info("Network: Sending HA discovery for item '{}' ({})".format(input_obj.name, input_obj.id))
-                if isinstance(input_obj, brickmaster2.controls.CtrlGPIO):
+                if isinstance(input_obj, brickmaster2.controls.CtrlGPIO) and self._mqtt_client.is_connected():
                     self._ha_discovery_gpio(input_obj)
         elif isinstance(input_obj, brickmaster2.scripts.BM2Script):
             self._topics_outbound[input_obj.id] = {}
