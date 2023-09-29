@@ -2,7 +2,8 @@
   "system": {
     "id": "brickmaster",
     "name": "BrickMaster",
-    "log_level": "info",
+    "log_level": "warning",
+    "wifihw": "esp32spi",
     "i2c": {
       "bus_id": 1
     },

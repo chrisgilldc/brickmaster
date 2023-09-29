@@ -6,25 +6,30 @@
 
 ## Summary
 
-A (Circuit)Python application for controlling relays and devices.
+A (Circuit)Python application for controlling relays and devices. The most important of which are, of course, Legos.
 
-Project Goals
+### Project Goals
 * Provide a common interface for a variety of devices
 * Be able to do cool automations with connected devices (ie: Saturn 5 launch simulation)
-* Teach myself some more python
+* Teach myself some more python (and hardware, and MQTT)
 
 ## Platform Support
 
 ### Supported Platforms
-This system is *intended* to support both CircuitPython boards and general-purpose Linux SBCs (ie: the Pi). Testing is
-performed directly on a Raspberry Pi Zero W and Adafruit Metro M4 Airlift. Not all features are tested on both boards.
+This system is *intended* to support both CircuitPython boards and general-purpose Linux SBCs (ie: the Pi). Testing was 
+originally performed on the Raspberry Pi Zero W and [Adafruit Metro M4 Airlift](https://www.adafruit.com/product/4000). 
+As of v0.4, the [Adafruit ESP32 Feather v2](https://www.adafruit.com/product/5400) is also supported and tested.
+Not all features are tested on all boards, either due to hardware limitations or my own needs.
 
 *NOTE*
 
+As of 9/29/2023, this *appears* to be fixed in the latest release.
+
 As of 6/5/2023, the ESP32SPI socket implementation has a 
-[known issue](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/pull/168) with it's receive behavior. This impacts the 
-MiniMQTT library this package uses. Aafton Bladet has a 
-[patched version](https://github.com/aaftonbladet/Adafruit_CircuitPython_MiniMQTT/tree/esp32spi_socket_read_fix) which is pending acceptance. For the time being, use that version, it (appears to) work fine.
+[known issue](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/pull/168) with it's receive behavior. This 
+impacts the MiniMQTT library this package uses. Aafton Bladet has a 
+[patched version](https://github.com/aaftonbladet/Adafruit_CircuitPython_MiniMQTT/tree/esp32spi_socket_read_fix) which 
+is pending acceptance. For the time being, use that version, it (appears to) work fine.
 
 ## Installation
 
@@ -50,7 +55,11 @@ _Probably works for other Linux versions, but not tested, adapt as appropriate._
 2. Download and install the required libraries:
 3. Copy the "code.py" file to the board root directory.
 4. Create a config.json and copy that to the board root directory.
-
+5. Note that depending on the board, you may need to increase the stack size. You can do this by adding the below to 
+'settings.toml'
+    ```
+    CIRCUITPY_PYSTACK_SIZE=2048
+    ```
 ## Configuration file
 
 The configuration file is a JSON text file, which unfortunately means it can't be commented.
@@ -70,13 +79,14 @@ Example configs are in the `examples` directory.
 
 :white_check_mark: **means required**
 
-| Name                      | Type   | Default    | Since | Description                                                 |
-|---------------------------|--------|------------|-------|-------------------------------------------------------------|
-| :white_check_mark: `name` | string | 'hostname' | v0.1  | Name of the system to be used in MQTT topics and elsewhere. |
-| `log_level`               | string | 'warning'  | v0.1  | How verbose to be.                                          |
-| `i2c`                     | dict   | None       | v0.1  | Defines I2C bus to use. Only required if using displays.    |
-| 'indicators' | dict | None | v0.3.1 | Defines GPIO pins for indicators lights. |
-| 'ha' | dict | None | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery. |
+| Name                   | Type   | Default    | Since  | Description                                                                                                         |
+|------------------------|--------|------------|--------|---------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `name` | string | 'hostname' | v0.1   | Name of the system to be used in MQTT topics and elsewhere.                                                         |
+| `log_level`            | string | 'warning'  | v0.1   | How verbose to be.                                                                                                  |
+| `wifihw`               | string | None | v0.4   | Type of WiFi hardware. May be 'esp32' or 'esp32spi'. If not specified, will try to auto-detect, but not guaranteed. | 
+| `i2c`                  | dict   | None       | v0.1   | Defines I2C bus to use. Only required if using displays.                                                            |
+| `indicators`           | dict | None | v0.3.1 | Defines GPIO pins for indicators lights.                                                                            |
+| `ha`                    | dict | None | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                       |
 
 #### I2C
 Currently the only option for I2C is 'bus_id', which must be an integer. Should probably always be '1'.
@@ -84,23 +94,23 @@ Currently the only option for I2C is 'bus_id', which must be an integer. Should 
 #### Indicators
 
 System status indicators. These must be GPIO pins on the main board, as they are used before any extension boards
-(ie: AW9523s) are loaded.
+(ie: AW9523s) are loaded. If you don't have indicators, you can exclude this.
 
-| Name            | Type   | Default | Since  | Description                                                                                 |
-|-----------------|--------|---------|--------|---------------------------------------------------------------------------------------------|
-| 'system'        | string | None    | v0.3.1 | GPIO pin to indicate system is running.                                                     |
-| `net_on' | string | None    | v0.3.1 | Set active when both Wifi and MQTT are connected. If defined, net_off must also be defined. |
-| 'net_off' | string | None | v0.3.1 | Set active when either MQTT or Wifi are disconnected. If defined, net_on must also be defined. |
+| Name        | Type   | Default | Since  | Description                                                                                 |
+|-------------|--------|---------|--------|---------------------------------------------------------------------------------------------|
+| `system`     | string | None    | v0.3.1 | GPIO pin to indicate system is running.                                                     |
+| `net_on` | string | None    | v0.3.1 | Set active when both Wifi and MQTT are connected. If defined, net_off must also be defined. |
+| `net_off` | string | None | v0.3.1 | Set active when either MQTT or Wifi are disconnected. If defined, net_on must also be defined. |
 
 Note in my hardware configuration, the net_on and net_off pins run to different legs of a bi-color LED. Nothing in the code
 mandates that.
 
 #### Home Assistant (ha)
 
-| Name         | Type   | Default   | Since  | Description                                                                                                                                                                                                                                                                                                                             |
-|--------------|--------|-----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `area`       | string | None      | v0.3.1 | Area to suggest for the device when performing discovery.                                                                                                                                                                                                                                                                               |
-| `meminfo'    | string | 'unified' | v0.3.1 | How to set up system memory information.<li>'unified' creates one entities, showing percent of memory free. <li>'unified-used' creates one entitiy, showing percent of memory used. <li>'split-pct' creates seperate used and free percent entities.<li>'split-all' creates entities for free and used in both percent and total bytes. |
+| Name        | Type   | Default   | Since  | Description                                                                                                                                                                                                                                                                                                                             |
+|-------------|--------|-----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `area`      | string | None      | v0.3.1 | Area to suggest for the device when performing discovery.                                                                                                                                                                                                                                                                               |
+| `meminfo`    | string | 'unified' | v0.3.1 | How to set up system memory information.<li>'unified' creates one entities, showing percent of memory free. <li>'unified-used' creates one entitiy, showing percent of memory used. <li>'split-pct' creates seperate used and free percent entities.<li>'split-all' creates entities for free and used in both percent and total bytes. |
 
 ### Controls
 
@@ -113,13 +123,13 @@ aw9523 type, for pins via the AW9523 I2C extension board.
 #### GPIO
 :white_check_mark: **means required**
 
-| Name                      | Type   | Default | Since | Description                                                                                                    |
-|---------------------------|--------|---------|-------|----------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: `name` | string | None    | v0.1  | Name of the control. This will be part of the topic name.                                                      |
-| :white_check_mark: `type` | string | 'gpio'  | v0.1  | Defines the control type. This is GPIO.                                                                        | 
-| :white_check_mark: `pin`  | string | None    | v0.1  | GPIO control to map too. Must be a valid name from the Adafruit board library. For example, Pi pin 25 is "D25" |
-| 'invert' | boolean | False | v0.3.1 | Invert the control so 'off' holds the pin high and 'on' sets it low. This is required for some relay boards. |
-| 'disable' | boolean | False v0.3.1 | If defined and true, ignore this control. This allows currently unused controls to remain defined in the config file but not be exposed for use or pused to HA. |
+| Name                    | Type   | Default | Since  | Description                                                                                                                                                      |
+|-------------------------|--------|---------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `name` | string | None    | v0.1   | Name of the control. This will be part of the topic name.                                                                                                        |
+| :white_check_mark: `type` | string | 'gpio'  | v0.1   | Defines the control type. This is GPIO.                                                                                                                          | 
+| :white_check_mark: `pin` | string | None    | v0.1   | GPIO control to map too. Must be a valid name from the Adafruit board library. For example, Pi pin 25 is "D25"                                                   |
+| `invert`                | boolean | False | v0.3.1 | Invert the control so 'off' holds the pin high and 'on' sets it low. This is required for some relay boards.                                                     |
+| `disable`                | boolean | False | v0.3.1 | If defined and true, ignore this control. This allows currently unused controls to remain defined in the config file but not be exposed for use or pushed to HA. |
 
 ### Displays
 
@@ -146,20 +156,7 @@ is defined as a dict with the following definition.
 | :white_check_mark: `dir` | string | 'scripts'                             | v0.1  | Directory for scripts.                                                                                                |
 | `scan_dir`               | string | `False` on Circuitpython, else `True` | v0.1  | Should the script directory be scanned for script files? If so, any json file (*.json) will be processed as a script. |
 | `files`                  | list   | None                                  | v0.1  | **Required** for Circuitpython as it can't scan files. List of file names to include explicitly.                      |
-Good to go!
 
 ## MQTT
 
-
-
-
-## Future development
-
-A number of system level and general features I still want to build in here. 
-
-* System
-  * Support modification of configuration remotely
-  * Support time on CircuitPython. Was initially included but ran into memory issues.
-* Control
-  * Lego Power Functions
-  * Lego Powered Up
+**Need to document.**

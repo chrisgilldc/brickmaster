@@ -22,7 +22,7 @@ import microcontroller
 class BM2Network:
     def __init__(self, core, id, name, broker, mqtt_username, mqtt_password, SSID=None, password=None, net_on=None,
                  net_off=None, port=1883, ha_discover=False, ha_base='homeassistant', ha_area=None, ha_meminfo='unified',
-                 **kwargs):
+                 wifihw=None, **kwargs):
 
         self._system_name = name
         self._system_id = id
@@ -30,12 +30,18 @@ class BM2Network:
         self._mqtt_port = port
         self._mqtt_username = mqtt_username
         self._mqtt_password = mqtt_password
+        self._mqtt_connected = False
+        self._mqtt_failure_notice = False
         self._ssid = SSID
         self._ssid_password = password
         self._ha_discover = ha_discover
         self._ha_base = ha_base
         self._ha_area = ha_area
         self._ha_meminfo = ha_meminfo
+        if wifihw == None:
+            self._wifihw = os.uname().sysname.lower()
+        else:
+            self._wifihw = wifihw
 
         # Save a reference to the core. This allows callbacks to the core.
         self._core = core
@@ -69,23 +75,32 @@ class BM2Network:
             self._led_netoff = None
 
         # If not on a general-purpose system, set up WIFI.
-        if os.uname().sysname.lower() != 'linux':
-            # Conditionally import to global.
-            global adafruit_esp32spi
-            global socket
-            # global rtc
-            from adafruit_esp32spi import adafruit_esp32spi
-            import adafruit_esp32spi.adafruit_esp32spi_socket as socket
-            # import rtc
-            # Connect to the network
-            self._setup_wifi()
-            self._connect_wifi()
-            self._clock_set = False
-            self._clock_last_set = 0
-            # self._set_clock()
-        else:
+        if os.uname().sysname.lower() == 'linux':
+            # On a general-purpose Linux system, the OS handles the network. We only need the socket library.
             global socket
             import socket
+        elif self._wifihw == 'esp32':
+            self._logger.info("System hardware is '{}'. Setting up for built-in WiFi".format(os.uname().sysname))
+            global wifi
+            global socketpool
+            import wifi
+            import socketpool
+        elif self._wifihw == 'esp32spi':
+            self._logger.info("System hardware is '{}'. Setting up for ESP32 WiFi co-processor.".
+                              format(os.uname().sysname))
+            global adafruit_esp32spi
+            global socket
+            from adafruit_esp32spi import adafruit_esp32spi
+            import adafruit_esp32spi.adafruit_esp32spi_socket as socket
+        else:
+            raise ValueError("Wifi Hardware setting '{}' not valid.".format(self._wifihw))
+
+        # Connect to the network
+        self._setup_wifi()
+        self._clock_set = False
+        self._clock_last_set = 0
+        # self._set_clock()
+
         # Initialize MQTT topic variables.
         # Inbound starts empty and will be expanded as controls are added.
         self._topics_inbound = []
@@ -127,9 +142,10 @@ class BM2Network:
         self._mqtt_timeouts = 0
         self._reconnect_timestamp = time.monotonic()
         self._setup_mini_mqtt()
-        # MQTT is set up, now connect.
+        self._logger.info("Network: Initialization complete. Making initial connection")
+        # Make initial connection.
+        self._connect_wifi()
         self._connect_mqtt()
-        self._logger.info("Network: Initializiation complete.")
 
     # Main polling loop. This gets called by the main system run loop when it's time to poll the network.
     def poll(self):
@@ -138,32 +154,9 @@ class BM2Network:
 
         :return:
         """
-
-        # If on non-Linux system, check to see if the network is connected. If not, call the connection loop.
-        # System will stay in the WiFi connect loop until a connection is made, which is fine, since being on the
-        # network is the whole point of the system.
-        if os.uname().sysname.lower() != 'linux':
-            if not self._esp.is_connected:
-                self._logger.warning("Network: WiFi not connected!")
-                self._set_indicator("off")
-                self._connect_wifi()
-
-        # If network connectivity is up, check for MQTT connectivity
-        if not self._mqtt_client.is_connected():
-            self._logger.warning("Network: MQTT client not connected!")
-            try_reconnect = False
-            # Has is been 30s since the previous attempt?
-            if time.monotonic() - self._reconnect_timestamp > 30:
-                self._logger.info("Network: Attempting MQTT reconnect...")
-                self._reconnect_timestamp = time.monotonic()
-                # If MQTT isn't connected, nothing else to do.
-                if not self._connect_mqtt():
-                    self._logger.warning("Network: MQTT not reconnected!")
-                    return
-            else:
-                return
-        else:
-            self._logger.debug("Network: MQTT connected. Continuing.")
+        # Do connectivity check.
+        if not self._connectivity_check():
+            return
 
         try:
             timeout = 0.25
@@ -187,17 +180,62 @@ class BM2Network:
         # Garbage collect.
         gc.collect()
 
+    def _connectivity_check(self):
+        # If on non-Linux system, check to see if the network is connected.
+        # There are different connection requirements for the ESP32 vs. the ESP32 co-processor.
+        # This also sets the MQTT connection to be false, since defintiionally if we've lost the network we've also
+        # lost the MQTT connection.
+        if self._wifihw == 'esp32':
+            if not self._wifi.connected:
+                self._mqtt_connected = False
+                self._logger.warning("Network: WiFi not connected!")
+                self._set_indicator("off")
+                self._connect_wifi()
+        elif self._wifihw == 'esp32spi':
+            if not self._esp.is_connected:
+                self._mqtt_connected = False
+                self._logger.warning("Network: WiFi not connected!")
+                self._set_indicator("off")
+                self._connect_wifi()
+
+        # If network connectivity is up, check for MQTT connectivity
+        if not self._mqtt_connected:
+            if self._mqtt_failure_notice == False:
+                self._logger.warning("Network: MQTT client not connected! Will retry in 30s.")
+                self._mqtt_failure_notice = True
+            # Has is been 30s since the previous attempt?
+            if time.monotonic() - self._reconnect_timestamp > 30:
+                self._mqtt_failure_notice = False
+                self._logger.info("Network: Attempting MQTT reconnect...")
+                self._reconnect_timestamp = time.monotonic()
+                # If MQTT isn't connected, nothing else to do.
+                if not self._connect_mqtt():
+                    self._logger.warning("Network: MQTT not reconnected!")
+                    return False
+                else:
+                    self._logger.warning("Network: MQTT client reconnected.")
+            else:
+                return False
+        else:
+            self._logger.debug("Network: MQTT connected. Continuing.")
+            return True
+
     # Connect to the MQTT broker.
     def _connect_mqtt(self):
         try:
-            self._mqtt_client.connect(host=self._broker, port=self._mqtt_port)
+            if self._mqtt_client.is_connected():
+                self._mqtt_client.reconnect()
+            else:
+                self._mqtt_client.connect(host=self._broker, port=self._mqtt_port)
         except Exception as e:
-            self._logger.warning('Network: Could not connect to MQTT broker.')
+            self._logger.warning('Network: Could not connect to MQTT broker. Waiting 30s')
             self._logger.warning('Network: ' + str(e))
             self._set_indicator("off")
+            time.sleep(30)
             return False
         else:
             self._set_indicator("on")
+            self._mqtt_connected = True
 
         # Subscribe to the system command topic.
         try:
@@ -220,54 +258,87 @@ class BM2Network:
         return True
 
     def _connect_wifi(self):
-        # Try to do the connection
-        while not self._esp.is_connected:
-            self._set_indicator("off")
-            try:
-                self._esp.connect_AP(self._ssid, self._ssid_password)
-            except OSError as e:
-                self._logger.warning("Network: Could not connect to WIFI SSID '{}'. Retrying in 30s.".format(self._ssid))
-                time.sleep(30)
-                continue
-            else:
-                self._logger.info("Connected to WIFI! Got IP: {}".format(self._esp.pretty_ip(self._esp.ip_address)))
+        if self._wifihw == 'esp32':
+            self._wifi.connect(ssid=self._ssid, password=self._ssid_password)
+            ip = self._wifi.ipv4_address
+        if self._wifihw == 'esp32spi':
+            # Try to do the connection
+            while not self._esp.is_connected:
+                self._set_indicator("off")
+                try:
+                    self._esp.connect_AP(self._ssid, self._ssid_password)
+                except OSError as e:
+                    self._logger.warning("Network: Could not connect to WIFI SSID '{}'. Retrying in 30s.".format(self._ssid))
+                    time.sleep(30)
+                    continue
+                else:
+                    ip = self._esp.pretty_ip(self._esp.ip_address)
+        self._logger.info("Connected to WIFI! Got IP: {}".format(ip))
 
     # Internal setup methods.
     def _setup_wifi(self):
-        self._logger.info("Network: Connecting to WIFI SSID {}".format(self._ssid))
+        if self._wifihw == 'esp32':
+            self._logger.info("Network: Configuring Native ESP32 WiFi...")
+            self._wifi = wifi.radio
+            self._mac_string = "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}".\
+                format(self._wifi.mac_address[0], self._wifi.mac_address[1], self._wifi.mac_address[2],
+                       self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5] )
+        if self._wifihw == 'esp32spi':
+            # See if the board has pins defined for an ESP32 coprocessor. If so, we use the ESP32SPI library.
+            # Tested on the Metro M4 Airlift.
+            self._logger.info("Network: Configuring ESP32 Co-Processor WiFi...")
+            try:
+                esp32_cs = DigitalInOut(board.ESP_CS)
+                esp32_ready = DigitalInOut(board.ESP_BUSY)
+                esp32_reset = DigitalInOut(board.ESP_RESET)
+                spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
+                self._esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
+            except AttributeError as e:
+                self._logger.error("Network: ESP32 Co-Processor not defined.")
+                self._logger.error(e)
+            else:
+                # Define the ESP controls
+                # Define the ESP controls
+                if self._esp.status == adafruit_esp32spi.WL_IDLE_STATUS:
+                    self._logger.info("Network: ESP32 found and idle.")
+                self._logger.info("Network: ESP32 Firmware version is '{}.{}.{}'".format(
+                     self._esp.firmware_version[0],self._esp.firmware_version[1],self._esp.firmware_version[2]))
+                self._mac_string = "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}".format(
+                    self._esp.MAC_address[5], self._esp.MAC_address[4], self._esp.MAC_address[3], self._esp.MAC_address[2],
+                    self._esp.MAC_address[1],
+                    self._esp.MAC_address[0], )
+        self._logger.info("Network: WiFi MAC address: {}".format(self._mac_string))
+        self._logger.info("Network: Hardware initialization complete.")
 
-        # Set up the ESP32 connections
-        esp32_cs = DigitalInOut(board.ESP_CS)
-        esp32_ready = DigitalInOut(board.ESP_BUSY)
-        esp32_reset = DigitalInOut(board.ESP_RESET)
-        # Define the ESP controls
-        spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
-        self._esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
-
-        if self._esp.status == adafruit_esp32spi.WL_IDLE_STATUS:
-            self._logger.info("Network: ESP32 found and idle.")
-        # self._logger.info("ESP32 Firmware version: {}.{}.{}".format(
-        #     self._esp.firmware_version[0],self._esp.firmware_version[1],self._esp.firmware_version[2]))
-        self._mac_string = "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}".format(
-            self._esp.MAC_address[5], self._esp.MAC_address[4], self._esp.MAC_address[3], self._esp.MAC_address[2],
-            self._esp.MAC_address[1],
-            self._esp.MAC_address[0], )
-        self._logger.info("Network: ESP32 MAC address: {}".format(self._mac_string))
 
     # Method to setup as MiniMQTT
     def _setup_mini_mqtt(self):
         # Set the socket if we're on a CircuitPython board.
         if os.uname().sysname.lower() != 'linux':
-            af_MQTT.set_socket(socket, self._esp)
-        # Create the MQTT object.
-        self._mqtt_client = af_MQTT.MQTT(
-            broker=self._broker,
-            port=self._mqtt_port,
-            username=self._mqtt_username,
-            password=self._mqtt_password,
-            socket_pool=socket,
-            socket_timeout=1
-        )
+            if self._wifihw == 'esp32':
+                self._logger.info("Configuring MiniMQTT for ESP32")
+                pool = socketpool.SocketPool(wifi.radio)
+                # Create the MQTT object.
+                self._mqtt_client = af_MQTT.MQTT(
+                    broker=self._broker,
+                    port=self._mqtt_port,
+                    username=self._mqtt_username,
+                    password=self._mqtt_password,
+                    socket_pool=pool,
+                    socket_timeout=1
+                )
+            elif self._wifihw == 'esp32spi':
+                self._logger.info("Configuring MiniMQTT for ESP32 co-processor")
+                af_MQTT.set_socket(socket, self._esp)
+                # Create the MQTT object.
+                self._mqtt_client = af_MQTT.MQTT(
+                    broker=self._broker,
+                    port=self._mqtt_port,
+                    username=self._mqtt_username,
+                    password=self._mqtt_password,
+                    socket_pool=socket,
+                    socket_timeout=1
+                )
         # Enable the MQTT logger.
         # self._mqtt_logger = self._mqtt_client.enable_logger(adafruit_logging, log_level=adafruit_logging.DEBUG, logger_name="MQTT")
         # Set the last will
@@ -308,6 +379,7 @@ class BM2Network:
         # Send online message.
         self._publish('connectivity', 'online')
         # Publish all registered item statuses.
+        self._logger.debug("Network: Publishing outbound statuses, if any.")
         self._publish_outbound()
 
     # Callback to catch MQTT disconnections.
@@ -351,8 +423,9 @@ class BM2Network:
         :return:
         """
         # Publish current statuses.
-        self._logger.debug("Network: Publishing outbound topics.")
+        self._logger.debug("Current items in outbound topics: {}".format(self._topics_outbound))
         for outbound in self._topics_outbound:
+            self._logger.debug("Sys: Free memory - {}".format(gc.mem_free()))
             self._logger.debug("Network: Outbound topic '{}'".format(outbound))
             if 'obj' in self._topics_outbound[outbound] and 'value_attr' in self._topics_outbound[outbound]:
                 # If we have an object and value attribute set, retrieve the value and send it.
@@ -366,6 +439,7 @@ class BM2Network:
     def _publish(self, topic, message):
         self._logger.debug("Network: Publish request on topic '{}' - '{}'".
                            format(self._topics_outbound[topic]['topic'], message))
+        self._logger.debug("Network: Message type is '{}'".format(type(message)))
         # If message value hasn't changed, check if we should send anyway.
         publish = True
         if message == self._topics_outbound[topic]['previous_value']:
@@ -390,8 +464,11 @@ class BM2Network:
         try:
             self._mqtt_client.publish(self._topics_outbound[topic]['topic'], message,
                                       self._topics_outbound[topic]['retain'])
-        except ConnectionError:
-            self._logger.error("Could not publish due to connection error.")
+        except (ConnectionError, OSError) as e:
+            self._logger.error("Could not publish due to an error ({}). Had attempted to publish '{}' to '{}'".
+                               format(e, message, self._topics_outbound[topic]['topic']))
+            # Presumably, any failure to publish means we're not connected, so set MQTT Connected to false.
+            self._mqtt_connected = False
         else:
             self._topics_outbound[topic]['previous_value'] = message
 

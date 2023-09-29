@@ -18,14 +18,19 @@ import sys
 
 
 class BrickMaster2:
-    def __init__(self, cmd_opts=None):
+    def __init__(self, config_file=None):
         # Force a garbage collection
         gc.collect()
 
-        # Set up the system status indicator
-        self._led_sysstat = digitalio.DigitalInOut(board.D0)
-        self._led_sysstat.switch_to_output()
-        self._led_sysstat.value = True
+
+        try:
+            # Set up the system status indicator
+            self._led_sysstat = digitalio.DigitalInOut(board.D0)
+        except AttributeError:
+            pass
+        else:
+            self._led_sysstat.switch_to_output()
+            self._led_sysstat.value = True
 
         # If we're on a general-purpose linux system, register signal handlers so we can get signals from elsewhere.
         if os.uname().sysname.lower() == 'linux':
@@ -33,8 +38,6 @@ class BrickMaster2:
             import signal
             self._register_signal_handlers()
 
-        if cmd_opts is None:
-            cmd_opts = {}  ## Stud for taking command line options. Not yet implemented.
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
         self._logger = logging.getLogger('BrickMaster2')
@@ -43,10 +46,13 @@ class BrickMaster2:
         self._logger.setLevel(logging.DEBUG)
 
         # Create the config processor
-        self._bm2config = BM2Config()
+        self._bm2config = BM2Config(config_file=config_file)
 
         # Setup the I2C Bus.
-        self._setup_i2c_bus()
+        try:
+            self._setup_i2c_bus()
+        except RuntimeError:
+            self._logger.error("I2C Bus not available.")
 
         # Initialize dicts to store objects.
         self._controls = {}
@@ -288,7 +294,10 @@ class BrickMaster2:
         self._network._publish('connectivity', 'offline')
         self._print_or_log("critical", "Cleanup complete.")
         # Set the system light off.
-        self._led_sysstat.value = False
+        try:
+            self._led_sysstat.value = False
+        except AttributeError:
+            pass
         # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
         if signalNumber in (None, 15):
             sys.exit(0)

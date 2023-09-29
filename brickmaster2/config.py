@@ -17,8 +17,12 @@ class BM2Config:
         self._logger.setLevel(logging.INFO)
         # If we're running under Circuitpython, we *must* have the config.json in a specific place.
         if sys.implementation.name == 'circuitpython':
-            self._logger.info("Running on Circuitpython, loading config.json in root directory.")
-            self._config_file = 'config.json'
+
+            if config_file is None:
+                self._config_file = 'config.json'
+            else:
+                self._config_file = config_file
+            self._logger.info("Running on Circuitpython, loading '{}' in root directory.".format(self._config_file))
         elif os.uname().sysname.lower() == 'linux':
             self._logger.info("Running on general-purpose Linux, checking system paths...")
             # Otherwise, add support for locating the search path.
@@ -55,19 +59,15 @@ class BM2Config:
 
     @property
     def config_file(self):
-        # Only one option with Circuitpython.
-        if sys.implementation.name == 'circuitpython':
-            return 'config.json'
+        if self._config_file is None:
+            return None
         else:
-            if self._config_file is None:
-                return None
-            else:
-                return str(self._config_file)
+            return str(self._config_file)
 
     @config_file.setter
     def config_file(self, the_input):
         if sys.implementation.name == 'circuitpython':
-            pass
+            self._config_file = the_input
         else:
             # IF a string, convert to a path.
             if isinstance(the_input, str):
@@ -130,11 +130,12 @@ class BM2Config:
     def _validate_system(self):
         self._logger.debug("Validating system section")
         required_keys = ['id']
-        optional_keys = ['log_level', 'secrets']
+        optional_keys = ['log_level', 'secrets','wifihw']
         optional_defaults = {
             'log_level': 'info',
             'secrets': 'secrets.json',
             'ntp_server': None,
+            'wifihw': None,
             'tz': 'Etc/UTC'
         }
         # Check for presence of required options.
