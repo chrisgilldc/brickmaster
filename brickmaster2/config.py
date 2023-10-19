@@ -22,9 +22,9 @@ class BM2Config:
                 self._config_file = 'config.json'
             else:
                 self._config_file = config_file
-            self._logger.info("Running on Circuitpython, loading '{}' in root directory.".format(self._config_file))
+            self._logger.info("Config: Running on Circuitpython, loading '{}' in root directory.".format(self._config_file))
         elif os.uname().sysname.lower() == 'linux':
-            self._logger.info("Running on general-purpose Linux, checking system paths...")
+            self._logger.info("Config: Running on general-purpose Linux, checking system paths...")
             # Otherwise, add support for locating the search path.
             global Path
             from pathlib import Path
@@ -33,13 +33,13 @@ class BM2Config:
             if config_file is not None:
                 self._search_paths.insert(0, Path(config_file))
         else:
-            self._logger.critical("Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
+            self._logger.critical("Config: Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
                   "\n\tPython Implementation: {}".format(os.uname().sysname, sys.implementation.name))
             sys.exit(1)
 
         self.process_config()
 
-        self._logger.info("Setting log level to: {}".format(self._config['system']['log_level_name']))
+        self._logger.info("Config: Setting log level to: {}".format(self._config['system']['log_level_name']))
         self._logger.setLevel(self._config['system']['log_level'])
 
     def process_config(self):
@@ -130,7 +130,7 @@ class BM2Config:
     def _validate_system(self):
         self._logger.debug("Validating system section")
         required_keys = ['id']
-        optional_keys = ['log_level', 'secrets','wifihw']
+        optional_keys = ['log_level', 'secrets', 'wifihw']
         optional_defaults = {
             'log_level': 'info',
             'secrets': 'secrets.json',

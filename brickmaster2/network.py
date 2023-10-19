@@ -25,7 +25,7 @@ class BM2Network:
                  wifihw=None, **kwargs):
 
         self._system_name = name
-        self._system_id = id
+        self._id = id
         self._broker = broker
         self._mqtt_port = port
         self._mqtt_username = mqtt_username
@@ -58,7 +58,7 @@ class BM2Network:
         # null_handler = adafruit_logging.NullHandler()
         # self._logger.addHandler(null_handler)
         self._logger.info("Initializing network...")
-        self._topic_prefix = "brickmaster2/" + self._system_id
+        self._topic_prefix = "brickmaster2/" + self._id
 
         # Create network status indicator GPIO controls, if defined.
         if net_on is not None:
@@ -79,6 +79,7 @@ class BM2Network:
             # On a general-purpose Linux system, the OS handles the network. We only need the socket library.
             global socket
             import socket
+
         elif self._wifihw == 'esp32':
             self._logger.info("System hardware is '{}'. Setting up for built-in WiFi".format(os.uname().sysname))
             global wifi
@@ -280,7 +281,7 @@ class BM2Network:
         if self._wifihw == 'esp32':
             self._logger.info("Network: Configuring Native ESP32 WiFi...")
             self._wifi = wifi.radio
-            self._mac_string = "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}".\
+            self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".\
                 format(self._wifi.mac_address[0], self._wifi.mac_address[1], self._wifi.mac_address[2],
                        self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5] )
         if self._wifihw == 'esp32spi':
@@ -303,10 +304,9 @@ class BM2Network:
                     self._logger.info("Network: ESP32 found and idle.")
                 self._logger.info("Network: ESP32 Firmware version is '{}.{}.{}'".format(
                      self._esp.firmware_version[0],self._esp.firmware_version[1],self._esp.firmware_version[2]))
-                self._mac_string = "{:X}:{:X}:{:X}:{:X}:{:X}:{:X}".format(
+                self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".format(
                     self._esp.MAC_address[5], self._esp.MAC_address[4], self._esp.MAC_address[3], self._esp.MAC_address[2],
-                    self._esp.MAC_address[1],
-                    self._esp.MAC_address[0], )
+                    self._esp.MAC_address[1], self._esp.MAC_address[0] )
         self._logger.info("Network: WiFi MAC address: {}".format(self._mac_string))
         self._logger.info("Network: Hardware initialization complete.")
 
@@ -570,7 +570,7 @@ class BM2Network:
         """
         discovery_dict = {
             'name': "Connectivity",
-            'object_id': self._system_id + "_connectivity",
+            'object_id': self._id + "_connectivity",
             'device': self._ha_device_info,
             'device_class': 'connectivity',
             'unique_id': self._mac_string + "_connectivity",
@@ -580,8 +580,8 @@ class BM2Network:
         }
         discovery_json = json.dumps(discovery_dict)
         # Publish it!
-        discovery_topic = self._ha_base + '/binary_sensor/' + self._system_id + '/connectivity/config'
-        self._mqtt_client.publish(discovery_topic, discovery_json, False)
+        discovery_topic = self._ha_base + '/binary_sensor/' + 'bm2_' + self._mac_string + '/connectivity/config'
+        self._mqtt_client.publish(discovery_topic, discovery_json, True)
         self._topics_outbound['connectivity']['discovery_time'] = time.monotonic()
 
     def _ha_discovery_meminfo(self):
@@ -595,7 +595,7 @@ class BM2Network:
         # Memfreepct
         memfreepct_dict = {
             'name': "Memory Available (Pct)",
-            'object_id': self._system_id + "_memfreepct",
+            'object_id': self._id + "_memfreepct",
             'device': self._ha_device_info,
             'unique_id': self._mac_string + "_memfreepct",
             'state_topic': self._topic_prefix + '/meminfo',
@@ -606,7 +606,7 @@ class BM2Network:
         }
         memusedpct_dict = {
             'name': "Memory Used (Pct)",
-            'object_id': self._system_id + "_memusedpct",
+            'object_id': self._id + "_memusedpct",
             'device': self._ha_device_info,
             'unique_id': self._mac_string + "_memusedpct",
             'state_topic': self._topic_prefix + '/meminfo',
@@ -617,7 +617,7 @@ class BM2Network:
         }
         memfreebytes_dict = {
             'name': "Memory Available (Bytes)",
-            'object_id': self._system_id + "_memfree",
+            'object_id': self._id + "_memfree",
             'device': self._ha_device_info,
             'unique_id': self._mac_string + "_memfree",
             'state_topic': self._topic_prefix + '/meminfo',
@@ -628,7 +628,7 @@ class BM2Network:
         }
         memusedbytes_dict = {
             'name': "Memory Used (Bytes)",
-            'object_id': self._system_id + "_memusedpct",
+            'object_id': self._id + "_memusedpct",
             'device': self._ha_device_info,
             'unique_id': self._mac_string + "_memusedpct",
             'state_topic': self._topic_prefix + '/meminfo',
@@ -641,26 +641,34 @@ class BM2Network:
         if self._ha_meminfo == 'unified':
             # Unified just sets up Memory, Percent Free. Add in the other memory info as JSON attributes.
             memfreepct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memfreepct/config', json.dumps(memfreepct_dict), False)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memfreepct/config',
+                                      json.dumps(memfreepct_dict), True)
         elif self._ha_meminfo == 'unified-used':
             memusedpct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memusedpct/config', json.dumps(memusedpct_dict), False)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedpct/config',
+                                      json.dumps(memusedpct_dict), True)
         elif self._ha_meminfo == 'split-pct':
             # When providing separate memory percentages, add JSON attributes on free or used.
             memfreepct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
             memfreepct_dict['json_attributes_template'] = \
                 "{{ {'mem_free': value_json.mem_free, 'mem_total': value_json.mem_total} | tojson }}"
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memfreepct/config', json.dumps(memfreepct_dict), False)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memfreepct/config',
+                                      json.dumps(memfreepct_dict), True)
             memusedpct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
             memusedpct_dict['json_attributes_template'] = \
                 "{{ {'mem_used': value_json.mem_used, 'mem_total': value_json.mem_total} | tojson }}"
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memusedpct/config', json.dumps(memusedpct_dict), False)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedpct/config',
+                                      json.dumps(memusedpct_dict), True)
         elif self._ha_meminfo == 'split-all':
             # If we're splitting everything, we don't need to add JSON attributes.
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memfreepct/config', json.dumps(memfreepct_dict), False)
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memusedpct/config', json.dumps(memusedpct_dict), False)
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memfreebytes/config', json.dumps(memfreebytes_dict), False)
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + self._system_id + '/memusedbytes/config', json.dumps(memusedbytes_dict), False)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memfreepct/config',
+                                      json.dumps(memfreepct_dict), True)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedpct/config',
+                                      json.dumps(memusedpct_dict), True)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_'+ self._id + '/memfreebytes/config',
+                                      json.dumps(memfreebytes_dict), True)
+            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedbytes/config',
+                                      json.dumps(memusedbytes_dict), True)
         self._topics_outbound['meminfo']['discovery_time'] = time.monotonic()
 
     def _ha_discovery_gpio(self, gpio_control):
@@ -672,7 +680,7 @@ class BM2Network:
         """
         discovery_dict = {
             'name': gpio_control.name,
-            'object_id': self._system_id + "_" + gpio_control.id,
+            'object_id': self._id + "_" + gpio_control.id,
             'device': self._ha_device_info,
             'icon': 'mdi:toy-brick',
             'unique_id': self._mac_string + "_" + gpio_control.id,
@@ -682,8 +690,8 @@ class BM2Network:
         }
         discovery_json = json.dumps(discovery_dict)
         # Publish it!
-        discovery_topic = self._ha_base + '/switch/' + self._system_id + '/' + gpio_control.id + '/config'
-        self._mqtt_client.publish(discovery_topic, discovery_json, False)
+        discovery_topic = self._ha_base + '/switch/' + 'bm2_' + self._mac_string + '/' + gpio_control.id + '/config'
+        self._mqtt_client.publish(discovery_topic, discovery_json, True)
         self._topics_outbound[gpio_control.id]['discovery_time'] = time.monotonic()
 
     @property
