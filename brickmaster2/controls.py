@@ -6,13 +6,13 @@ import sys
 
 
 class Control:
-    def __init__(self, id, name, publish_time=15):
+    def __init__(self, control_id, control_name, publish_time=15):
         # Create a logger.
         self._logger = logger.getLogger('BrickMaster2')
         # Set the ID.
-        self._id = id
+        self._control_id = control_id
         # Set the Name.
-        self._name = name
+        self._control_name = control_name
         self._topics = None
         self._status = None
         self._publish_time = publish_time
@@ -38,11 +38,11 @@ class Control:
 
     @property
     def name(self):
-        return self._name
+        return self._control_name
 
     @property
     def id(self):
-        return self._id
+        return self._control_id
 
     # Create topics. Each subclass should create its own control topics appropriate to its operating method.
     def _create_topics(self):
@@ -52,13 +52,15 @@ class Control:
     def callback(self, client, topic, message):
         raise NotImplemented("Control callbacks must be implemented in a control subclass.")
 
+
 # Control class for GPIO
 class CtrlGPIO(Control):
-    def __init__(self, id, name, pin, publish_time, addr=None, type=None, invert=False, awboard=None):
-        super().__init__(id, name, publish_time)
+    def __init__(self, control_id, control_name, pin, publish_time, addr=None, ctrltype=None, invert=False,
+                 awboard=None, **kwargs):
+        super().__init__(control_id, control_name, publish_time)
         self._invert = invert
 
-        if type == 'aw9523':
+        if ctrltype == 'aw9523':
             self._setup_pin_aw9523(awboard, pin)
         else:
             self._setup_pin_onboard(pin)
@@ -142,10 +144,11 @@ class CtrlGPIO(Control):
                 'type': 'outbound',
                 'retain': True,  # Should this be retained? False is almost always the right choice.
                 'repeat': False,  # Should this be sent, even if the value doesn't change?
-                'publish_after_discovery': 15, # How long after discovery should the value be repeated. This forces
-                                               # a repeat in case it takes longer for the entity to be created than
-                                               # it takes for the first message to send.
-                'obj': self,  # Object to reference to get value. Should really always be 'self' to pass a reference to this object.
+                'publish_after_discovery': 15,  # How long after discovery should the value be repeated. This forces
+                                                # a repeat in case it takes longer for the entity to be created than
+                                                # it takes for the first message to send.
+                'obj': self,  # Object to reference to get value. Should really always be 'self' to pass a reference
+                # to this object.
                 'value_attr': 'status'  # What attribute to try to get?
             }
         ]
@@ -154,6 +157,7 @@ class CtrlGPIO(Control):
     @property
     def topics(self):
         return self._topics
+
 
 # Control class for Lego Power Functions (IR)
 class CtrlPowerFunctions(Control):

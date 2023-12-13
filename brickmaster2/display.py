@@ -1,11 +1,12 @@
 # BrickMaster2 Display Control
 
 import adafruit_logging as logger
-from .segment_format import number_7s, time_7s
+# from .segment_format import number_7s, time_7s
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
 import time
 
-class Display():
+
+class Display:
     def __init__(self, config, i2c_bus):
         # Create a logger
         self._logger = logger.getLogger('BrickMaster2')
@@ -18,13 +19,13 @@ class Display():
         # Save our name for easy reference.
         self.name = self._config['name']
         # Create a display object.
-        self._display_obj = self._create_object(type=self._config['type'], address=self._config['address'])
+        self._display_obj = self._create_object(disptype=self._config['type'], address=self._config['address'])
         # test it!
         self._test()
 
-    def show(self, input):
+    def show(self, the_input):
         try:
-            self._display_obj.print(input)
+            self._display_obj.print(the_input)
         except ValueError:
             self._logger.warning("Could not send input to display. Not a valid type.")
 
@@ -61,7 +62,7 @@ class Display():
 
     # Method to turn the display off. Clears all values and indicators.
     def off(self):
-        self._display_obj.fill(0)
+        self._display_obj.fill(False)
         if isinstance(self._display_obj, Seg7x4):
             self._display_obj.colon = False
         if isinstance(self._display_obj, BigSeg7x4):
@@ -71,14 +72,13 @@ class Display():
             self._display_obj.colons[0] = False
             self._display_obj.colons[1] = False
 
-
-    def _create_object(self, type, address):
-        if type == 'bigseg7x4':
+    def _create_object(self, disptype, address):
+        if disptype == 'bigseg7x4':
             display_class = BigSeg7x4
-        elif type == 'seg7x4':
+        elif disptype == 'seg7x4':
             display_class = Seg7x4
         else:
-            raise ValueError("{} is not a valid display type.".format(type))
+            raise ValueError("{} is not a valid display type.".format(disptype))
 
         # Create the object.
         display_obj = display_class(i2c=self._i2c_bus, address=address)
@@ -86,21 +86,22 @@ class Display():
 
     # Create a formatted string to send to displays from localtime.
     # This is a simple implementation since CircuitPython doesn't support datetime with strftime.
-    def _format_dt(self, field=None, clkhr=12):
-        if field not in ('date','time', 'pm'):
+    @staticmethod
+    def _format_dt(field=None, clkhr=12):
+        if field not in ('date', 'time', 'pm'):
             raise ValueError("{} not a valid formatting field.")
         if clkhr not in (12, 24):
             raise ValueError("Clock can only 12 or 24 hours.")
 
         # Return date in format "mm.dd"
         if field is 'date':
-            date_val = str(time.localtime().tm_mon).rjust(2,' ') + "." + str(time.localtime().tm_mday).rjust(2,' ')
+            date_val = str(time.localtime().tm_mon).rjust(2, ' ') + "." + str(time.localtime().tm_mday).rjust(2, ' ')
             return date_val
         if field is 'time':
             hour = time.localtime().tm_hour
             if clkhr == 12 and hour > 12:
                 hour = hour - 12
-            time_val = str(hour).rjust(2,' ') + ":" + str(time.localtime().tm_min).rjust(2,'0')
+            time_val = str(hour).rjust(2, ' ') + ":" + str(time.localtime().tm_min).rjust(2, '0')
             return time_val
         if field is 'pm':
             if time.localtime().tm_hour >= 12:
@@ -129,4 +130,4 @@ class Display():
                 self._logger.critical("Display has unknown type {}. This should never happen!".
                                       format(type(self._display_obj)))
             time.sleep(delay)
-        self._display_obj.fill(0)
+        self._display_obj.fill(False)

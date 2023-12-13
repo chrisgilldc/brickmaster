@@ -22,7 +22,6 @@ class BrickMaster2:
         # Force a garbage collection
         gc.collect()
 
-
         try:
             # Set up the system status indicator
             self._led_sysstat = digitalio.DigitalInOut(board.D0)
@@ -32,7 +31,7 @@ class BrickMaster2:
             self._led_sysstat.switch_to_output()
             self._led_sysstat.value = True
 
-        # If we're on a general-purpose linux system, register signal handlers so we can get signals from elsewhere.
+        # If we're on a general-purpose linux system, register signal handlers to get signals from elsewhere.
         if os.uname().sysname.lower() == 'linux':
             global signal
             import signal
@@ -48,7 +47,7 @@ class BrickMaster2:
         # Create the config processor
         self._bm2config = BM2Config(config_file=config_file)
 
-        # Setup the I2C Bus.
+        # Set up the I2C Bus.
         try:
             self._setup_i2c_bus()
         except RuntimeError:
@@ -66,6 +65,7 @@ class BrickMaster2:
         gc.collect()
 
         # Set up the network.
+        self._logger.debug("Setting up network with config options: {}".format(self._bm2config.system))
         self._network = BM2Network(self, **self._bm2config.system)
         gc.collect()
 
@@ -105,20 +105,21 @@ class BrickMaster2:
     def callback_scr(self, client, topic, message):
         # Convert the message payload (which is binary) to a string.
         script_name = topic.split('/')[-2]
-        self._logger.debug("Core received '{}' request for script '{}'".format(message, script_name))
+        self._logger.debug("Sys: Core received '{}' request for script '{}'".format(message, script_name))
         # Starting a script.
         if message.lower() == 'on':
             # If we don't have an active script, mark this script for starting.
             if self._active_script is None:
-                self._active_script=script_name
+                self._active_script = script_name
             else:
-                self._logger.warning("Cannot start script {}, script {} is already active.".format(script_name, self._active_script))
+                self._logger.warning("Sys: Cannot start script {}, script {} is already active.".format(script_name,
+                                                                                                   self._active_script))
         elif message.lower() == 'off':
             # Set the active script to stop
             self._scripts[self._active_script].set('OFF')
             self._active_script = None
         else:
-            self._logger.info("Ignoring invalid command '{}'".format(message))
+            self._logger.info("Sys: Ignoring invalid command '{}'".format(message))
 
     def _setup_i2c_bus(self):
         self._i2c_bus = busio.I2C(board.SCL, board.SDA)
@@ -128,7 +129,7 @@ class BrickMaster2:
         try:
             import adafruit_aw9523
         except ImportError:
-            self._logger.critical("Cannot import modules for GPIO AW9523 control. Exiting!")
+            self._logger.critical("Sys: Cannot import modules for GPIO AW9523 control. Exiting!")
             sys.exit(1)
         if isinstance(addr, str):
             addr = int(addr)
@@ -143,25 +144,29 @@ class BrickMaster2:
         :param publish_time:
         :return:
         """
-        self._logger.debug("Memory free at start of control creation: {}".format(gc.mem_free()))
+        self._logger.debug("Sys: Memory free at start of control creation: {}".format(gc.mem_free()))
+        self._logger.debug("Sys: Controls to create - {}".format(self._bm2config.controls))
         for control_cfg in self._bm2config.controls:
-            self._logger.debug("Setting up control '{}'".format(control_cfg['name']))
+            self._logger.debug("Setting up control '{}'".format(control_cfg['control_name']))
             if control_cfg['type'].lower() == 'gpio':
-                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, publish_time=publish_time)
+                self._controls[control_cfg['control_name']] = CtrlGPIO(**control_cfg, publish_time=publish_time)
             elif control_cfg['type'].lower() == 'aw9523':
                 if control_cfg['addr'] not in self._extgpio.keys():
                     self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
-                self._controls[control_cfg['name']] = CtrlGPIO(**control_cfg, publish_time=publish_time, awboard=self._extgpio[control_cfg['addr']])
+                self._controls[control_cfg['control_name']] = CtrlGPIO(**control_cfg, publish_time=publish_time,
+                                                               awboard=self._extgpio[control_cfg['addr']])
             gc.collect()
-            self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['name'], gc.mem_free()))
+            self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['control_name'],
+                                                                                       gc.mem_free()))
 
-        self._logger.info("Have controls: {}".format(self._controls))
+        self._logger.info("Sys: Have controls - {}".format(self._controls))
 
         # Pass the controls to the Network module.
-        self._logger.debug("Memory free at start of callback registration: {}".format(gc.mem_free()))
+        self._logger.debug("Sys: Memory free at start of callback registration - {}".format(gc.mem_free()))
         for control_name in self._controls:
             self._network.add_item(self._controls[control_name])
-            self._logger.debug("Memory free after registering callback for '{}': {}".format(control_name, gc.mem_free()))
+            self._logger.debug("Sys: Memory free after registering callback for '{}' - {}".format(control_name,
+                                                                                            gc.mem_free()))
 
     def _create_displays(self):
         # Set up the displays.
@@ -227,13 +232,13 @@ class BrickMaster2:
             return self._active_script
 
     def _register_signal_handlers(self):
-        self._print_or_log("debug", "Registering signal handlers.")
+        self._print_or_log("debug", "Sys: Registering signal handlers.")
         # Reload configuration.
         signal.signal(signal.SIGHUP, self._reload_config)
         # Terminate cleanly.
-        ## Default quit
+        # Default quit
         signal.signal(signal.SIGTERM, self._signal_handler)
-        ## Quit and dump core. Not going to do that, so
+        # Quit and dump core. Not going to do that, so
         signal.signal(signal.SIGQUIT, self._signal_handler)
 
         # All other signals are some form of error.
@@ -291,7 +296,7 @@ class BrickMaster2:
         # Poll the network one more time to ensure the new control status is sent.
         self._network.poll()
         # Send an offline message.
-        self._network._publish('connectivity', 'offline')
+        self._network.publish('connectivity', 'offline')
         self._print_or_log("critical", "Cleanup complete.")
         # Set the system light off.
         try:
@@ -303,3 +308,7 @@ class BrickMaster2:
             sys.exit(0)
         else:
             sys.exit(signalNumber)
+
+    # Access method to get the current config json and dump it.
+    def current_config(self):
+        return self._bm2config.config_json

@@ -4,10 +4,8 @@ import adafruit_logging as logging
 import sys
 import json
 import os
-#import board
-
-# from pprint import pformat
 import gc
+
 
 class BM2Config:
     def __init__(self, config_file=None):
@@ -22,7 +20,8 @@ class BM2Config:
                 self._config_file = 'config.json'
             else:
                 self._config_file = config_file
-            self._logger.info("Config: Running on Circuitpython, loading '{}' in root directory.".format(self._config_file))
+            self._logger.info("Config: Running on Circuitpython, loading '{}' in root directory.".
+                              format(self._config_file))
         elif os.uname().sysname.lower() == 'linux':
             self._logger.info("Config: Running on general-purpose Linux, checking system paths...")
             # Otherwise, add support for locating the search path.
@@ -34,13 +33,20 @@ class BM2Config:
                 self._search_paths.insert(0, Path(config_file))
         else:
             self._logger.critical("Config: Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
-                  "\n\tPython Implementation: {}".format(os.uname().sysname, sys.implementation.name))
+                                  "\n\tPython Implementation: {}".
+                                  format(os.uname().sysname, sys.implementation.name))
             sys.exit(1)
 
         self.process_config()
 
         self._logger.info("Config: Setting log level to: {}".format(self._config['system']['log_level_name']))
         self._logger.setLevel(self._config['system']['log_level'])
+
+    def config_json(self):
+        '''
+        Return the validated, active config as JSON.
+        '''
+        return json.dumps(self._config)
 
     def process_config(self):
         self._logger.info("Processing config.")
@@ -129,14 +135,14 @@ class BM2Config:
     # Validate system settings
     def _validate_system(self):
         self._logger.debug("Validating system section")
-        required_keys = ['id']
-        optional_keys = ['log_level', 'secrets', 'wifihw']
+        required_keys = ['system_id']
+        optional_keys = ['log_level', 'secrets', 'wifihw', 'time_mqtt']
         optional_defaults = {
             'log_level': 'info',
             'secrets': 'secrets.json',
             'ntp_server': None,
             'wifihw': None,
-            'tz': 'Etc/UTC'
+            'time_mqtt': False
         }
         # Check for presence of required options.
         for key in required_keys:
@@ -150,8 +156,8 @@ class BM2Config:
             if key not in self._config['system']:
                 self._logger.warning("Option '{}' not found, using default '{}'".format(key, optional_defaults[key]))
                 self._config['system'][key] = optional_defaults[key]
-        if 'name' not in self._config['system']:
-            self._config['system']['name'] = self._config['system']['id']
+        if 'system_name' not in self._config['system']:
+            self._config['system']['system_name'] = self._config['system']['id']
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:
@@ -165,7 +171,8 @@ class BM2Config:
                 self._config['system']['net_on'] = self._config['system']['indicators']['net_on']
                 self._config['system']['net_off'] = self._config['system']['indicators']['net_off']
             else:
-                self._logger.warning("Config: When network indicator provided, both 'net_on' and 'net_off' must be defined!")
+                self._logger.warning("Config: When network indicator provided, both 'net_on' and 'net_off' "
+                                     "must be defined!")
 
             try:
                 del self._config['system']['indicators']['net_on']
@@ -190,7 +197,7 @@ class BM2Config:
             self._config['system']['ha_discover'] = True
             # Check for a default area.
             try:
-                if isinstance(self._config['system']['ha']['area'],str):
+                if isinstance(self._config['system']['ha']['area'], str):
                     self._logger.info("Config: Using HA Area '{}'".format(self._config['system']['ha']['area']))
                     self._config['system']['ha_area'] = self._config['system']['ha']['area']
                     del self._config['system']['ha']['area']
@@ -208,7 +215,7 @@ class BM2Config:
             # Check for how to set up Meminfo.
             try:
                 if isinstance(self._config['system']['ha']['meminfo'], str):
-                    if self._config['system']['ha']['meminfo'] in ('unified','unified-used', 'split-pct','split-all'):
+                    if self._config['system']['ha']['meminfo'] in ('unified', 'unified-used', 'split-pct', 'split-all'):
                         self._logger.debug("Config: Memory info topics will be discovered as '{}'".
                                            format(self._config['system']['ha']['meminfo']))
                         self._config['system']['ha_meminfo'] = self._config['system']['ha']['meminfo']
@@ -220,6 +227,9 @@ class BM2Config:
                         del self._config['system']['ha']['meminfo']
             except KeyError:
                 self._config['system']['ha_meminfo'] = 'unified'
+
+            # Remove the base HA item.
+            del self._config['system']['ha']
         else:
             self._config['system']['ha_discover'] = False
 
@@ -258,7 +268,7 @@ class BM2Config:
             required_keys.append("SSID")
             required_keys.append("password")
         optional_keys = ['port']
-        optional_defaults = {'port': 1883 }
+        optional_defaults = {'port': 1883}
 
         # Open the secrets file.
         secrets = self._open_json(self._config['system']['secrets'])
@@ -270,7 +280,7 @@ class BM2Config:
                 self._logger.critical("Required config option '{}' missing. Cannot continue!".format(key))
                 sys.exit(0)
             else:
-                self._config['secrets'][key] = secrets[key]
+                self._config['secrets'][key.lower()] = secrets[key]
         # Check for optional settings, assign the defaults if need be.
         for key in optional_keys:
             self._logger.debug("Checking for optional key '{}'".format(key))
@@ -286,7 +296,7 @@ class BM2Config:
         to_delete = []
         while i < len(self._config['controls']):
             # Check to see if required items are defined.
-            required_keys = ['id', 'type']
+            required_keys = ['control_id', 'type']
             for key in required_keys:
                 self._logger.debug("Checking for required control key '{}'".format(key))
                 if key not in self._config['controls'][i]:
@@ -297,18 +307,20 @@ class BM2Config:
                     continue
 
             # Check to see if name is defined.
-            if 'name' not in self._config['controls'][i]:
-                self._config['controls'][i]['name'] = self._config['controls'][i]['id']
+            if 'control_name' not in self._config['controls'][i]:
+                self._config['controls'][i]['control_name'] = self._config['controls'][i]['control_id']
 
             # Check to see if the control is disabled. This allows items to be left in the config file but skipped
             try:
                 if self._config['controls'][i]['disable']:
-                    self._logger.info("Config: Control {} marked as disabled. Skipping.".format(self._config['controls'][i]['name']))
+                    self._logger.info("Config: Control {} marked as disabled. Skipping.".
+                                      format(self._config['controls'][i]['name']))
                     to_delete.append(i)
                     i += 1
                     continue
                 else:
-                    # If the 'disable' setting for the control is anything other than true, we enable, so ignore the setting.
+                    # If the 'disable' setting for the control is anything other than true,
+                    # enable and ignore the setting.
                     del self._config['controls'][i]['disable']
             except KeyError:
                 pass
@@ -318,7 +330,7 @@ class BM2Config:
             if ctrltype == 'gpio':
                 required_parameters = ['pin']
             elif ctrltype == 'aw9523':
-                required_parameters = ['addr','pin']
+                required_parameters = ['addr', 'pin']
             else:
                 self._logger.error("Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
                 to_delete.append(i)
@@ -355,8 +367,8 @@ class BM2Config:
             for key in required_keys:
                 self._logger.debug("Checking for required display key '{}'".format(key))
                 if key not in self._config['displays'][i]:
-                    self._logger.critical("Required control display option '{}' missing in display {}. Discarding display.".
-                                          format(key, i))
+                    self._logger.critical("Required control display option '{}' missing in display {}. "
+                                          "Discarding display.".format(key, i))
                     to_delete.append(i)
                     i += 1
                     continue
@@ -388,15 +400,16 @@ class BM2Config:
                          }
                 else:
                     # Check the show option.
-                    if self._config['displays'][i]['idle']['show'] not in ('time','date','blank'):
-                        self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to blank.".
-                                         format(i, self._config['displays'][i]['idle']['show']))
+                    if self._config['displays'][i]['idle']['show'] not in ('time', 'date', 'blank'):
+                        self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to "
+                                             "blank.".format(i, self._config['displays'][i]['idle']['show']))
                         self._config['displays'][i]['idle']['show'] = 'blank'
                         self._config['displays'][i]['idle']['brightness'] = 1
 
                     # Convert the brightness setting to a float.
                     try:
-                        self._config['displays'][i]['idle']['brightness'] = float(self._config['displays'][i]['idle']['brightness'])
+                        self._config['displays'][i]['idle']['brightness'] = (
+                            float(self._config['displays'][i]['idle']['brightness']))
                     except KeyError:
                         self._config['displays'][i]['idle']['brightness'] = 1
                     except ValueError:
@@ -414,7 +427,6 @@ class BM2Config:
         if not isinstance(self._config['scripts'], dict):
             self._logger.critical('Scripts not correctly defined. Must be a dictionary.')
             return
-        i = 0
         # Can we scan the scripts directory?
         # If we're not on linux, absolutely not! CircuitPython doesn't support Pathlib and scanning.
 
@@ -441,7 +453,11 @@ class BM2Config:
         System configuration, includes the system and secrets sections of the config file.
         :return:
         """
-        return {k:v for d in (self._config['system'], self._config['secrets']) for k,v in d.items()}
+        return {k: v for d in (self._config['system'], self._config['secrets']) for k, v in d.items()}
+
+    @property
+    def network(self):
+        pass
 
     # Controls config. No merging of data required here.
     @property
@@ -459,13 +475,13 @@ class BM2Config:
 
     # Allow progressive deletion of the config to free memory.
     def del_controls(self):
-        del(self._config['controls'])
+        del self._config['controls']
         gc.collect()
 
     def del_displays(self):
-        del(self._config['displays'])
+        del self._config['displays']
         gc.collect()
 
     def del_scripts(self):
-        del(self._config['scripts'])
+        del self._config['scripts']
         gc.collect()

@@ -5,6 +5,7 @@ import time
 import math
 from brickmaster2.segment_format import time_7s, number_7s
 
+
 class BM2Script:
     def __init__(self, script, controls):
         # Create a logger.
@@ -23,6 +24,7 @@ class BM2Script:
         self._pending_block = 0
         self._at_completion = "off"
         self._topics = None
+        self._saved_state = None
         # Save the controls references.
         self._controls = controls
 
@@ -313,7 +315,7 @@ class BM2FlightScript(BM2Script):
         # Mission Elapsed Time goes through the time string processor.
         self._display_map['met'].show(time_7s(flight_data['met']))
         # Velocity and Altitude go through the general number preprocessor.
-        for item in ('vel','alt'):
+        for item in ('vel', 'alt'):
             self._display_map[item].show(number_7s(flight_data[item]))
 
     # Create the flight plan. This is second-by-second data pre-calculated.
@@ -351,7 +353,8 @@ class BM2FlightScript(BM2Script):
                 self._logger.debug("\t\tCurrent Values:\n\t\t\tAlt: {}\n\t\t\tdA: {}\n\t\t\tVel: {}\n\t\t\tdV: {}".
                                    format(alt, da, vel, dv))
                 try:
-                    da = (float(self._blocks[active_block]['flight']['final_altitude']) - alt) / self._blocks[active_block]['run_time']
+                    da = ((float(self._blocks[active_block]['flight']['final_altitude']) - alt) /
+                          self._blocks[active_block]['run_time'])
                 except (KeyError, TypeError):
                     try:
                         if self._blocks[active_block]['flight']['alt'] == 'glide':
@@ -359,10 +362,12 @@ class BM2FlightScript(BM2Script):
                         elif self._blocks[active_block]['flight']['alt'] == 'freeze':
                             self._logger.debug("\t\tFreezing Altitude.")
                     except KeyError:
-                        self._logger.debug("Cannot determine action for block {} altitude. Needs correction!".format(active_block))
+                        self._logger.debug("Script: Cannot determine action for block {} altitude. Needs correction!".
+                                           format(active_block))
                         raise
                 try:
-                    dv = (float(self._blocks[active_block]['flight']['final_velocity']) - vel) / self._blocks[active_block]['run_time']
+                    dv = ((float(self._blocks[active_block]['flight']['final_velocity']) - vel) /
+                          self._blocks[active_block]['run_time'])
                 except (KeyError, TypeError):
                     try:
                         if self._blocks[active_block]['flight']['vel'] == 'glide':
@@ -370,7 +375,8 @@ class BM2FlightScript(BM2Script):
                         elif self._blocks[active_block]['flight']['vel'] == 'freeze':
                             self._logger.debug("\t\tFreezing Velocity.")
                     except KeyError:
-                        self._logger.debug("Cannot determine action for block {} altitude. Needs correction!".format(active_block))
+                        self._logger.debug("Script: Cannot determine action for block {} altitude. Needs correction!".
+                                           format(active_block))
                         raise
                 self._logger.debug("\t\tNew dA: {}\n\t\tNew dV: {}".format(da, dv))
 
@@ -400,7 +406,7 @@ class BM2FlightScript(BM2Script):
                     alt = alt + da
             else:
                 # Otherwise, increment based on the target velocity.
-                alt = round(alt + da,3)
+                alt = round(alt + da, 3)
             self._logger.debug("\t\tAltitude: {}".format(alt))
 
             # Calculate velocity
@@ -430,7 +436,7 @@ class BM2FlightScript(BM2Script):
     def _map_displays(self, script, displays):
         if 'display_map' not in script:
             raise ValueError("Script does not have display map.")
-        for val in ('met','alt','vel'):
+        for val in ('met', 'alt', 'vel'):
             if val not in script['display_map']:
                 raise ValueError("Display map does not map '{}'!".format(val))
         for md in script['display_map']:

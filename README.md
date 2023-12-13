@@ -52,7 +52,7 @@ _Probably works for other Linux versions, but not tested, adapt as appropriate._
 ### CircuitPython
 
 1. Download the package and put the contents of the "brickmaster2" directory into the board root directory.
-2. Download and install the required libraries:
+2. Download and install the required libraries.
 3. Copy the "code.py" file to the board root directory.
 4. Create a config.json and copy that to the board root directory.
 5. Note that depending on the board, you may need to increase the stack size. You can do this by adding the below to 
@@ -87,6 +87,7 @@ Example configs are in the `examples` directory.
 | `i2c`                  | dict   | None       | v0.1   | Defines I2C bus to use. Only required if using displays.                                                            |
 | `indicators`           | dict | None | v0.3.1 | Defines GPIO pins for indicators lights.                                                                            |
 | `ha`                    | dict | None | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                       |
+| `time_mqtt` | bool | False | v0.4.3 | Time MQTT polls. Used for development, you almost certainly don't need this. |
 
 #### I2C
 Currently the only option for I2C is 'bus_id', which must be an integer. Should probably always be '1'.

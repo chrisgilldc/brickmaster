@@ -7,7 +7,7 @@ import supervisor
 
 try:
     # Create the BrickMaster2 Object.
-    bm2 = BrickMaster2(config_file='config-bmlc.json')
+    bm2 = BrickMaster2(config_file='config.json')
     # Run it.
     bm2.run()
 except MemoryError as e:
