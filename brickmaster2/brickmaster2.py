@@ -51,7 +51,7 @@ class BrickMaster2:
         try:
             self._setup_i2c_bus()
         except RuntimeError:
-            self._logger.error("I2C Bus not available.")
+            self._logger.error("I2C Bus not available. Some features disabled.")
 
         # Initialize dicts to store objects.
         self._controls = {}

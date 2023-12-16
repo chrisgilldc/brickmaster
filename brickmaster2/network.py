@@ -16,7 +16,7 @@ import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
 import brickmaster2.scripts
 import brickmaster2.controls
 import gc
-import microcontroller
+import supervisor
 
 
 class BM2Network:
@@ -105,8 +105,6 @@ class BM2Network:
             global socketpool
             import wifi
             import socketpool
-            # Set the hostname
-            wifi.radio.hostname(self._system_name)
         elif self._wifihw == 'esp32spi':
             self._logger.info("Network: Importing esp32 co-processor support.".
                               format(os.uname().sysname))
@@ -196,6 +194,11 @@ class BM2Network:
         except ConnectionError:
             self._logger.warning("Network: Connection error when polling MQTT broker.")
             return
+        except TimeoutError as e:
+            self._logger.critical("Network: Wifi device not responding. Resetting.")
+            self._logger.info(str(e))
+            # Call setup to set the interface up again.
+            supervisor.reload()
 
         # Publish an online message.
         self.publish('connectivity', 'online')
@@ -313,6 +316,8 @@ class BM2Network:
             self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".\
                 format(self._wifi.mac_address[0], self._wifi.mac_address[1], self._wifi.mac_address[2],
                        self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5])
+            # Set the hostname
+            # self._wifi.hostname(self._system_name)
         if self._wifihw == 'esp32spi':
             # See if the board has pins defined for an ESP32 coprocessor. If so, we use the ESP32SPI library.
             # Tested on the Metro M4 Airlift.
@@ -325,12 +330,16 @@ class BM2Network:
                 self._esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
             except AttributeError as e:
                 self._logger.error("Network: ESP32 Co-Processor not defined.")
-                self._logger.error(e)
+                self._logger.error(str(e))
             else:
                 # Define the ESP controls
                 # Define the ESP controls
                 if self._esp.status == adafruit_esp32spi.WL_IDLE_STATUS:
-                    self._logger.info("Network: ESP32 found and idle.")
+                    self._logger.info("Network: ESP32 co-processor found and idle.")
+                else:
+                    self._logger.warning("Network: ESP32 co-processor busy. Resetting!")
+                    supervisor.reload()
+                time.sleep(5)
                 self._logger.info("Network: ESP32 Firmware version is '{}.{}.{}'".format(
                      self._esp.firmware_version[0], self._esp.firmware_version[1], self._esp.firmware_version[2]))
                 self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".format(
@@ -430,7 +439,7 @@ class BM2Network:
                 self._logger.critical("Network: Restart requested! Restarting in 5s!")
                 time.sleep(5)
                 if os.uname().sysname.lower() != 'linux':
-                    microcontroller.reset()
+                    supervisor.reload()
                 else:
                     sys.exit(0)
             elif message == 'dumpconfig':
