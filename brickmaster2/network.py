@@ -16,7 +16,7 @@ import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
 import brickmaster2.scripts
 import brickmaster2.controls
 import gc
-import supervisor
+#import supervisor
 
 
 class BM2Network:
@@ -103,15 +103,19 @@ class BM2Network:
             self._logger.info("Network: Importing esp32 support.".format(os.uname().sysname))
             global wifi
             global socketpool
+            global supervisor
             import wifi
             import socketpool
+            import supervisor
         elif self._wifihw == 'esp32spi':
             self._logger.info("Network: Importing esp32 co-processor support.".
                               format(os.uname().sysname))
             global adafruit_esp32spi
             global socket
+            global supervisor
             from adafruit_esp32spi import adafruit_esp32spi
             import adafruit_esp32spi.adafruit_esp32spi_socket as socket
+            import supervisor
 
         else:
             raise ValueError("Wifi Hardware setting '{}' not valid.".format(self._wifihw))
@@ -195,10 +199,13 @@ class BM2Network:
             self._logger.warning("Network: Connection error when polling MQTT broker.")
             return
         except TimeoutError as e:
-            self._logger.critical("Network: Wifi device not responding. Resetting.")
-            self._logger.info(str(e))
-            # Call setup to set the interface up again.
-            supervisor.reload()
+            if os.uname().sysname.lower() != 'linux':
+                self._logger.critical("Network: Wifi device not responding. Resetting.")
+                self._logger.info(str(e))
+                # Call setup to set the interface up again.
+                supervisor.reload()
+            else:
+                raise
 
         # Publish an online message.
         self.publish('connectivity', 'online')
