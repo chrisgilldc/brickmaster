@@ -4,3 +4,4 @@ adafruit-circuitpython-datetime
 adafruit-circuitpython-logging
 adafruit-circuitpython-minimqtt
 adafruit-circuitpython-esp32spi
+pid
