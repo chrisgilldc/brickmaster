@@ -6,7 +6,7 @@ import sys
 
 
 class Control:
-    def __init__(self, control_id, control_name, publish_time=15):
+    def __init__(self, control_id, control_name, icon="mdi:toy-brick", publish_time=15):
         # Create a logger.
         self._logger = logger.getLogger('BrickMaster2')
         # Set the ID.
@@ -15,6 +15,7 @@ class Control:
         self._control_name = control_name
         self._topics = None
         self._status = None
+        self._icon = icon
         self._publish_time = publish_time
         # Create topics for the control. This must be implemented per subclass.
         self._create_topics()
@@ -56,8 +57,8 @@ class Control:
 # Control class for GPIO
 class CtrlGPIO(Control):
     def __init__(self, control_id, control_name, pin, publish_time, addr=None, ctrltype=None, invert=False,
-                 awboard=None, **kwargs):
-        super().__init__(control_id, control_name, publish_time)
+                 awboard=None, icon="mdi:toy-brick", **kwargs):
+        super().__init__(control_id, control_name, icon, publish_time)
         self._invert = invert
 
         if ctrltype == 'aw9523':
@@ -104,6 +105,10 @@ class CtrlGPIO(Control):
                 self._pin.value = True
             else:
                 self._pin.value = False
+
+    @property
+    def icon(self):
+        return self._icon
 
     @property
     def status(self):
