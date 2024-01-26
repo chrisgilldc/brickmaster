@@ -715,7 +715,7 @@ class BM2Network:
             'name': gpio_control.name,
             'object_id': self._system_id + "_" + gpio_control.id,
             'device': self._ha_device_info,
-            'icon': 'mdi:toy-brick',
+            'icon': gpio_control.icon,
             'unique_id': self._mac_string + "_" + gpio_control.id,
             'command_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/set',
             'state_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/status',

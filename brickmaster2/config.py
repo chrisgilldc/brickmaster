@@ -135,8 +135,8 @@ class BM2Config:
     # Validate system settings
     def _validate_system(self):
         self._logger.debug("Validating system section")
-        required_keys = ['system_id']
-        optional_keys = ['log_level', 'secrets', 'wifihw', 'time_mqtt']
+        required_params = ['system_id']
+        optional_params = ['log_level', 'secrets', 'wifihw', 'time_mqtt']
         optional_defaults = {
             'log_level': 'info',
             'secrets': 'secrets.json',
@@ -145,17 +145,18 @@ class BM2Config:
             'time_mqtt': False
         }
         # Check for presence of required options.
-        for key in required_keys:
-            self._logger.debug("Checking for required key '{}'".format(key))
-            if key not in self._config['system']:
-                self._logger.critical("Required config option '{}' missing. Cannot continue!")
+        for param in required_params:
+            self._logger.debug("Checking for required key '{}'".format(param))
+            if param not in self._config['system']:
+                self._logger.critical("Required config option '{}' missing. Cannot continue!".format(param))
                 sys.exit(0)
         # Check for optional settings, assign the defaults if need be.
-        for key in optional_keys:
-            self._logger.debug("Checking for optional key '{}'".format(key))
-            if key not in self._config['system']:
-                self._logger.warning("Option '{}' not found, using default '{}'".format(key, optional_defaults[key]))
-                self._config['system'][key] = optional_defaults[key]
+        for param in optional_params:
+            self._logger.debug("Checking for optional parameter '{}'".format(param))
+            if param not in self._config['system']:
+                self._logger.warning("Option '{}' not found, using default '{}'".
+                                     format(param, optional_defaults[param]))
+                self._config['system'][param] = optional_defaults[param]
         if 'system_name' not in self._config['system']:
             self._config['system']['system_name'] = self._config['system']['id']
 
@@ -344,6 +345,17 @@ class BM2Config:
                     to_delete.append(i)
                     i += 1
                     continue
+
+            optional_params = ['icon']
+            optional_defaults = {
+                'icon': 'mdi:toy-brick'
+            }
+            for param in optional_params:
+                self._logger.debug("Checking for optional parameter '{}'".format(param))
+                if param not in self._config['system']:
+                    self._logger.warning("Option '{}' not found, using default '{}'".
+                                         format(param, optional_defaults[param]))
+                    self._config['controls'][i][param] = optional_defaults[param]
 
             i += 1
         # Make the to_delete list unique.
