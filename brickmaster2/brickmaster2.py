@@ -147,12 +147,17 @@ class BrickMaster2:
         self._logger.debug("Sys: Memory free at start of control creation: {}".format(gc.mem_free()))
         self._logger.debug("Sys: Controls to create - {}".format(self._bm2config.controls))
         for control_cfg in self._bm2config.controls:
-            self._logger.debug("Setting up control '{}'".format(control_cfg['control_name']))
+            self._logger.debug("Setting up control '{}' as type '{}'".
+                               format(control_cfg['control_name'], control_cfg['type']))
+            self._logger.debug("Complete control config: {}".format(control_cfg))
             if control_cfg['type'].lower() == 'gpio':
                 self._controls[control_cfg['control_name']] = CtrlGPIO(**control_cfg, publish_time=publish_time)
             elif control_cfg['type'].lower() == 'aw9523':
                 if control_cfg['addr'] not in self._extgpio.keys():
+                    self._logger.debug("No AW9523 exists at address '{}'. Creating.".format(control_cfg['addr']))
                     self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
+                else:
+                    self._logger.debug("AW9523 already initialized at address '{}'".format(control_cfg['addr']))
                 self._controls[control_cfg['control_name']] = CtrlGPIO(**control_cfg, publish_time=publish_time,
                                                                awboard=self._extgpio[control_cfg['addr']])
             gc.collect()

@@ -1,68 +1,69 @@
 {
   "system": {
-    "id": "cv_64",
-    "name": "CV-64",
-    "log_level": "info",
+    "system_id": "cv_64",
+    "system_name": "CV-64",
+    "wifihw": "esp32",
+    "log_level": "debug",
     "i2c": {
       "bus_id": 1
     },
     "ha": {
-      "area": "Unknown",
+      "area": "Loft",
       "meminfo": "split-pct"
     }
   },
   "controls": [
     {
-      "id": "rotor",
-      "name": "Rotors",
+      "control_id": "rotor",
+      "control_name": "Rotors",
       "type": "gpio",
       "pin": "A0"
     },
     {
-      "id": "engines",
-      "name": "Engines",
+      "control_id": "engines",
+      "control_name": "Engines",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 0
     },
     {
-      "id": "landing_bay",
-      "name": "Landing Bay Lights",
+      "control_id": "landing_bay",
+      "control_name": "Landing Bay Lights",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 1
     },
     {
-      "id": "iron_man",
-      "name": "Iron Man",
+      "control_id": "iron_man",
+      "control_name": "Iron Man",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 2
     },
     {
-      "id": "rotor_lights",
-      "name": "Rotors Lights",
+      "control_id": "rotor_lights",
+      "control_name": "Rotors Lights",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 4
     },
     {
-      "id": "beacon",
-      "name": "Beacon",
+      "control_id": "beacon",
+      "control_name": "Beacon",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 5
     },
     {
-      "id": "twr_lights",
-      "name": "Tower Lights",
+      "control_id": "twr_lights",
+      "control_name": "Tower Lights",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 6
     },
     {
-      "id": "cmd_deck",
-      "name": "Command Deck",
+      "control_id": "cmd_deck",
+      "control_name": "Command Deck",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 9

@@ -56,12 +56,12 @@ class Control:
 
 # Control class for GPIO
 class CtrlGPIO(Control):
-    def __init__(self, control_id, control_name, pin, publish_time, addr=None, ctrltype=None, invert=False,
+    def __init__(self, control_id, control_name, pin, publish_time, addr=None, invert=False,
                  awboard=None, icon="mdi:toy-brick", **kwargs):
         super().__init__(control_id, control_name, icon, publish_time)
         self._invert = invert
 
-        if ctrltype == 'aw9523':
+        if awboard is not None:
             self._setup_pin_aw9523(awboard, pin)
         else:
             self._setup_pin_onboard(pin)

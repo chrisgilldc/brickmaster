@@ -2,6 +2,6 @@ Adafruit-Blinka
 adafruit-circuitpython-ht16k33
 adafruit-circuitpython-datetime
 adafruit-circuitpython-logging
-adafruit-circuitpython-minimqtt
+adafruit-circuitpython-minimqtt >= 7.5.8
 adafruit-circuitpython-esp32spi
 pid

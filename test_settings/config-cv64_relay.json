@@ -1,0 +1,28 @@
+### CV-64
+### Relay-only config for Lego Helicarrier (76042-1). This is to only control the motor for the lift rotors.
+{
+  "system": {
+    "id": "cv_64",
+    "name": "CV-64",
+    "log_level": "info",
+    "i2c": {
+      "bus_id": 1
+    },
+    "ha": {
+      "area": "Unknown",
+      "meminfo": "split-pct"
+    }
+  },
+  "controls": [
+    {
+      "id": "rotor",
+      "name": "Rotors",
+      "type": "gpio",
+      "pin": "A0"
+    }
+  ],
+  "displays": [
+  ],
+  "scripts": {
+  }
+}

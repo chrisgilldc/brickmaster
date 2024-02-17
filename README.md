@@ -21,15 +21,17 @@ originally performed on the Raspberry Pi Zero W and [Adafruit Metro M4 Airlift](
 As of v0.4, the [Adafruit ESP32 Feather v2](https://www.adafruit.com/product/5400) is also supported and tested.
 Not all features are tested on all boards, either due to hardware limitations or my own needs.
 
-*NOTE*
 
-As of 9/29/2023, this *appears* to be fixed in the latest release.
+*NOTES*
 
-As of 6/5/2023, the ESP32SPI socket implementation has a 
-[known issue](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/pull/168) with it's receive behavior. This 
-impacts the MiniMQTT library this package uses. Aafton Bladet has a 
-[patched version](https://github.com/aaftonbladet/Adafruit_CircuitPython_MiniMQTT/tree/esp32spi_socket_read_fix) which 
-is pending acceptance. For the time being, use that version, it (appears to) work fine.
+
+* Adafruit MiniMQTT 
+  * Some versions had an issue with ping handling, wherein empty polls could cause an unhandled exception. This should 
+  * now be fixed as of 7.5.8. 
+* ESP32SPI Socket Implementation
+  * As of 9/29/2023, this *appears* to be fixed in the latest release.
+  * As of 6/5/2023, the ESP32SPI socket implementation has a [known issue](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/pull/168) with it's receive behavior. This 
+impacts the MiniMQTT library this package uses. Aafton Bladet has a [patched version](https://github.com/aaftonbladet/Adafruit_CircuitPython_MiniMQTT/tree/esp32spi_socket_read_fix) which  is pending acceptance. For the time being, use that version, it (appears to) work fine.
 
 ## Installation
 

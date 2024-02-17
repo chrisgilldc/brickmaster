@@ -192,7 +192,7 @@ class BM2Network:
             if self._time_mqtt:
                 self._logger.info("Network: MQTT poll took {}s".format(end_time-start_time))
         except af_mqtt.MMQTTException:
-            self._logger.warning("Network: MQTT poll timed out.")
+            # self._logger.warning("Network: MQTT poll timed out.")
             self._logger.debug("Network MQTT connection state: {}".format(self._mqtt_client.is_connected()))
             return
         except ConnectionError:
