@@ -1,7 +1,10 @@
-# Brickmaster2 Network handling module
+"""
+Brickmaster2 Network for Circuitpython boards
+"""
 
 import os
 import sys
+
 import board
 import busio
 import time
@@ -16,16 +19,17 @@ import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
 import brickmaster2.scripts
 import brickmaster2.controls
 import gc
-#import supervisor
 
 
-class BM2Network:
-    def __init__(self, core, system_id, system_name, broker, mqtt_username, mqtt_password, ssid=None, password=None,
+# import supervisor
+
+class BM2NetworkCircuitPython:
+    def __init__(self, core, id, name, broker, mqtt_username, mqtt_password, ssid=None, password=None,
                  net_on=None, net_off=None, port=1883, ha_discover=False, ha_base='homeassistant', ha_area=None,
                  ha_meminfo='unified', wifihw=None, time_mqtt=False, **kwargs):
 
-        self._system_name = system_name
-        self._system_id = system_id
+        self._system_name = name
+        self._system_id = id
         self._broker = broker
         self._mqtt_port = port
         self._mqtt_username = mqtt_username
@@ -49,7 +53,10 @@ class BM2Network:
 
         if wifihw is None:
             self._logger.info("Network: WiFi type not set in config. Attempting to auto-detect.")
-            if os.uname().sysname.lower() in ('samd51'):
+            if os.uname().sysname.lower() == 'linux':
+                self._logger.info("Network: System is Linux, will let OS handle network connection.")
+                self._wifihw = 'linux'
+            elif os.uname().sysname.lower() in ('samd51'):
                 self._logger.warning("Network: System type is '{}'. Trying 'esp32spi' co-processor. "
                                      "Better to set 'wifihw' in 'system' config section.".format(os.uname().sysname))
                 self._wifihw = 'esp32spi'
@@ -64,7 +71,6 @@ class BM2Network:
         else:
             self._logger.info("Network: WiFi type set to '{}' via config file.".format(wifihw))
             self._wifihw = wifihw
-
 
         self._logger.info("Network MQTT options: {}@{}:{}".format(self._mqtt_username, self._broker, self._mqtt_port))
 
@@ -94,31 +100,34 @@ class BM2Network:
             self._led_netoff = None
 
         # If not on a general-purpose system, set up WIFI.
-        if os.uname().sysname.lower() == 'linux':
-            # On a general-purpose Linux system, the OS handles the network. We only need the socket library.
-            global socket
-            import socket
-
-        elif self._wifihw == 'esp32':
-            self._logger.info("Network: Importing esp32 support.".format(os.uname().sysname))
-            global wifi
-            global socketpool
-            global supervisor
-            import wifi
-            import socketpool
-            import supervisor
-        elif self._wifihw == 'esp32spi':
-            self._logger.info("Network: Importing esp32 co-processor support.".
-                              format(os.uname().sysname))
-            global adafruit_esp32spi
-            global socket
-            global supervisor
-            from adafruit_esp32spi import adafruit_esp32spi
-            import adafruit_esp32spi.adafruit_esp32spi_socket as socket
-            import supervisor
-
-        else:
-            raise ValueError("Wifi Hardware setting '{}' not valid.".format(self._wifihw))
+        # if os.uname().sysname.lower() == 'linux':
+        #     # On a general-purpose Linux system, the OS handles the network. We only need the socket library.
+        #     global socket
+        #     import socket
+        #
+        # elif self._wifihw == 'esp32':
+        #     self._logger.info("Network: Importing esp32 support.".format(os.uname().sysname))
+        #     global wifi
+        #     global socketpool
+        #     global supervisor
+        #     import wifi
+        #     import socketpool
+        #     import supervisor
+        # elif self._wifihw == 'esp32spi':
+        #     self._logger.info("Network: Importing esp32 co-processor support.".
+        #                       format(os.uname().sysname))
+        #     global adafruit_esp32spi
+        #     global socket
+        #     global supervisor
+        #     from adafruit_esp32spi import adafruit_esp32spi
+        #     # CP8
+        #     # import adafruit_esp32spi.adafruit_esp32spi_socket as socket
+        #     # CP9
+        #     pool = adafruit_connection_manager.get_radio_socketpool(esp)
+        #     import supervisor
+        #
+        # else:
+        #     raise ValueError("Wifi Hardware setting '{}' not valid.".format(self._wifihw))
 
         # Connect to the network
         self._setup_wifi()
@@ -141,13 +150,13 @@ class BM2Network:
                 'obj': None  # No object, but include this to prevent breakage.
             },
             'meminfo': {
-              'topic': self._topic_prefix + '/meminfo',
-              'repeat': False,
-              'retain': False,
-              'previous_value': 'Unknown',
-              'publish_after_discovery': 1,
-              'discovery_time': 0.0,
-              'obj': None
+                'topic': self._topic_prefix + '/meminfo',
+                'repeat': False,
+                'retain': False,
+                'previous_value': 'Unknown',
+                'publish_after_discovery': 1,
+                'discovery_time': 0.0,
+                'obj': None
             },
             'active_script': {
                 'topic': self._topic_prefix + '/active_script',
@@ -184,13 +193,13 @@ class BM2Network:
             return
 
         try:
-            timeout = 0.25
+            timeout = 1
             self._logger.debug("Network: Polling MQTT Broker. Timeout is {}s".format(timeout))
             start_time = time.monotonic()
             self._mqtt_client.loop(timeout=timeout)
             end_time = time.monotonic()
             if self._time_mqtt:
-                self._logger.info("Network: MQTT poll took {}s".format(end_time-start_time))
+                self._logger.info("Network: MQTT poll took {}s".format(end_time - start_time))
         except af_mqtt.MMQTTException:
             # self._logger.warning("Network: MQTT poll timed out.")
             self._logger.debug("Network MQTT connection state: {}".format(self._mqtt_client.is_connected()))
@@ -206,16 +215,25 @@ class BM2Network:
                 supervisor.reload()
             else:
                 raise
+        except OSError as oe:
+            self._logger.warning("OSError directory: {}".format(oe))
+            if oe.args[0] == 104:
+                self._logger.warning("Network: MQTT Connection reset.")
+                self._set_indicator("off")
+                self._mqtt_connected = False
+            else:
+                raise
 
         # Publish an online message.
         self.publish('connectivity', 'online')
         # Publish memory stats.
-        self.publish('meminfo', self._meminfo())
+        if self._wifihw != 'linux':
+            self.publish('meminfo', self._meminfo())
 
         # Publish any outbound topics.
         self._publish_outbound()
         # Garbage collect.
-        gc.collect()
+        # gc.collect()
 
     def _connectivity_check(self):
         # If on non-Linux system, check to see if the network is connected.
@@ -237,11 +255,12 @@ class BM2Network:
 
         # If network connectivity is up, check for MQTT connectivity
         if not self._mqtt_connected:
+            # Limit the notice so the log isn't totally spammed.
             if self._mqtt_failure_notice is False:
-                self._logger.warning("Network: MQTT client not connected! Will retry in 30s.")
+                self._logger.warning("Network: MQTT client not connected! Will retry in 10s.")
                 self._mqtt_failure_notice = True
-            # Has is been 30s since the previous attempt?
-            if time.monotonic() - self._reconnect_timestamp > 30:
+            # Has is been 10s since the previous attempt?
+            if time.monotonic() - self._reconnect_timestamp > 10:
                 self._mqtt_failure_notice = False
                 self._logger.info("Network: Attempting MQTT reconnect...")
                 self._reconnect_timestamp = time.monotonic()
@@ -251,6 +270,7 @@ class BM2Network:
                     return False
                 else:
                     self._logger.warning("Network: MQTT client reconnected.")
+                    self._mqtt_connected = True
             else:
                 return False
         else:
@@ -259,18 +279,29 @@ class BM2Network:
 
     # Connect to the MQTT broker.
     def _connect_mqtt(self):
+        self._logger.info("Network: Connecting to MQTT broker {}:{}".format(self._broker, self._mqtt_port))
+        # If connected, disconnect.
+        if self._mqtt_client.is_connected():
+            self._logger.info("Network: MQTT Client is marked as connected. Disconnecting.")
+            try:
+                self._mqtt_client.disconnect()
+            except BaseException as e:
+                self._logger.info("Network: MQTT Disconnect returned exception '{}'. Continuing.".format(e))
+        else:
+            self._logger.info("Network: MQTT Client does not mark itself as connected.")
+
+        # Now to connect.
         try:
-            if self._mqtt_client.is_connected():
-                self._mqtt_client.reconnect()
-            else:
-                self._mqtt_client.connect(host=self._broker, port=self._mqtt_port)
-        except Exception as e:
-            self._logger.warning('Network: Could not connect to MQTT broker. Waiting 30s')
-            self._logger.warning('Network: ' + str(e))
+            # self._mqtt_client.connect(host=self._broker, port=self._mqtt_port)
+            self._mqtt_client.reconnect()
+        except BaseException as mqtte:
+            self._logger.warning('Network: Could not connect to MQTT broker. Waiting 10s and then restarting')
+            self._logger.warning("Network: Received exception '" + str(mqtte) + "'")
             self._set_indicator("off")
-            time.sleep(30)
+            time.sleep(10)
             return False
         else:
+            # Success. Set the LED indicator (if any) and the tracking value.
             self._set_indicator("on")
             self._mqtt_connected = True
 
@@ -294,10 +325,12 @@ class BM2Network:
         return True
 
     def _connect_wifi(self):
-        if self._wifihw == 'esp32':
+        if self._wifihw == 'linux':
+            return
+        elif self._wifihw == 'esp32':
             self._wifi.connect(ssid=self._ssid, password=self._ssid_password)
             ip = self._wifi.ipv4_address
-        if self._wifihw == 'esp32spi':
+        elif self._wifihw == 'esp32spi':
             # Try to do the connection
             while not self._esp.is_connected:
                 self._set_indicator("off")
@@ -313,19 +346,34 @@ class BM2Network:
                     continue
                 else:
                     ip = self._esp.pretty_ip(self._esp.ip_address)
+        else:
+            raise ValueError("WiFi hardware '{}' unknown! Cannot continue!".format(self._wifihw))
         self._logger.info("Connected to WIFI! Got IP: {}".format(ip))
 
     # Internal setup methods.
     def _setup_wifi(self):
+        if self._wifihw == 'linux':
+            self._logger.info("Network: On Linux, no wifi setup required!")
+            return
+
+        # Import the AF Connection Manager for direct WiFi support
+        global adafruit_connection_manager
+        import adafruit_connection_manager
+
         if self._wifihw == 'esp32':
+            #
             self._logger.info("Network: Configuring Native ESP32...")
             self._wifi = wifi.radio
-            self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".\
+            self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}". \
                 format(self._wifi.mac_address[0], self._wifi.mac_address[1], self._wifi.mac_address[2],
                        self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5])
             # Set the hostname
             # self._wifi.hostname(self._system_name)
-        if self._wifihw == 'esp32spi':
+        elif self._wifihw == 'esp32spi':
+            # Conditionally import esp32spi support.
+            global adafruit_esp32spi
+            from adafruit_esp32spi import adafruit_esp32spi
+
             # See if the board has pins defined for an ESP32 coprocessor. If so, we use the ESP32SPI library.
             # Tested on the Metro M4 Airlift.
             self._logger.info("Network: Configuring ESP32 Co-Processor...")
@@ -348,48 +396,80 @@ class BM2Network:
                     supervisor.reload()
                 time.sleep(5)
                 self._logger.info("Network: ESP32 Firmware version is '{}.{}.{}'".format(
-                     self._esp.firmware_version[0], self._esp.firmware_version[1], self._esp.firmware_version[2]))
+                    self._esp.firmware_version[0], self._esp.firmware_version[1], self._esp.firmware_version[2]))
                 self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".format(
                     self._esp.MAC_address[5], self._esp.MAC_address[4], self._esp.MAC_address[3],
                     self._esp.MAC_address[2], self._esp.MAC_address[1], self._esp.MAC_address[0])
                 # Set the hostname
                 self._esp.set_hostname(self._system_id)
                 self._logger.info("Network: Set hostname to '{}'".format(self._system_id))
+        else:
+            raise ValueError("Network: Hardware type '{}' not supported.".format(self._wifihw))
 
         self._logger.info("Network: WiFi MAC address: {}".format(self._mac_string))
         self._logger.info("Network: Hardware initialization complete.")
 
     # Method to set up MiniMQTT
     def _setup_mini_mqtt(self):
+
+        # If we have an ESP32 Co-Processor, get the socket from the ESP.
+        if os.uname().sysname.lower() == 'linux':
+            global socket
+            import socket
+            pool = socket
+        elif self._wifihw == 'esp32spi':
+            pool = adafruit_connection_manager.get_radio_socketpool(self._esp)
+        elif self._wifihw == 'esp32':
+            pool = adafruit_connection_manager.get_radio_socketpool(self._wifi.radio)
+        else:
+            raise ValueError("Cannot create socket pool!")
+        self._logger.debug("Network: Pool object is '{}'".format(type(pool)))
+
+        # Create the MQTT object.
+        self._mqtt_client = af_mqtt.MQTT(
+            client_id=self._system_id,
+            # keep_alive=1,
+            broker=self._broker,
+            port=self._mqtt_port,
+            username=self._mqtt_username,
+            password=self._mqtt_password,
+            socket_pool=pool,
+            # socket_timeout=1
+        )
+
         # Set the socket if we're on a CircuitPython board.
-        if os.uname().sysname.lower() != 'linux':
-            if self._wifihw == 'esp32':
-                self._logger.info("Configuring MiniMQTT for ESP32")
-                pool = socketpool.SocketPool(wifi.radio)
-                # Create the MQTT object.
-                self._mqtt_client = af_mqtt.MQTT(
-                    broker=self._broker,
-                    port=self._mqtt_port,
-                    username=self._mqtt_username,
-                    password=self._mqtt_password,
-                    socket_pool=pool,
-                    socket_timeout=1
-                )
-            elif self._wifihw == 'esp32spi':
-                self._logger.info("Configuring MiniMQTT for ESP32 co-processor")
-                af_mqtt.set_socket(socket, self._esp)
-                # Create the MQTT object.
-                self._mqtt_client = af_mqtt.MQTT(
-                    broker=self._broker,
-                    port=self._mqtt_port,
-                    username=self._mqtt_username,
-                    password=self._mqtt_password,
-                    socket_pool=socket,
-                    socket_timeout=1
-                )
+        # if os.uname().sysname.lower() != 'linux':
+        #     if self._wifihw == 'esp32':
+        #         self._logger.info("Configuring MiniMQTT for ESP32")
+        #         pool = socketpool.SocketPool(wifi.radio)
+        #         # Create the MQTT object.
+        #         self._mqtt_client = af_mqtt.MQTT(
+        #             client_id=self._system_id,
+        #             keep_alive=1,
+        #             broker=self._broker,
+        #             port=self._mqtt_port,
+        #             username=self._mqtt_username,
+        #             password=self._mqtt_password,
+        #             socket_pool=pool,
+        #             socket_timeout=1
+        #         )
+        #     elif self._wifihw == 'esp32spi':
+        #         self._logger.info("Configuring MiniMQTT for ESP32 co-processor")
+        #         af_mqtt.set_socket(socket, self._esp)
+        #         # Create the MQTT object.
+        #         self._mqtt_client = af_mqtt.MQTT(
+        #             client_id=self._system_id,
+        #             keep_alive=1,
+        #             broker=self._broker,
+        #             port=self._mqtt_port,
+        #             username=self._mqtt_username,
+        #             password=self._mqtt_password,
+        #             socket_pool=socket,
+        #             socket_timeout=1
+        #         )
         # Enable the MQTT logger.
-        # self._mqtt_logger = self._mqtt_client.enable_logger(adafruit_logging, log_level=adafruit_logging.DEBUG,
-        #                                                     logger_name="MQTT")
+        self._mqtt_logger = self._mqtt_client.enable_logger(adafruit_logging, log_level=adafruit_logging.DEBUG,
+                                                            logger_name="MQTT")
         # Set the last will
         self._mqtt_client.will_set(topic=self._topics_outbound['connectivity']['topic'], payload='offline', retain=True)
         # Connect base callbacks.
@@ -462,7 +542,6 @@ class BM2Network:
         # Publish current statuses.
         self._logger.debug("Current items in outbound topics: {}".format(self._topics_outbound))
         for outbound in self._topics_outbound:
-            self._logger.debug("Sys: Free memory - {}".format(gc.mem_free()))
             self._logger.debug("Network: Outbound topic '{}'".format(outbound))
             if 'obj' in self._topics_outbound[outbound] and 'value_attr' in self._topics_outbound[outbound]:
                 # If we have an object and value attribute set, retrieve the value and send it.
@@ -483,8 +562,8 @@ class BM2Network:
         if message == self._topics_outbound[topic]['previous_value']:
             publish = False
             now_time = time.monotonic()
-            if now_time - self._topics_outbound[topic]["discovery_time"] < self._topics_outbound[topic][
-                    "publish_after_discovery"]:
+            if (now_time - self._topics_outbound[topic]["discovery_time"]
+                    < self._topics_outbound[topic]["publish_after_discovery"]):
                 self._logger.debug("Network: Discovery time was {}, time now is {}. Difference is {}".format(
                     self._topics_outbound[topic]["discovery_time"], now_time,
                     now_time - self._topics_outbound[topic]["discovery_time"]
@@ -525,7 +604,9 @@ class BM2Network:
                 self._logger.info("Network: Sending HA discovery for item '{}' ({})".
                                   format(input_obj.name, input_obj.id))
                 if isinstance(input_obj, brickmaster2.controls.CtrlGPIO) and self._mqtt_client.is_connected():
-                    self._ha_discovery_gpio(input_obj)
+                    discovered = False
+                    while not discovered:
+                        discovered = self._ha_discovery_gpio(input_obj)
         elif isinstance(input_obj, brickmaster2.scripts.BM2Script):
             self._topics_outbound[input_obj.id] = {}
             prefix = self._topic_prefix + '/' + "scripts"
@@ -570,6 +651,8 @@ class BM2Network:
                 self._mqtt_client.subscribe(tgt_topic)
             except af_mqtt.MMQTTException:
                 self._logger.error("Network: Could not subscribe to topic '{}'".format(tgt_topic))
+            except TimeoutError as to:
+                self._logger.error("Network: ESP32 not responding.")
             else:
                 self._mqtt_client.add_topic_callback(tgt_topic, callback)
 
@@ -585,168 +668,3 @@ class BM2Network:
         return_dict['pct_used'] = "{:0.2f}".format((return_dict['mem_used'] / return_dict['mem_total']) * 100)
         return_json = json.dumps(return_dict)
         return return_json
-
-    # HA Discovery
-    def _ha_discovery(self):
-        """
-        Run discovery for everything.
-        :return:
-        """
-        # Set up the Connectivity entities.
-        self._ha_discovery_connectivity()
-        # Set up the Memory Info entities.
-        self._ha_discovery_meminfo()
-
-        # The outbound topics dict includes references to the objects, so we can get the objects from there.
-        for item in self._topics_outbound:
-            if isinstance(self._topics_outbound[item]['obj'], brickmaster2.controls.CtrlGPIO):
-                self._ha_discovery_gpio(self._topics_outbound[item]['obj'])
-
-    def _ha_discovery_connectivity(self):
-        """
-        Create Home Assistant discovery message for system connectivity
-
-        :return:
-        """
-        discovery_dict = {
-            'name': "Connectivity",
-            'object_id': self._system_id + "_connectivity",
-            'device': self._ha_device_info,
-            'device_class': 'connectivity',
-            'unique_id': self._mac_string + "_connectivity",
-            'state_topic': self._topic_prefix + '/connectivity',
-            'payload_on': 'online',
-            'payload_off': 'offline'
-        }
-        discovery_json = json.dumps(discovery_dict)
-        # Publish it!
-        discovery_topic = self._ha_base + '/binary_sensor/' + 'bm2_' + self._mac_string + '/connectivity/config'
-        self._mqtt_client.publish(discovery_topic, discovery_json, True)
-        self._topics_outbound['connectivity']['discovery_time'] = time.monotonic()
-
-    def _ha_discovery_meminfo(self):
-        """
-        Create Home Assistant discovery message for free memory.
-
-        :return: None
-        """
-        # Define all the entity options, then send based on what's been configured.
-
-        # Memfreepct
-        memfreepct_dict = {
-            'name': "Memory Available (Pct)",
-            'object_id': self._system_id + "_memfreepct",
-            'device': self._ha_device_info,
-            'unique_id': self._mac_string + "_memfreepct",
-            'state_topic': self._topic_prefix + '/meminfo',
-            'unit_of_measurement': '%',
-            'value_template': '{{ value_json.pct_free }}',
-            'icon': 'mdi:memory',
-            'availability_topic': self._topic_prefix + '/connectivity'
-        }
-        memusedpct_dict = {
-            'name': "Memory Used (Pct)",
-            'object_id': self._system_id + "_memusedpct",
-            'device': self._ha_device_info,
-            'unique_id': self._mac_string + "_memusedpct",
-            'state_topic': self._topic_prefix + '/meminfo',
-            'unit_of_measurement': '%',
-            'value_template': '{{ value_json.pct_used }}',
-            'icon': 'mdi:memory',
-            'availability_topic': self._topic_prefix + '/connectivity'
-        }
-        memfreebytes_dict = {
-            'name': "Memory Available (Bytes)",
-            'object_id': self._system_id + "_memfree",
-            'device': self._ha_device_info,
-            'unique_id': self._mac_string + "_memfree",
-            'state_topic': self._topic_prefix + '/meminfo',
-            'unit_of_measurement': 'B',
-            'value_template': '{{ value_json.mem_free }}',
-            'icon': 'mdi:memory',
-            'availability_topic': self._topic_prefix + '/connectivity'
-        }
-        memusedbytes_dict = {
-            'name': "Memory Used (Bytes)",
-            'object_id': self._system_id + "_memusedpct",
-            'device': self._ha_device_info,
-            'unique_id': self._mac_string + "_memusedpct",
-            'state_topic': self._topic_prefix + '/meminfo',
-            'unit_of_measurement': 'B',
-            'value_template': '{{ value_json.mem_used }}',
-            'icon': 'mdi:memory',
-            'availability_topic': self._topic_prefix + '/connectivity'
-        }
-
-        if self._ha_meminfo == 'unified':
-            # Unified just sets up Memory, Percent Free. Add in the other memory info as JSON attributes.
-            memfreepct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memfreepct/config',
-                                      json.dumps(memfreepct_dict), True)
-        elif self._ha_meminfo == 'unified-used':
-            memusedpct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedpct/config',
-                                      json.dumps(memusedpct_dict), True)
-        elif self._ha_meminfo == 'split-pct':
-            # When providing separate memory percentages, add JSON attributes on free or used.
-            memfreepct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
-            memfreepct_dict['json_attributes_template'] = \
-                "{{ {'mem_free': value_json.mem_free, 'mem_total': value_json.mem_total} | tojson }}"
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memfreepct/config',
-                                      json.dumps(memfreepct_dict), True)
-            memusedpct_dict['json_attributes_topic'] = self._topic_prefix + '/meminfo'
-            memusedpct_dict['json_attributes_template'] = \
-                "{{ {'mem_used': value_json.mem_used, 'mem_total': value_json.mem_total} | tojson }}"
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedpct/config',
-                                      json.dumps(memusedpct_dict), True)
-        elif self._ha_meminfo == 'split-all':
-            # If we're splitting everything, we don't need to add JSON attributes.
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memfreepct/config',
-                                      json.dumps(memfreepct_dict), True)
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedpct/config',
-                                      json.dumps(memusedpct_dict), True)
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._system_id + '/memfreebytes/config',
-                                      json.dumps(memfreebytes_dict), True)
-            self._mqtt_client.publish(self._ha_base + '/sensor/' + 'bm2_' + self._mac_string + '/memusedbytes/config',
-                                      json.dumps(memusedbytes_dict), True)
-        self._topics_outbound['meminfo']['discovery_time'] = time.monotonic()
-
-    def _ha_discovery_gpio(self, gpio_control):
-        """
-        Create Home Assistant discovery message for GPIO Control.
-
-        :param gpio_control:
-        :return:
-        """
-        discovery_dict = {
-            'name': gpio_control.name,
-            'object_id': self._system_id + "_" + gpio_control.id,
-            'device': self._ha_device_info,
-            'icon': gpio_control.icon,
-            'unique_id': self._mac_string + "_" + gpio_control.id,
-            'command_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/set',
-            'state_topic': self._topic_prefix + '/controls/' + gpio_control.id + '/status',
-            'availability_topic': self._topic_prefix + '/connectivity'
-        }
-        discovery_json = json.dumps(discovery_dict)
-        # Publish it!
-        discovery_topic = self._ha_base + '/switch/' + 'bm2_' + self._mac_string + '/' + gpio_control.id + '/config'
-        self._mqtt_client.publish(discovery_topic, discovery_json, True)
-        self._topics_outbound[gpio_control.id]['discovery_time'] = time.monotonic()
-
-    @property
-    def _ha_device_info(self):
-        """
-        Generate device info for Home Assistant discovery
-        :return:
-        """
-        return_dict = {
-            'name': self._system_name,
-            'identifiers': [self._mac_string],
-            'manufacturer': "ConHugeCo",
-            'model': "BrickMaster Lego Control",
-            'sw_version': brickmaster2.version.__version__
-        }
-        if self._ha_area is not None:
-            return_dict['suggested_area'] = self._ha_area
-        return return_dict

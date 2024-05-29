@@ -1,8 +1,10 @@
 {
-	"script": "saturn5_full",
+    "id": "saturn5_full",
+    "name": "Saturn 5 Full Launch",
     "type": "flight",
     "run": "once",
     "at_completion": "restore",
+    "disable": "false",
     "display_map": {
       "met": "main",
       "alt": "lower_left",

@@ -1,30 +1,39 @@
+
 {
   "system": {
-    "name": "launchdirector",
-    "log_level": "warn",
-    "ntp_server": "172.16.30.2",
-    "tz": "Americas/New_York",
-    "i2c": {
-      "bus_id": 1
+    "id": "launchdirector",
+    "name": "Launch Director",
+    "log_level": "warning",
+    "ha":{
+      "area": ### Area name here is recommended but not required. ###
+    },
+    "mqtt": {
+      "broker": ### Broker hostname or IP ###
+      "user": ### MQTT Username ###,
+      "key": ### MQTT Password ###
     }
   },
   "controls": [
     {
-      "name": "s5_stage1",
+      "id": "s5_stage1",
+      "name": "Saturn V Stage I",
       "type": "gpio",
       "pin": "D22"
     },
     {
-      "name": "s5_stage2",
+      "id": "s5_stage2",
+      "name": "Saturn V Stage II",
       "type": "gpio",
       "pin": "D23"
     },
     {
-      "name": "s5_stage3",
+      "id": "s5_stage3",
+      "name": "Saturn V Stage III",
       "type": "gpio",
       "pin": "D24"
     },
     {
+      "id": "iss",
       "name": "ISS",
       "type": "gpio",
       "pin": "D25"
@@ -32,7 +41,7 @@
   ],
   "displays":[
     {
-      "name": "main",
+      "id": "main",
       "type": "bigseg7x4",
       "address": "0x70",
       "idle":{
@@ -41,7 +50,7 @@
       }
     },
     {
-      "name": "lower_left",
+      "id": "lower_left",
       "type": "seg7x4",
       "address": "0x71",
       "idle":{
@@ -50,7 +59,7 @@
       }
     },
     {
-      "name": "lower_right",
+      "id": "lower_right",
       "type": "seg7x4",
       "address": "0x72",
       "idle": {
@@ -59,7 +68,6 @@
     }
   ],
   "scripts": {
-    "dir": "scripts",
-    "scan_dir": "True"
+    "dir": "scripts"
   }
 }

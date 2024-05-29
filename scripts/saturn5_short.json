@@ -1,8 +1,10 @@
 {
-	"script": "saturn5_short",
+    "id": "saturn5_short",
+    "name": "Saturn V Quick Launch",
     "type": "flight",
     "run": "once",
     "at_completion": "restore",
+    "disable": "false",
     "display_map": {
       "met": "main",
       "alt": "lower_left",

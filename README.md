@@ -13,25 +13,23 @@ A (Circuit)Python application for controlling relays and devices. The most impor
 * Be able to do cool automations with connected devices (ie: Saturn 5 launch simulation)
 * Teach myself some more python (and hardware, and MQTT)
 
-## Platform Support
+## Latest Updates - V0.5
+Having struggled with CircuitPython/Adafruit-MiniMQTT stability issues, I have refactored the whole network module and
+split based on platform.
+Brickmaster2 will now use the very robust [PAHO MQTT](https://eclipse.dev/paho/index.php?page=clients/python/index.php),
+which I also use in my other project, [CobraBay](https://github.com/chrisgilldc/cobrabay).
+This leads to some code bloat. Notes on how to deploy based on platform are below.
 
-### Supported Platforms
-This system is *intended* to support both CircuitPython boards and general-purpose Linux SBCs (ie: the Pi). Testing was 
-originally performed on the Raspberry Pi Zero W and [Adafruit Metro M4 Airlift](https://www.adafruit.com/product/4000). 
-As of v0.4, the [Adafruit ESP32 Feather v2](https://www.adafruit.com/product/5400) is also supported and tested.
-Not all features are tested on all boards, either due to hardware limitations or my own needs.
+## Supported Platforms
 
+* Raspberry Pi OS - Specifically on the Pi Zero W. Other Pis should work just fine, just aren't tested.
+* CircuitPython 9 - CircuitPython 8 is no longer being tested.
+  * [Adafruit Metro M4 Airlift](https://www.adafruit.com/product/4000) - Given notable memory limitations of this board I may stop testing in the near 
+  future. The ESP32 line or possibly the Metro M7 Airlift would be recommended instead.
+  * [Adafruit ESP32 Feather v2](https://www.adafruit.com/product/5400)
 
-*NOTES*
-
-
-* Adafruit MiniMQTT 
-  * Some versions had an issue with ping handling, wherein empty polls could cause an unhandled exception. This should 
-  * now be fixed as of 7.5.8. 
-* ESP32SPI Socket Implementation
-  * As of 9/29/2023, this *appears* to be fixed in the latest release.
-  * As of 6/5/2023, the ESP32SPI socket implementation has a [known issue](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/pull/168) with it's receive behavior. This 
-impacts the MiniMQTT library this package uses. Aafton Bladet has a [patched version](https://github.com/aaftonbladet/Adafruit_CircuitPython_MiniMQTT/tree/esp32spi_socket_read_fix) which  is pending acceptance. For the time being, use that version, it (appears to) work fine.
+Feature set is intended to be 1:1 between CPython and CircuitPython. Documentation notes where this is not true due to
+platform limitations.
 
 ## Installation
 
@@ -58,7 +56,7 @@ _Probably works for other Linux versions, but not tested, adapt as appropriate._
 3. Copy the "code.py" file to the board root directory.
 4. Create a config.json and copy that to the board root directory.
 5. Note that depending on the board, you may need to increase the stack size. You can do this by adding the below to 
-'settings.toml'
+'settings.toml'. This example increases it to 2 Mb. Raise as needed.
     ```
     CIRCUITPY_PYSTACK_SIZE=2048
     ```

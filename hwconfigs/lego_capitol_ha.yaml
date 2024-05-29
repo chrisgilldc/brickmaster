@@ -1,0 +1,26 @@
+#
+# Recommended configs for using with the Lego Capitol
+#
+
+# Scrape config to get the status. Put this in your configuration.yaml or elsewhere as appropriate.
+# I made a request to the Library of Congress API team to add this as an API feature, not acted on as of yet.
+# Thankfully at least the House makes it easy.
+
+scrape:
+  - resource: http://in-session.house.gov/
+    sensor:
+      - name: US House Raw
+        select: "body"
+        value_template: >-
+          {% if value == '0' %}
+            Adjourned
+          {% elif value == '1' %}
+            In Session
+          {% else %}
+            Unknown
+          {% endif %}
+### Senate isn't done, their website is super annoying.
+
+#
+# Automation to control the physical lights.
+#
