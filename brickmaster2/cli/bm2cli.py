@@ -64,10 +64,10 @@ def main():
                 print("Config read.")
 
             # Initialize the system
-            print("Initializing...")
+            print("CLI - Initializing...")
             bm2 = brickmaster2.BrickMaster2(config_json, sys_mac_id)
             # Start.
-            print("Initialization complete. Operation start.")
+            print("CLI - Initialization complete. Operation start.")
             bm2.run()
 
     except pid.base.PidFileAlreadyLockedError:

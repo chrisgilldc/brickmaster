@@ -42,6 +42,7 @@
   "displays":[
     {
       "id": "main",
+      "name": "Main",
       "type": "bigseg7x4",
       "address": "0x70",
       "idle":{
@@ -51,6 +52,7 @@
     },
     {
       "id": "lower_left",
+      "name": "Lower Left",
       "type": "seg7x4",
       "address": "0x71",
       "idle":{
@@ -60,6 +62,7 @@
     },
     {
       "id": "lower_right",
+      "name": "Lower Right",
       "type": "seg7x4",
       "address": "0x72",
       "idle": {

@@ -306,14 +306,14 @@ class BM2Config:
                     self._logger.critical("Required control display option '{}' missing in display {}. "
                                           "Discarding display.".format(key, i))
                     to_delete.append(i)
-                    i += 1
+                    # i += 1
                     continue
             # Make sure type is legitimate.
             if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4'):
                 self._logger.critical("Display type '{}' not known in display {}. Discarding display.".
                                       format(self._config['displays'][i]['type'], i))
                 to_delete.append(i)
-                i += 1
+                # i += 1
                 continue
             # If name isn't defined, convert ID to name.
             if 'name' not in self._config['displays'][i]:
@@ -325,7 +325,7 @@ class BM2Config:
             except TypeError:
                 self._logger.critical("Address not a string for display {}. Should be in \"0xXX\" format. "
                                       "Discarding display.".format(i))
-                i += 1
+                # i += 1
                 to_delete.append(i)
                 continue
             # Default when_idle to blank, if not otherwise specified.

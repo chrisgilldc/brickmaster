@@ -17,7 +17,7 @@ class BM2NetworkLinux:
 
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, net_on=None,
                  net_off=None, port=1883, ha_discover=True, ha_base='homeassistant', ha_area=None,
-                 ha_meminfo='unified', time_mqtt=False, log_level='debug'):
+                 ha_meminfo='unified', time_mqtt=False, log_level=None):
         """
         BrickMaster2 Network Class for Linux (and probably other POSIX systems too!)
 
@@ -76,10 +76,13 @@ class BM2NetworkLinux:
         #self._unit_system = unit_system
         #self._system_name = system_name
         #self._interface = interface
+        # Default the logging level.
+        if log_level is None:
+            log_level = adafruit_logging.WARNING
 
         # Set up logger. Adafruit Logging doesn't support hierarchical logging.
         self._logger = adafruit_logging.getLogger('BrickMaster2')
-        self._logger.setLevel(adafruit_logging.DEBUG)
+        self._logger.setLevel(log_level)
         self._logger.info("Network System Name: {}".format(self._long_name))
 
         # Initialize variables
@@ -318,9 +321,8 @@ class BM2NetworkLinux:
             outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
                                                                    force_repeat=force_repeat)
             ## Extend with platform dependent messages.
-            # outbound_messages.extend(self._mqtt_messages_pd())
+            outbound_messages.extend(self._mqtt_messages_ps())
             for message in outbound_messages:
-
                 self._logger.debug("Publishing MQTT message: {}".format(message))
                 self._pub_message(**message)
             # Check for any incoming commands.
@@ -387,7 +389,7 @@ class BM2NetworkLinux:
         """
         Linux-only method to fetch memory info.
 
-        :return: dict
+        :return: list
         """
         # Pull the virtual memory with PSUtil.
         m = psutil.virtual_memory()
@@ -401,7 +403,18 @@ class BM2NetworkLinux:
                     'pct_avail': 100 - m.percent
                  }
         }
-        return return_dict
+        return [return_dict]
+
+    def _mqtt_messages_ps(self):
+        """
+        Collect platform-specific MQTT messages.
+
+        :return: list
+        """
+        messages_ps = []
+        # Memory Info.
+        messages_ps.extend(self._meminfo())
+        return messages_ps
 
     def _send_online(self):
         """

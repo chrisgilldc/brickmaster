@@ -64,6 +64,10 @@ class BrickMaster2:
         # Validate the config and process it.
         self._bm2config = brickmaster2.BM2Config(config_json)
 
+        # Reset the log level based on the config.
+        self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
+        self._logger.setLevel(self._bm2config.system['log_level'])
+
         # Set up the I2C Bus.
         self._setup_i2c_bus()
 
@@ -103,7 +107,8 @@ class BrickMaster2:
                                             broker=self._bm2config.system['mqtt']['broker'],
                                             mqtt_username=self._bm2config.system['mqtt']['user'],
                                             mqtt_password=self._bm2config.system['mqtt']['key'],
-                                            ha_discover=self._bm2config.system['ha_discover']
+                                            ha_discover=self._bm2config.system['ha_discover'],
+                                            log_level=self._bm2config.system['log_level']
                                             )
 
         elif sys.implementation.name == 'circuitpython':
@@ -339,7 +344,7 @@ class BrickMaster2:
         Sets up POSIX signal handlers.
         :return:
         """
-        self._print_or_log("debug", "Sys: Registering signal handlers.")
+        self._print_or_log("debug", "Core: Registering signal handlers.")
         # Reload configuration.
         signal.signal(signal.SIGHUP, self._reload_config)
         # Terminate cleanly.
@@ -395,7 +400,7 @@ class BrickMaster2:
         # Poll the network one more time to ensure the new control status is sent.
         self._network.poll()
         # Send an offline message.
-        self._network.publish('connectivity', 'offline')
+        self._network.disconnect()
         self._print_or_log("critical", "Cleanup complete.")
         # Set the system light off.
         try:
