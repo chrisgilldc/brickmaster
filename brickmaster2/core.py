@@ -1,28 +1,22 @@
 # BrickMaster2 Core
 
 import adafruit_logging as logging
-import digitalio
-
-# from .config import BM2Config
-# from .controls import CtrlGPIO
-#from .display import Display
-# from .scripts import BM2Script, BM2FlightScript
-# from .version import __version__
-# from .network import BM2Network
-# from .scripts import BM2Script, BM2FlightScript
-import brickmaster2
 import board
 import busio
+import digitalio
 import gc
 import io
 import json
 import os
-import pprint
 import sys
+import brickmaster2
 
 
 class BrickMaster2:
-    def __init__(self, config_json, mac_id):
+    """
+    Core BrickMaster2 class. Create one of these, then run it.
+    """
+    def __init__(self, config_json, mac_id, wifi_obj=None):
         """
         BrickMaster2 Core Module
 
@@ -30,6 +24,8 @@ class BrickMaster2:
         :type config_json: str
         :param mac_id: Interface MAC being used as the system ID.
         :type mac_id: str
+        :param wifi_obj: Wifi Object. ONLY used for CircuitPython
+        :type wifi_obj: brickmaster2.network.BM2WiFi
         """
         # Force a garbage collection
         gc.collect()
@@ -37,6 +33,8 @@ class BrickMaster2:
         # Save the MAC/system id
         self._mac_id = mac_id
         print("Mac ID is: {}".format(mac_id))
+        # Save the Wifi object.
+        self._wifi_obj = wifi_obj
 
         # Set up the status indicator, if available.
         try:
@@ -95,10 +93,10 @@ class BrickMaster2:
         self._bm2config.del_scripts()
 
         # Set up the network.
-        self._logger.debug("Setting up network with config options: {}".format(pprint.pformat(self._bm2config.system)))
+        self._logger.debug("Setting up network with config options: {}".format(self._bm2config.system))
 
         if sys.implementation.name == 'cpython':
-            self._logger.info("Setting up network for general-purpose OS.")
+            self._logger.info("Core: Setting up network for general-purpose OS.")
             from .network.linux import BM2NetworkLinux
             self._network = BM2NetworkLinux(self,
                                             system_id=self._mac_id,
@@ -110,10 +108,24 @@ class BrickMaster2:
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             log_level=self._bm2config.system['log_level']
                                             )
-
         elif sys.implementation.name == 'circuitpython':
-            self._logger.info("Setting up network for Circuitpython board.")
-            sys.exit(0)
+            self._logger.info("Core: Setting up network for CircuitPython board.")
+            from .network.circuitpython import BM2NetworkCircuitPython
+            self._network = BM2NetworkCircuitPython(self,
+                                            wifi_obj=self._wifi_obj,
+                                            system_id=self._mac_id,
+                                            short_name=self._bm2config.system['id'],
+                                            long_name=self._bm2config.system['name'],
+                                            broker=self._bm2config.system['mqtt']['broker'],
+                                            mqtt_username=self._bm2config.system['mqtt']['user'],
+                                            mqtt_password=self._bm2config.system['mqtt']['key'],
+                                            ha_discover=self._bm2config.system['ha_discover'],
+                                            log_level=self._bm2config.system['log_level']
+                                            )
+        else:
+            self._logger.critical("Core: Implementation '{}' unknown, cannot determine correct network module.".
+                                  format(sys.implementation.name))
+            sys.exit(1)
 
         # Now that the network is up, inform the network module about all the controls, scripts and displays!
         self._logger.debug("Core: Registering controls with network module.")
@@ -130,13 +142,15 @@ class BrickMaster2:
             self._logger.critical("Running with PID: {}".format(os.getpid()))
 
     def run(self):
-        self._logger.debug("Entering run loop.")
+        self._logger.debug("Core: Entering run loop.")
         while True:
             # Poll the network.
+            self._logger.debug("Core: Polling network.")
             self._network.poll()
 
             # If there's an active script, do it.
             if self._active_script is not None:
+                # self._logger.debug(f"Core: Script active, executing '{self._active_script}'")
                 self._scripts[self._active_script].execute(implicit_start=True)
                 # Check to see if the script has gone back to idle.
                 if self._scripts[self._active_script].status == 'OFF':
@@ -144,11 +158,19 @@ class BrickMaster2:
             else:
                 # Otherwise, have the displays do their idle thing.
                 # Push time and date to displays that need it.
+                # self._logger.debug("Core: Showing idle display state.")
                 for display in self._displays:
                     self._displays[display].show_idle()
 
-    # Callback to get script execution requests.
     def callback_scr(self, client, topic, message):
+        """
+        Callback for script commands.
+
+        :param client: client
+        :param topic: Topic message was sent one
+        :param message: Message object.
+        :return:
+        """
         # Convert the message payload (which is binary) to a string.
         message_text = str(message.payload, 'utf-8')
         # Message text *should* be the name of the script to execute, or Inactive/Abort.
@@ -213,7 +235,7 @@ class BrickMaster2:
             try:
                 self._controls[control_cfg['id']] = brickmaster2.controls.CtrlGPIO(**control_cfg, publish_time=publish_time,
                                                          awboard=awboard)
-            except ValueError:
+            except (AssertionError, AttributeError, ValueError):
                 self._logger.warning("Could not create control.")
             # gc.collect()
             # self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['control_name'],
@@ -330,6 +352,11 @@ class BrickMaster2:
     # Active script. Returns friendly name of the Active Script. Used to send to MQTT.
     @property
     def active_script(self):
+        """
+        Report the active script, if any.
+
+        :return:
+        """
         if self._active_script is None:
             return "Inactive"
         else:
@@ -367,7 +394,7 @@ class BrickMaster2:
         signal.signal(signal.SIGPIPE, self._signal_handler)
         signal.signal(signal.SIGALRM, self._signal_handler)
 
-    def _cleanup_and_exit(self, signalNumber=None):
+    def cleanup_and_exit(self, signalNumber=None, message=None):
         """
         Shut off controls and displays, then exit.
 
@@ -376,37 +403,42 @@ class BrickMaster2:
         """
         if isinstance(signalNumber, int) and 'signal' in sys.modules:
             signame = signal.Signals(signalNumber).name
-            self._print_or_log("critical", "Exit triggered by {}. Performing cleanup actions.".format(signame))
+            self._print_or_log("critical", "Core: Exit triggered by {}. Performing cleanup actions.".format(signame))
         else:
-            self._print_or_log("critical", "Exit requested. Performing cleanup actions.")
+            self._print_or_log("critical", "Core: Exit requested. Performing cleanup actions.")
 
         # Set the controls to off.
-        self._print_or_log("critical", "Setting controls off....")
+        self._print_or_log("critical", "Core: Setting controls off....")
         # Turn off all the controls
         try:
             for control in self._controls:
-                self._print_or_log("info", "\t{}".format(control))
+                self._print_or_log("info", "Core: \t{}".format(control))
                 self._controls[control].set("off")
         except AttributeError:
-            self._print_or_log("critical", "Controls not defined, nothing to do.")
+            self._print_or_log("critical", "Core: Controls not defined, nothing to do.")
         # Turn off all the displays
-        self._print_or_log("critical", "Setting displays off....")
+        self._print_or_log("critical", "Core: Setting displays off....")
         try:
             for display in self._displays:
-                self._print_or_log("info", "\t{}".format(display))
+                self._print_or_log("info", "Core: \t{}".format(display))
                 self._displays[display].off()
         except AttributeError:
-            self._print_or_log("critical", "Displays not defined, nothing to do.")
+            self._print_or_log("critical", "Core: Displays not defined, nothing to do.")
         # Poll the network one more time to ensure the new control status is sent.
-        self._network.poll()
-        # Send an offline message.
+        # try:
+        #     self._network.poll()
+        # except Exception:
+        #     pass
+        self._print_or_log("critical", "Core: Disconnecting network.")
+        # Disconnect
         self._network.disconnect()
-        self._print_or_log("critical", "Cleanup complete.")
+        self._print_or_log("critical", "Core: Setting system run light off.")
         # Set the system light off.
         try:
             self._led_sysstat.value = False
         except AttributeError:
             pass
+        self._print_or_log("critical", "Core: Cleanup complete.")
         # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
         if signalNumber in (None, 15):
             sys.exit(0)
@@ -421,4 +453,4 @@ class BrickMaster2:
         :return:
         """
         print("Caught signal {}".format(signalNumber))
-        self._cleanup_and_exit(signalNumber)
+        self.cleanup_and_exit(signalNumber)

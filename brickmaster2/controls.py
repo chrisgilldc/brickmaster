@@ -56,10 +56,13 @@ class CtrlGPIO(Control):
         super().__init__(id, name, icon, publish_time)
         self._invert = invert
 
-        if awboard is not None:
-            self._setup_pin_aw9523(awboard, pin)
-        else:
-            self._setup_pin_onboard(pin)
+        try:
+            if awboard is not None:
+                self._setup_pin_aw9523(awboard, pin)
+            else:
+                self._setup_pin_onboard(pin)
+        except (AssertionError, AttributeError, ValueError) as e:
+            raise e
 
         # Set self to off.
         self.set('off')
@@ -69,15 +72,15 @@ class CtrlGPIO(Control):
         # Have the import. Now create the pin.
         try:
             self._pin = digitalio.DigitalInOut(getattr(board, str(pin)))
-        except AttributeError:
-            self._logger.critical("Control: Control '{}' references pin '{}', does not exist. Exiting!".
+        except AttributeError as ae:
+            self._logger.critical("Control: Control '{}' references non-existent pin '{}', does not exist. Exiting!".
                                   format(self.name, pin))
-            sys.exit(1)
+            raise ae
         except ValueError as ve:
             # Using an in-use pin will return a ValueError.
             self._logger.critical("Control: Control '{}' uses pin '{}' which is already in use!".
                                   format(self.name, pin))
-            raise
+            raise ve
         # Set the pin to an output
         self._pin.direction = digitalio.Direction.OUTPUT
 
@@ -85,9 +88,9 @@ class CtrlGPIO(Control):
     def _setup_pin_aw9523(self, awboard, pin):
         try:
             self._pin = awboard.get_pin(pin)
-        except AssertionError:
+        except AssertionError as ae:
             self._logger.critical("Control: Control '{}' asserted pin '{}', not valid.".format(self.name, pin))
-            raise
+            raise ae
         # Have a pin now, set it up.
         self._pin.direction = digitalio.Direction.OUTPUT
 

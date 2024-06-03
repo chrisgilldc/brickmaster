@@ -20,7 +20,10 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
     :type force_repeat: bool
     :return: dict
     """
-    outbound_messages = []
+    outbound_messages = [
+        {'topic': 'brickmaster2/' + short_name + '/connectivity',
+         'message': 'online'}
+    ]
 
     # Controls
     for item in object_register['controls']:
@@ -37,7 +40,7 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
         display_object = object_register['displays'][item]
         logger.debug("Generating messages for object '{}' (type: {})".format(
             display_object.id, type(display_object)))
-        outbound_messages
+        # outbound_messages
 
     ## Active script.
     logger.debug("Generating active script message...")

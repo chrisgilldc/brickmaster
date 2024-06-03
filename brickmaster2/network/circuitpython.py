@@ -5,24 +5,28 @@ Brickmaster2 Network for Linux
 import adafruit_logging
 from json import dumps as json_dumps
 import time
-from paho.mqtt.client import Client
+# from paho.mqtt.client import Client
 import brickmaster2
-import psutil
+# Adafruit Minimqtt
+import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
+import supervisor
+import sys
 
-
-class BM2NetworkLinux:
+class BM2NetworkCircuitPython:
     """
-    BrickMaster2 Networking class for Linux
+    BrickMaster2 Networking class for CircuitPython boards.
     """
 
-    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, net_on=None,
+    def __init__(self, core, wifi_obj, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, net_on=None,
                  net_off=None, port=1883, ha_discover=True, ha_base='homeassistant', ha_area=None,
                  ha_meminfo='unified', time_mqtt=False, log_level=None):
         """
-        BrickMaster2 Network Class for Linux
+        BrickMaster2 Network Class for Linux (and probably other POSIX systems too!)
 
         :param core: Reference to the main Brickmaster2 object.
         :type core: BrickMaster2
+        :param wifi_obj: Initialized Brickmaster2 WiFi Object
+        :type wifi_obj: BM2WiFi
         :param id: ID of the system. Cannot include spaces!
         :type id: str
         :param name: Long name of the system. Used for Home Assistant discovery.
@@ -73,6 +77,7 @@ class BM2NetworkLinux:
             'scripts': {},
             'displays': {}
         }
+        self._wifi_obj = wifi_obj
         #self._unit_system = unit_system
         #self._system_name = system_name
         #self._interface = interface
@@ -101,7 +106,7 @@ class BM2NetworkLinux:
 
         self._logger.info("Defined Client ID: {}".format(self._system_id))
 
-        self._setup_mqtt() # Create the MQTT Object, connect callbacks
+        self._setup_mqtt() # Create the MQTT Object, connect callbacks.
 
         self._logger.info('Network: Initialization complete.')
 
@@ -113,7 +118,7 @@ class BM2NetworkLinux:
         #TODO: Make sure subscriptions reconnect.
         # Subscribe to the script set topic.
         self._mqtt_client.subscribe('brickmaster2/' + self._short_name + '/script/set')
-        self._mqtt_client.message_callback_add('brickmaster2/' + self._short_name + '/script/set',
+        self._mqtt_client.add_topic_callback('brickmaster2/' + self._short_name + '/script/set',
                                                self._core.callback_scr)
         # Subscribe to the Control topics.
         for control_id in self._object_register['controls']:
@@ -121,7 +126,7 @@ class BM2NetworkLinux:
             self._mqtt_client.subscribe('brickmaster2/' + self._short_name + '/controls/' +
                                         self._object_register['controls'][control_id].id + '/set')
             # Connect the callback.
-            self._mqtt_client.message_callback_add(
+            self._mqtt_client.add_topic_callback(
                 'brickmaster2/' + self._short_name + '/controls/' +
                 self._object_register['controls'][control_id].id + '/set',
                 self._object_register['controls'][control_id].callback)
@@ -220,7 +225,8 @@ class BM2NetworkLinux:
     # Public Methods
     def connect(self):
         """
-        Connect! Since this is for a Linux system, we don't need to do underlying network work, just connect to MQTT.
+        Connect! Since this is for a Linux (or probably any other POSIX) system, we don't need to do any
+        underlying network work, just connect to MQTT.
 
         :return:
         """
@@ -231,14 +237,19 @@ class BM2NetworkLinux:
         return None
 
     def disconnect(self, message=None):
-        self._logger.info('Planned disconnect with message "' + str(message) + '"')
-        # If we have a disconnect message, send it to the device topic.
-        # if message is not None:
-        #     self._mqtt_client.publish(self._topics['system']['device_state']['topic'], message)
-        # When disconnecting, mark the device and the bay as unavailable.
-        self._send_offline()
+        if message is not None:
+            self._logger.info('Network: MQTT planned disconnect with message "' + str(message) + '"')
+        else:
+            self._logger.info('Network: MQTT planned disconnect.')
+        try:
+            self._send_offline()
+        except af_mqtt.MMQTTException:
+            pass
         # Disconnect from broker
-        self._mqtt_client.disconnect()
+        try:
+            self._mqtt_client.disconnect()
+        except af_mqtt.MMQTTException:
+            pass
         # Set the internal tracker to disconnected.
         self._mqtt_connected = False
 
@@ -249,13 +260,13 @@ class BM2NetworkLinux:
         """
         # Set up the return data.
         return_data = {
-            'online': brickmaster2.util.interface_status('wlan0'),  # Is the interface up.
+            'online': self._wifi_obj.is_connected,  # Is the interface up.
             'mqtt_status': self._mqtt_connected,  # Are we connected to MQTT.
             'commands': {}
         }
 
-        # If interface isn't up, not much to do, return immediately.
-        if not brickmaster2.util.interface_status('wlan0'):
+        # If interface isn't up, try to get it back up!
+        if not self._wifi_obj.is_connected:
             return return_data
 
         self._logger.debug("Network: MQTT connection status is \n\tInternal: {}\n\tClient Object: {}".format(
@@ -307,7 +318,7 @@ class BM2NetworkLinux:
                 self._logger.debug("Publishing MQTT message: {}".format(message))
                 self._pub_message(**message)
             # Check for any incoming commands.
-            self._mqtt_client.loop()
+            self._mqtt_client.loop(1)
         else:
             self._logger.critical("Network: MQTT has undetermined state. This should never happen!")
             raise ValueError("Network internal MQTT tracker has invalid value '{}".format(self._mqtt_connected))
@@ -357,14 +368,24 @@ class BM2NetworkLinux:
         self._logger.debug("Attempting connection.")
         try:
             self._mqtt_client.connect(host=self._mqtt_broker, port=self._mqtt_port)
-        except Exception as e:
-            self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
-            return False
+        except af_mqtt.MMQTTException as e:
+            if e.code == 5:
+                # Unrecoverable exceptions blow up the whole system and call exit.
+                self._logger.warning("Could not connect to MQTT broker. Received exception '{}'. Resetting.".format(e))
+                self._core._cleanup_and_exit()
+            else:
+                return False
+        except BaseException as e:
+            self._logger.critical("Network: Received unknown exception '{}'".format(e))
+            raise e
         self._logger.debug("Connection attempt completed.")
 
         # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
         self._mqtt_connected = True
         return True
+
+    def _connect_wifi(self):
+        pass
 
     def _meminfo(self):
         """
@@ -372,19 +393,21 @@ class BM2NetworkLinux:
 
         :return: list
         """
+        #TODO: Replace with CircuitPython memory work.
+        return []
         # Pull the virtual memory with PSUtil.
-        m = psutil.virtual_memory()
-        return_dict = {
-            'topic': 'brickmaster2/' + self._short_name + '/meminfo',
-            'message':
-                {
-                    'mem_avail': m.available,
-                    'mem_total': m.total,
-                    'pct_used': m.percent,
-                    'pct_avail': 100 - m.percent
-                 }
-        }
-        return [return_dict]
+        # m = psutil.virtual_memory()
+        # return_dict = {
+        #     'topic': 'brickmaster2/' + self._short_name + '/meminfo',
+        #     'message':
+        #         {
+        #             'mem_avail': m.available,
+        #             'mem_total': m.total,
+        #             'pct_used': m.percent,
+        #             'pct_avail': 100 - m.percent
+        #          }
+        # }
+        # return [return_dict]
 
     def _mqtt_messages_ps(self):
         """
@@ -403,8 +426,7 @@ class BM2NetworkLinux:
         :return:
         """
         self._mqtt_client.publish("brickmaster2/" + self._short_name + "/connectivity",
-                                  payload="online",
-                                  retain=True)
+                                  msg="online", retain=True)
 
     def _send_offline(self):
         """
@@ -412,28 +434,47 @@ class BM2NetworkLinux:
         :return:
         """
         self._mqtt_client.publish("brickmaster2/" + self._short_name + "/connectivity",
-                                  payload="offline", retain=True)
+                                  msg="offline", retain=True)
 
     def _setup_mqtt(self):
         """
-        Create the MQTT object, connect standard callbacks.
+        Set up the MQTT client object.
 
         :return:
         """
+        # The client has slightly different setup depending on the socket, which seems odd but works?
 
-        # Create the MQTT Client.
-        self._mqtt_client = Client(
-            client_id=self._system_id
-        )
-        self._mqtt_client.username_pw_set(
+        # if self._wifi_obj.wifihw == 'esp32spi':
+        #     # Special creation for ESP32SPI (coprocessor) boards.
+        #     # Import the special ESP32SPI Socket library.
+        #     global adafruit_esp32spi_socket
+        #     import adafruit_esp32spi.adafruit_esp32spi_socket
+        #     # Set directly.
+        #     af_mqtt.set_socket(adafruit_esp32spi_socket, self._wifi_obj.esp)
+        #     # Create the library.
+        #     self._mqtt_client = af_mqtt.MQTT(
+        #         client_id = self._system_id,
+        #         broker=self._mqtt_broker,
+        #         port=self._mqtt_port,
+        #         username=self._mqtt_username,
+        #         password=self._mqtt_password,
+        #         socket_pool=adafruit_esp32spi_socket
+        #     )
+        # else:
+        self._mqtt_client = af_mqtt.MQTT(
+            client_id = self._system_id,
+            broker=self._mqtt_broker,
+            port=self._mqtt_port,
             username=self._mqtt_username,
-            password=self._mqtt_password
+            password=self._mqtt_password,
+            socket_pool=self._wifi_obj.socket_pool,
+            socket_timeout=1
         )
-        # Connect MQTT Logger.
-        # Uncomment this to get more detailed MQTT logging.
-        # self._mqtt_client.enable_logger(self._logger)
 
-        # Connect callback.
+        # Create the last will
+        self._mqtt_client.will_set(topic="brickmaster2/" + self._short_name + "/connectivity", payload='offline',qos=0,
+                                   retain=True)
+        # Connect the callbacks
         self._mqtt_client.on_connect = self._on_connect
-        # Disconnect callback
         self._mqtt_client.on_disconnect = self._on_disconnect
+        self._mqtt_client.on_message = self._on_message

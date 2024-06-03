@@ -1,5 +1,7 @@
-import sys
 import json
+import os
+import sys
+
 
 if sys.implementation.name == 'cpython':
     import netifaces
@@ -29,7 +31,7 @@ def load_config(config_path):
     return the_json
 
 
-def mac_id():
+def mac_id(wifihw=None):
     """
     Get the MAC ID of the default gateway interface for a Linux system.
     :return:
@@ -42,10 +44,32 @@ def mac_id():
         mac = netifaces.ifaddresses('wlan0')[netifaces.AF_PACKET][0]['addr']
         return mac.replace(':', '')
     elif sys.implementation.name == 'circuitpython':
-        raise NotImplemented("Circuitpython not yet tested.")
+        #TODO: Test for Circuitpython MACs.
+        # Try to auto-determine Wifi hardware if not explicitly set.
+        if wifihw is None:
+            pass
+        if wifihw == 'esp32':
+            pass
+        elif wifihw == 'esp32spi':
+            pass
+        else:
+            raise NotImplemented("Cannot determine platform!")
     else:
         raise NotImplemented("Unknown platform!")
 
+def determine_wifi_hw():
+    """
+    Figure out what our WiFi hardware is.
+    :return: str
+    """
+    if os.uname().sysname.lower() == 'linux':
+        return 'linux'
+    elif os.uname().sysname.lower() in ('samd51'):
+        return 'esp32spi'
+    elif os.uname().sysname.lower() in ('esp32'):
+        return 'esp32'
+    else:
+        raise OSError("OS Sysname '{}' does not have a known wifi type! Cannot continue!")
 
 def active_interface():
     """
@@ -57,16 +81,11 @@ def active_interface():
 
 def interface_status(interface):
     """
-    Determine if interface is up or down.
+    Determine if linux interface is up or down.
     :param interface: Interface name.
     :type interface: str
     :return: bool
     """
-    if sys.implementation.name == 'cpython':  # Assuming cpython is linux...
-        # If the interface has an IP, it's up.
-        addr = netifaces.ifaddresses(interface)
-        return netifaces.AF_INET in addr
-    elif sys.implementation.name == 'circuitpython':
-        raise NotImplemented("Circuitpython not yet tested.")
-    else:
-        raise NotImplemented("Unknown platform!")
+    # If the interface has an IP, it's up.
+    addr = netifaces.ifaddresses(interface)
+    return netifaces.AF_INET in addr
