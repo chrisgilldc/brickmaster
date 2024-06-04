@@ -28,8 +28,8 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
     # Controls
     for item in object_register['controls']:
         control_object = object_register['controls'][item]
-        logger.debug("Generating messages for object '{}' (type: {})".
-                     format(control_object.id, type(control_object)))
+        # logger.debug("Generating messages for object '{}' (type: {})".
+        #              format(control_object.id, type(control_object)))
         outbound_messages.append(
             {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
              'message': control_object.status, 'force_repeat': force_repeat}
@@ -38,12 +38,12 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
     # Displays
     for item in object_register['displays']:
         display_object = object_register['displays'][item]
-        logger.debug("Generating messages for object '{}' (type: {})".format(
-            display_object.id, type(display_object)))
+        # logger.debug("Generating messages for object '{}' (type: {})".format(
+        #     display_object.id, type(display_object)))
         # outbound_messages
 
     ## Active script.
-    logger.debug("Generating active script message...")
+    # logger.debug("Generating active script message...")
     outbound_messages.append({
         'topic': topic_prefix + '/' + short_name + '/script/active',
         'message': core.active_script,

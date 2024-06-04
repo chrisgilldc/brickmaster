@@ -115,48 +115,20 @@ class BM2NetworkCircuitPython:
         self._logger.info("Connected to MQTT Broker with result code: {}".format(rc))
         self._mqtt_connected = True
 
-        #TODO: Make sure subscriptions reconnect.
-        # Subscribe to the script set topic.
-        self._mqtt_client.subscribe('brickmaster2/' + self._short_name + '/script/set')
-        self._mqtt_client.add_topic_callback('brickmaster2/' + self._short_name + '/script/set',
-                                               self._core.callback_scr)
-        # Subscribe to the Control topics.
-        for control_id in self._object_register['controls']:
-            # Subscribe to the topic.
-            self._mqtt_client.subscribe('brickmaster2/' + self._short_name + '/controls/' +
-                                        self._object_register['controls'][control_id].id + '/set')
-            # Connect the callback.
-            self._mqtt_client.add_topic_callback(
-                'brickmaster2/' + self._short_name + '/controls/' +
-                self._object_register['controls'][control_id].id + '/set',
-                self._object_register['controls'][control_id].callback)
 
-        # Attach the fallback message trapper.
-        self._mqtt_client.on_message = self._on_message
         # Send the online message.
         self._send_online()
-        # Run Home Assistant Discovery, if enabled.
-        if self._ha_discover:
-            self._logger.debug("Network: On-Connect running Home Assistant discovery...")
-            # Create and stash device info for convenience.
-            device_info = brickmaster2.network.mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
-                                                                 brickmaster2.__version__)
-            discovery_messages = brickmaster2.network.mqtt.ha_discovery(
-                self._short_name, self._system_id, device_info, 'brickmaster2/', self._ha_base,
-                self._ha_meminfo, self._object_register)
 
-            self._logger.debug("Will send discovery messages: {}".format(discovery_messages))
-            for discovery_message in discovery_messages:
-                self._pub_message(**discovery_message)
-            # Reset the topic history so any newly discovered entities get sent to.
-            self._topic_history = {}
-            # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
-            self._ha_info['override'] = True
-            self._ha_info['start'] = time.monotonic()
+        self._logger.debug("Network: On-Connect running Home Assistant discovery...")
+
+
+
 
     def _on_disconnect(self, client, userdata, rc):
         if rc != 0:
-            self._logger.warning("Unexpected disconnect with code: {}".format(rc))
+            self._logger.warning(f"Network: Unexpected disconnect from MQTT broker with code '{rc}'")
+        else:
+            self._logger.info("Network: Disconnecting from MQTT broker.")
         self._reconnect_timer = time.monotonic()
         self._mqtt_connected = False
 
@@ -168,7 +140,7 @@ class BM2NetworkCircuitPython:
 
     # Message publishing method
     def _pub_message(self, topic, message, force_repeat=False):
-        self._logger.debug("Network: Processing message publication on topic '{}'".format(topic))
+        # self._logger.debug("Network: Processing message publication on topic '{}'".format(topic))
         # Set the send flag initially. If we've never seen the topic before or we're set to repeat, go ahead and send.
         # This skips some extra logic.
         if topic not in self._topic_history:
@@ -191,7 +163,7 @@ class BM2NetworkCircuitPython:
                                                                                                                previous_message))
                     send = True
                 else:
-                    self._logger.debug("Message has not changed, will not publish")
+                    # self._logger.debug("Message has not changed, will not publish")
                     return
             # For dictionaries, compare individual elements. This doesn't handle nested dicts, but those aren't used.
             elif isinstance(message, dict) and isinstance(previous_message, dict):
@@ -212,7 +184,7 @@ class BM2NetworkCircuitPython:
 
         # If we're sending do it.
         if send:
-            self._logger.debug("Publishing message...")
+            # self._logger.debug("Publishing message...")
             # New message becomes the previous message.
             self._topic_history[topic] = message
             # Convert the message to JSON if it's a dict, otherwise just send it.
@@ -231,9 +203,58 @@ class BM2NetworkCircuitPython:
         :return:
         """
         try:
-            self._connect_mqtt()
+            wifi_connected = self._wifi_obj.connect()
         except Exception as e:
+            self._logger.critical("Network: Encountered unhandled exception when connecting to WiFi!")
+            self._logger.critical(f"Network: {e}")
             raise
+
+        if wifi_connected:
+            try:
+                self._connect_mqtt()
+            except Exception as e:
+                self._logger.critical("Network: Encountered unhandled exception when connecting to MQTT!")
+                self._logger.critical(f"Network: {e}")
+                raise
+            else:
+                # The Linux version does all this in the on_connect callback. For some reason, that doesn't work, so
+                # doing it here.
+                # TODO: Make sure subscriptions reconnect.
+                # Subscribe to the script set topic.
+                self._mqtt_client.subscribe('brickmaster2/' + self._short_name + '/script/set')
+                self._mqtt_client.add_topic_callback('brickmaster2/' + self._short_name + '/script/set',
+                                                     self._core.callback_scr)
+                # Subscribe to the Control topics.
+                for control_id in self._object_register['controls']:
+                    # Subscribe to the topic.
+                    self._mqtt_client.subscribe('brickmaster2/' + self._short_name + '/controls/' +
+                                                self._object_register['controls'][control_id].id + '/set')
+                    # Connect the callback.
+                    self._mqtt_client.add_topic_callback(
+                        'brickmaster2/' + self._short_name + '/controls/' +
+                        self._object_register['controls'][control_id].id + '/set',
+                        self._object_register['controls'][control_id].callback)
+
+                # Attach the fallback message trapper.
+                self._mqtt_client.on_message = self._on_message
+                # Run Home Assistant Discovery, if enabled.
+                self._logger.debug(f"Network: HA discover set to '{self._ha_discover}'")
+                if self._ha_discover:
+                    # Create and stash device info for convenience.
+                    device_info = brickmaster2.network.mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
+                                                                           brickmaster2.__version__)
+                    discovery_messages = brickmaster2.network.mqtt.ha_discovery(
+                        self._short_name, self._system_id, device_info, 'brickmaster2/', self._ha_base,
+                        self._ha_meminfo, self._object_register)
+
+                    self._logger.debug("Will send discovery messages: {}".format(discovery_messages))
+                    for discovery_message in discovery_messages:
+                        self._pub_message(**discovery_message)
+                    # Reset the topic history so any newly discovered entities get sent to.
+                    self._topic_history = {}
+                    # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
+                    self._ha_info['override'] = True
+                    self._ha_info['start'] = time.monotonic()
         return None
 
     def disconnect(self, message=None):
@@ -267,7 +288,11 @@ class BM2NetworkCircuitPython:
 
         # If interface isn't up, try to get it back up!
         if not self._wifi_obj.is_connected:
-            return return_data
+            self._logger.debug("Network: WiFi not connected! Will attempt connection.")
+            try:
+                self.connect()
+            except Exception as e:
+                raise
 
         self._logger.debug("Network: MQTT connection status is \n\tInternal: {}\n\tClient Object: {}".format(
             self._mqtt_connected,self._mqtt_client.is_connected() ))
@@ -315,7 +340,7 @@ class BM2NetworkCircuitPython:
             ## Extend with platform dependent messages.
             outbound_messages.extend(self._mqtt_messages_ps())
             for message in outbound_messages:
-                self._logger.debug("Publishing MQTT message: {}".format(message))
+                # self._logger.debug("Publishing MQTT message: {}".format(message))
                 self._pub_message(**message)
             # Check for any incoming commands.
             self._mqtt_client.loop(1)
@@ -361,10 +386,6 @@ class BM2NetworkCircuitPython:
         :return:
         """
         # Set the last will prior to connecting.
-        self._logger.info("Creating last will.")
-        self._mqtt_client.will_set(
-            "brickmaster2/" + self._short_name + "/connectivity",
-            payload='offline', qos=0, retain=True)
         self._logger.debug("Attempting connection.")
         try:
             self._mqtt_client.connect(host=self._mqtt_broker, port=self._mqtt_port)
