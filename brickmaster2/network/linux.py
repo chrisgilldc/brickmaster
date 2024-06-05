@@ -10,76 +10,21 @@ from paho.mqtt.client import Client
 import time
 
 class BM2NetworkLinux(BM2Network):
+
     def poll(self):
         """
         Send
         :return:
         """
-        # Set up the return data.
-        return_data = {
-            'online': brickmaster2.util.interface_status('wlan0'),  # Is the interface up.
-            'mqtt_status': self._mqtt_connected,  # Are we connected to MQTT?
-            'commands': {}
-        }
 
-        # If interface isn't up, not much to do, return immediately.
+        # Is the system's interface up? If not, we know MQTT can't be up and there can't be commands.
         if not brickmaster2.util.interface_status('wlan0'):
-            return return_data
+            return { 'online': False, 'mqtt_status': False, 'commands': {} }
 
-        # If interface is up but broker is not connected, retry every 30s.
-        if not self._mqtt_connected:
-            try_reconnect = False
-            # Has is been 30s since the previous attempt?
-            try:
-                if time.monotonic() - self._reconnect_timestamp > 30:
-                    self._logger.info("30s since previous connection attempt. Retrying...")
-                    try_reconnect = True
-                    self._reconnect_timestamp = time.monotonic()
-            except TypeError:
-                try_reconnect = True
-                self._reconnect_timestamp = time.monotonic()
+        # System's interface is up, run the base poll.
 
-            if try_reconnect:
-                reconnect = self._connect_mqtt()
-                # If we failed to reconnect, mark it as failure and return.
-                if not reconnect:
-                    self._logger.warning("Could not connect to MQTT server. Will retry in 30s.")
-                    return return_data
-        elif self._mqtt_connected:
-            # Send all the messages outbound.
-            # For the first 15s after HA discovery, send everything. This makes sure data arrives after HA has
-            # established entities. Otherwise, you wind up with entities with unknown status.
-            if self._ha_info['override']:
-                if time.monotonic() - self._ha_info['start'] <= 15:
-                    self._logger.debug(
-                        "HA discovery {}s ago, sending all".format(time.monotonic() - self._ha_info['start']))
-                    force_repeat = True
-                else:
-                    self._logger.info("Have sent all messages for 15s after HA discovery. Disabling.")
-                    self._ha_info['override'] = False
-                    force_repeat = False
-            else:
-                force_repeat = False
-            # Collect messages.
-            ## The platform-independent messages. These should always work.
-            outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
-                                                                   force_repeat=force_repeat)
-            ## Extend with platform dependent messages.
-            outbound_messages.extend(self._mqtt_messages_ps())
-            for message in outbound_messages:
-                self._logger.debug("Publishing MQTT message: {}".format(message))
-                self._pub_message(**message)
-            # Check for any incoming commands.
-            self._mc_loop()
-        else:
-            self._logger.critical("Network: MQTT has undetermined state. This should never happen!")
-            raise ValueError("Network internal MQTT tracker has invalid value '{}".format(self._mqtt_connected))
-
-        # Add the upward commands to the return data.
-        return_data['commands'] = self._upward_commands
-        # Remove the upward commands that are being forwarded.
-        self._upward_commands = []
-        return return_data
+        # Call the base class poll.
+        return super().poll()
 
     def _meminfo(self):
         """

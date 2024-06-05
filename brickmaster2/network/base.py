@@ -105,6 +105,7 @@ class BM2Network:
 
         self._logger.info('Network: Initialization complete.')
 
+
     # Registration methods
     def _on_connect(self, userdata, flags, rc, properties=None):
         self._logger.info("Connected to MQTT Broker with result code: {}".format(rc))
@@ -242,15 +243,77 @@ class BM2Network:
         # Disconnect from broker
         self._mc_disconnect()
         # Set the internal tracker to disconnected.
-        self._mqtt_connected = False
 
     def poll(self):
         """
-        Poll the broker. Send outbound messages, check incoming messages.
+        Poll the MQTT broker, send outbound messages and receive inbound messages.
+        This method should only get called once the network is confirmed to be up.
+
         :return: dict
         """
-        #TODO: Rework to see if this logic can be wrapped.
-        raise NotImplemented("Must be defined in subclass!")
+
+        # Set up the return dict.
+        return_data = {
+            'online': True,
+            'mqtt_data': self._mqtt_connected,
+            'commands': {}
+        }
+
+        # If interface is up but broker is not connected, retry every 30s.
+        if not self._mqtt_connected:
+            try_reconnect = False
+            # Has is been 30s since the previous attempt?
+            try:
+                if time.monotonic() - self._reconnect_timestamp > 30:
+                    self._logger.info("30s since previous connection attempt. Retrying...")
+                    try_reconnect = True
+                    self._reconnect_timestamp = time.monotonic()
+            except TypeError:
+                try_reconnect = True
+                self._reconnect_timestamp = time.monotonic()
+
+            if try_reconnect:
+                reconnect = self._connect_mqtt()
+                # If we failed to reconnect, mark it as failure and return.
+                if not reconnect:
+                    self._logger.warning("Could not connect to MQTT server. Will retry in 30s.")
+                    return return_data
+        elif self._mqtt_connected:
+            # Send all the messages outbound.
+            # For the first 15s after HA discovery, send everything. This makes sure data arrives after HA has
+            # established entities. Otherwise, you wind up with entities with unknown status.
+            if self._ha_info['override']:
+                if time.monotonic() - self._ha_info['start'] <= 15:
+                    self._logger.debug(
+                        "HA discovery {}s ago, sending all".format(time.monotonic() - self._ha_info['start']))
+                    force_repeat = True
+                else:
+                    self._logger.info("Have sent all messages for 15s after HA discovery. Disabling.")
+                    self._ha_info['override'] = False
+                    force_repeat = False
+            else:
+                force_repeat = False
+            # Collect messages.
+            ## The platform-independent messages. These should always work.
+            outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
+                                                                   force_repeat=force_repeat)
+            ## Extend with platform dependent messages.
+            outbound_messages.extend(self._mqtt_messages_ps())
+            for message in outbound_messages:
+                self._logger.debug("Publishing MQTT message: {}".format(message))
+                self._pub_message(**message)
+            # Check for any incoming commands.
+            self._mc_loop()
+        else:
+            self._logger.critical("Network: MQTT has undetermined state. This should never happen!")
+            raise ValueError("Network internal MQTT tracker has invalid value '{}".format(self._mqtt_connected))
+
+        # Add the upward commands to the return data.
+        return_data['commands'] = self._upward_commands
+        # Remove the upward commands that are being forwarded.
+        self._upward_commands = []
+        return return_data
+
 
     def register_object(self, action_object):
         """
