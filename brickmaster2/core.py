@@ -429,9 +429,11 @@ class BrickMaster2:
         #     self._network.poll()
         # except Exception:
         #     pass
-        self._print_or_log("critical", "Core: Disconnecting network.")
-        # Disconnect
-        self._network.disconnect()
+        # self._print_or_log("critical", "Core: Disconnecting network.")
+        # # Disconnect
+        # This disconnect call is initiating a poll, which isn't what we want. For now, we can exclude it and rely
+        # on the last will to send the offline message.
+        # self._network.disconnect()
         self._print_or_log("critical", "Core: Setting system run light off.")
         # Set the system light off.
         try:
