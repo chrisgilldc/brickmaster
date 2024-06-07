@@ -17,7 +17,7 @@ class BM2Network:
     """
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, net_on=None,
                  net_off=None, port=1883, ha_discover=True, ha_base='homeassistant', ha_area=None,
-                 ha_meminfo='unified', time_mqtt=False, log_level=None):
+                 ha_meminfo='unified', wifi_obj=None, log_level=None):
         """
         BrickMaster2 Network Class
 
@@ -44,8 +44,9 @@ class BM2Network:
         :param ha_area: Area to suggest for entities.
         :type ha_area: str
         :param ha_meminfo: Memory topic format. Must be one of 'unified', 'unified-used', 'split-pct', 'split-all'
-        :param time_mqtt: Should we log timings for MQTT polls. Mostly for testing.
-        :type time_mqtt: bool
+        :param wifi_obj: Wifi Object for CircuitPython systems.
+        :type wifi_obj: brickmaster.network.BM2WiFi
+        :param log_level: Level to log at.
         """
 
         # Save parameters.
@@ -67,6 +68,7 @@ class BM2Network:
         self._ha_base = ha_base
         self._ha_meminfo = ha_meminfo
         self._ha_area = ha_area
+        self._wifi_obj = wifi_obj
         # Register to store objects.
         self._object_register = {
             'controls': {},
@@ -105,125 +107,11 @@ class BM2Network:
 
         self._logger.info('Network: Initialization complete.')
 
-
-    # Registration methods
-    def _on_connect(self, userdata, flags, rc, properties=None):
-        self._logger.info("Connected to MQTT Broker with result code: {}".format(rc))
-        self._mqtt_connected = True
-
-        #TODO: Make sure subscriptions reconnect.
-        # Subscribe to the script set topic.
-        self._mc_subscribe('brickmaster2/' + self._short_name + '/script/set')
-        self._mc_callback_add('brickmaster2/' + self._short_name + '/script/set',
-                                               self._core.callback_scr)
-        # Subscribe to the Control topics.
-        for control_id in self._object_register['controls']:
-            # Subscribe to the topic.
-            self._mc_subscribe('brickmaster2/' + self._short_name + '/controls/' +
-                                        self._object_register['controls'][control_id].id + '/set')
-            # Connect the callback.
-            self._mc_callback_add(
-                'brickmaster2/' + self._short_name + '/controls/' +
-                self._object_register['controls'][control_id].id + '/set',
-                self._object_register['controls'][control_id].callback)
-
-        # Attach the fallback message trapper.
-        self._mc_onmessage(self._on_message)
-        # Send the online message.
-        self._send_online()
-        # Run Home Assistant Discovery, if enabled.
-        if self._ha_discover:
-            self._logger.debug("Network: On-Connect running Home Assistant discovery...")
-            # Create and stash device info for convenience.
-            device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
-                                                                 brickmaster2.__version__)
-            discovery_messages = mqtt.ha_discovery(
-                self._short_name, self._system_id, device_info, 'brickmaster2/', self._ha_base,
-                self._ha_meminfo, self._object_register)
-
-            self._logger.debug("Will send discovery messages: {}".format(discovery_messages))
-            for discovery_message in discovery_messages:
-                self._pub_message(**discovery_message)
-            # Reset the topic history so any newly discovered entities get sent to.
-            self._topic_history = {}
-            # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
-            self._ha_info['override'] = True
-            self._ha_info['start'] = time.monotonic()
-
-    def _on_disconnect(self, client, userdata, rc):
-        if rc != 0:
-            self._logger.warning("Unexpected disconnect with code: {}".format(rc))
-        self._reconnect_timer = time.monotonic()
-        self._mqtt_connected = False
-
-    # Catchall for MQTT messages. Don't act, just log.
-    def _on_message(self, client, user, message):
-        self._logger.debug("Network: Received message on topic {} with payload {}. No other handler, no action.".format(
-            message.topic, message.payload
-        ))
-
-    # Message publishing method
-    def _pub_message(self, topic, message, force_repeat=False):
-        self._logger.debug("Network: Processing message publication on topic '{}'".format(topic))
-        # Set the send flag initially. If we've never seen the topic before or if we're set to repeat, go ahead and send.
-        # This skips some extra logic.
-        if topic not in self._topic_history:
-            self._logger.debug("Network: Topic not in history, sending...")
-            send = True
-        elif force_repeat:
-            self._logger.debug("Network: Repeat explicitly enabled, sending...")
-            send = True
-        else:
-            send = False
-
-        # If we're not already sending, then we've seen the topic before and should check for changes.
-        if send is False:
-            previous_message = self._topic_history[topic]
-            # Both strings, compare and send if different
-            if (isinstance(message, str) and isinstance(previous_message, str)) or \
-                    (isinstance(message, (int, float)) and isinstance(previous_message, (int, float))):
-                if message != previous_message:
-                    self._logger.debug("Message '{}' does not match previous message '{}'. Publishing.".format(message,
-                                                                                                               previous_message))
-                    send = True
-                else:
-                    self._logger.debug("Message has not changed, will not publish")
-                    return
-            # For dictionaries, compare individual elements. This doesn't handle nested dicts, but those aren't used.
-            elif isinstance(message, dict) and isinstance(previous_message, dict):
-                for item in message:
-                    if item not in previous_message:
-                        self._logger.debug("Message dict contains new key, publishing.")
-                        send = True
-                        break
-                    if message[item] != previous_message[item]:
-                        self._logger.debug("Message dict key '{}' has changed value, publishing.".format(item))
-                        send = True
-                        break
-            # If type has changed, which is odd,  (and it shouldn't, usually), send it.
-            elif type(message) != type(previous_message):
-                self._logger.debug("Message type has changed from '{}' to '{}'. Unusual, but publishing anyway.".
-                                   format(type(previous_message), type(message)))
-                send = True
-
-        # If we're sending do it.
-        if send:
-            self._logger.debug("Publishing message...")
-            # New message becomes the previous message.
-            self._topic_history[topic] = message
-            # Convert the message to JSON if it's a dict, otherwise just send it.
-            if isinstance(message, dict):
-                outbound_message = json_dumps(message, default=str)
-            else:
-                outbound_message = message
-            # Make the client-specific call!
-
-            self._mc_publish(topic, outbound_message)
-
     # Public Methods
     def connect(self):
         """
-        Connect! Since this is for a Linux system, we don't need to do underlying network work, just connect to MQTT.
+        Base connect method which is just to connect to MQTT and assume the network is up.
+        Wrap this if network checking is needed.
 
         :return:
         """
@@ -231,6 +119,10 @@ class BM2Network:
             self._connect_mqtt()
         except Exception as e:
             raise
+        else:
+            # Our own flag will set set True by the _on_connect callback.
+            if self._mqtt_connected:
+                self._run_ha_discovery()
         return None
 
     def disconnect(self, message=None):
@@ -313,8 +205,6 @@ class BM2Network:
         # Remove the upward commands that are being forwarded.
         self._upward_commands = []
         return return_data
-
-
     def register_object(self, action_object):
         """
 
@@ -340,9 +230,10 @@ class BM2Network:
                 self._logger.error("Cannot determine class of object '{}' (type: {}). Cannot register.".
                                    format(action_object.id, type(action_object)))
 
+    # Private methods
     def _connect_mqtt(self):
         """
-        Connect to the MQTT broker. Run HA Discovery if set.
+        Connect to the MQTT broker.
 
         :return:
         """
@@ -352,6 +243,7 @@ class BM2Network:
             payload='offline', qos=0, retain=True)
         self._logger.debug("Attempting connection.")
         try:
+            # Call the connection method. This gets overridden by a subclass if needed.
             self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
         except Exception as e:
             self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
@@ -361,6 +253,173 @@ class BM2Network:
         # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
         self._mqtt_connected = True
         return True
+
+    def _connect_wifi(self):
+        """
+        Connect to the network.
+
+        :return: None
+        """
+        raise NotImplemented("Network: WiFi Connection handling should be dealt with by a subclass!")
+
+    def _run_ha_discovery(self):
+        """
+        Do Home Assistant discovery
+
+        :return: None
+        """
+        # Run Home Assistant Discovery, if enabled.
+        # This had been part of the _on_connect callback, which was great, but for some reason MiniMQTT doesn't like it,
+        # although Paho does. As a general solution, making it a separate method and calling it directly from
+        # connect now.
+        if self._ha_discover:
+            self._logger.debug("Network: On-Connect running Home Assistant discovery...")
+            # Create and stash device info for convenience.
+            device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
+                                              brickmaster2.__version__)
+            discovery_messages = mqtt.ha_discovery(
+                self._short_name, self._system_id, device_info, 'brickmaster2/', self._ha_base,
+                self._ha_meminfo, self._object_register)
+
+            self._logger.debug("Will send discovery messages: {}".format(discovery_messages))
+            for discovery_message in discovery_messages:
+                self._pub_message(**discovery_message)
+            # Reset the topic history so any newly discovered entities get sent to.
+            self._topic_history = {}
+            # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
+            self._ha_info['override'] = True
+            self._ha_info['start'] = time.monotonic()
+
+    def _on_connect(self, userdata, flags, rc, properties=None):
+        """
+        MQTT Client connection callback.
+
+        :param userdata:
+        :param flags:
+        :param rc:
+        :param properties:
+        :return:
+        """
+        self._logger.info("Connected to MQTT Broker with result code: {}".format(rc))
+        self._mqtt_connected = True
+
+        # TODO: Make sure subscriptions reconnect.
+        # Subscribe to the script set topic.
+        self._mc_subscribe('brickmaster2/' + self._short_name + '/script/set')
+        self._mc_callback_add('brickmaster2/' + self._short_name + '/script/set',
+                              self._core.callback_scr)
+        # Subscribe to the Control topics.
+        for control_id in self._object_register['controls']:
+            # Subscribe to the topic.
+            self._mc_subscribe('brickmaster2/' + self._short_name + '/controls/' +
+                               self._object_register['controls'][control_id].id + '/set')
+            # Connect the callback.
+            self._mc_callback_add(
+                'brickmaster2/' + self._short_name + '/controls/' +
+                self._object_register['controls'][control_id].id + '/set',
+                self._object_register['controls'][control_id].callback)
+
+        # Send the online message.
+        self._send_online()
+
+
+    def _on_disconnect(self, client, userdata, rc):
+        """
+        MQTT Client disconnect callback.
+
+        :param client:
+        :param userdata:
+        :param rc:
+        :return:
+        """
+        if rc != 0:
+            self._logger.warning("Unexpected disconnect with code: {}".format(rc))
+        self._reconnect_timer = time.monotonic()
+        self._mqtt_connected = False
+
+    def _on_message(self, client, user, message):
+        """
+        Callback when a message is received.
+        This isn't expected to ever be used, but will catch cases where we're subscribed but don't have a callback.
+
+        :param client:
+        :param user:
+        :param message:
+        :return: None
+        """
+        self._logger.warning(
+            "Network: Received message on topic {} with payload {}. No other handler, no action.".format(
+                message.topic, message.payload
+            ))
+
+    def _pub_message(self, topic, message, force_repeat=False):
+        """
+        Publish a message to the MQTT broker. By default, will not publish a message if that message has previously been
+        sent to that topic. This makes it safe to dump the same data in repeatedly without spamming the broker.
+
+        :param topic: Topic to publish to.
+        :type topic: str
+        :param message: Message to publish
+        :type message: str
+        :param force_repeat: Should the message be sent even if it was also the previous message sent.
+        :type force_repeat: bool
+        :return:
+        """
+        self._logger.debug("Network: Processing message publication on topic '{}'".format(topic))
+        # Set the send flag initially. If we've never seen the topic before or if we're set to repeat, go ahead and send.
+        # This skips some extra logic.
+        if topic not in self._topic_history:
+            self._logger.debug("Network: Topic not in history, sending...")
+            send = True
+        elif force_repeat:
+            self._logger.debug("Network: Repeat explicitly enabled, sending...")
+            send = True
+        else:
+            send = False
+
+        # If we're not already sending, then we've seen the topic before and should check for changes.
+        if send is False:
+            previous_message = self._topic_history[topic]
+            # Both strings, compare and send if different
+            if (isinstance(message, str) and isinstance(previous_message, str)) or \
+                    (isinstance(message, (int, float)) and isinstance(previous_message, (int, float))):
+                if message != previous_message:
+                    self._logger.debug("Message '{}' does not match previous message '{}'. Publishing.".format(message,
+                                                                                                               previous_message))
+                    send = True
+                else:
+                    self._logger.debug("Message has not changed, will not publish")
+                    return
+            # For dictionaries, compare individual elements. This doesn't handle nested dicts, but those aren't used.
+            elif isinstance(message, dict) and isinstance(previous_message, dict):
+                for item in message:
+                    if item not in previous_message:
+                        self._logger.debug("Message dict contains new key, publishing.")
+                        send = True
+                        break
+                    if message[item] != previous_message[item]:
+                        self._logger.debug("Message dict key '{}' has changed value, publishing.".format(item))
+                        send = True
+                        break
+            # If type has changed, which is odd,  (and it shouldn't, usually), send it.
+            elif type(message) != type(previous_message):
+                self._logger.debug("Message type has changed from '{}' to '{}'. Unusual, but publishing anyway.".
+                                   format(type(previous_message), type(message)))
+                send = True
+
+        # If we're sending do it.
+        if send:
+            self._logger.debug("Publishing message...")
+            # New message becomes the previous message.
+            self._topic_history[topic] = message
+            # Convert the message to JSON if it's a dict, otherwise just send it.
+            if isinstance(message, dict):
+                outbound_message = json_dumps(message, default=str)
+            else:
+                outbound_message = message
+            # Make the client-specific call!
+
+            self._mc_publish(topic, outbound_message)
 
     # Method studs to be overridden.
     def _mc_callback_add(self, topic, callback):
