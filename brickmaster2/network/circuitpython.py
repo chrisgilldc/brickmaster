@@ -2,6 +2,7 @@
 BrickMaster2 CircuitPython Networking
 """
 
+import adafruit_logging
 from brickmaster2.network.base import BM2Network
 import brickmaster2.util
 import brickmaster2.network.mqtt
@@ -17,12 +18,14 @@ class BM2NetworkCircuitPython(BM2Network):
         :return:
         """
         try:
+            self._logger.debug("Network: Trying WiFi connect...")
             self._wifi_obj.connect()
         except Exception as e:
             self._logger.critical("Network: Encountered unhandled exception when connecting to WiFi!")
             self._logger.critical(f"Network: {e}")
             raise
         else:
+            self._logger.debug("Network: Calling base class connect method for MQTT.")
             super().connect()
 
     def poll(self):
@@ -93,7 +96,12 @@ class BM2NetworkCircuitPython(BM2Network):
         self._mini_client.connect(host=host, port=port)
 
     def _mc_loop(self):
-        self._mini_client.loop(1)
+        try:
+            self._mini_client.loop(1)
+        except ConnectionError:
+            # If the broker has gone away ping will fail and in turn MiniMQTT will throw a ConnectionError.
+            # We'll catch that and set ourselves as disconnected. This should let us recover gracefully.
+            self._mqtt_connected = False
 
     def _mc_publish(self, topic, message, qos=0, retain=False):
         """
@@ -171,6 +179,8 @@ class BM2NetworkCircuitPython(BM2Network):
 
         :return:
         """
+        self._logger.debug("Network: Circuitpython MQTT setup start.")
+        self._logger.debug("Network: Wifi Object can present socket pool: {}".format(type(self._wifi_obj.socket_pool)))
 
         # Create the MQTT Client.
         self._mini_client = af_mqtt.MQTT(
@@ -182,6 +192,11 @@ class BM2NetworkCircuitPython(BM2Network):
             socket_pool=self._wifi_obj.socket_pool
             # socket_timeout=1 # Default is one, don't need to set.
         )
+
+        # If the overall Network module's logger is on at level debug, use that.
+        # if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+        #     self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")
+        #     self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'BrickMaster2')
 
         # Connect callback.
         self._mini_client.on_connect = self._on_connect

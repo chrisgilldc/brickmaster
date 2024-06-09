@@ -12,13 +12,31 @@ class BM2WiFi:
     """
     BrickMaster2 WiFi Handling for CircuitPython Boards
     """
-    def __init__(self,ssid,password,wifihw=None,log_level=adafruit_logging.DEBUG):
+    def __init__(self, ssid, password, wifihw=None, retry_limit = 5, retry_time = 30, log_level=adafruit_logging.DEBUG):
+        """
+        Set up the BrickMaster2 WiFi handler. Works for ESP32s, direct or SPI connected.
+
+        :param ssid: Network to connect to.
+        :type ssid: str
+        :param password: Password for the network.
+        :type password: str
+        :param wifihw: Hardware type. May be 'esp32', 'esp32spi' or 'none'. If 'none', system will try to autodetect.
+        :type wifihw: str
+        :param retry_limit: How many times to retry connecting before declaring failure.
+        :type retry_limit: int
+        :param retry_time: How long to wait between retries, in seconds.
+        :type retry_time: int
+        :param log_level:
+        """
         # Create the logger and set the level to debug. This will get reset later.
         self._logger = adafruit_logging.getLogger("BrickMaster2")
         self._logger.setLevel(log_level)
 
         self._mac_string = None
         self._password = password
+        self._retry_limit = retry_limit
+        self._retry_time = retry_time
+        self._retries = 0
         self._ssid = ssid
         if wifihw is None:
             self._logger.warning("WIFI: Hardware not defined. Trying to determine automatically.")
@@ -31,24 +49,34 @@ class BM2WiFi:
         self._logger.info("WIFI: Initialization complete")
 
     # Public Methods
-    def connect(self, retries=3):
+    def connect(self):
         tries = 0
         if self.is_connected:
             self._logger.debug("WIFI: Already connected, nothing more to do.")
             return True
         else:
             if self._wifihw == 'esp32spi':
-                while tries < retries:
+                while tries < self._retry_limit:
                     try:
                         self._logger.debug("WIFI: Connecting to '{}' with password '{}'".
                                            format(self._ssid, self._password))
                         self._wifi.connect_AP(self._ssid, self._password)
+                    except ConnectionError as e:
+                        if e.args[0] == "No such ssid":
+                            # The ESP32 (SPI, at least), has a glitch where sometimes it can't find the network on the
+                            # first try. Don't fail immediately, just try again.
+                            self._logger.warning(f"WIFI: SSID '{self._ssid}' not found. Will retry in {self._retry_time}s")
+                            tries += 1
+                            time.sleep(self._retry_time)
+                            continue
+                        else:
+                            raise
                     except OSError as e:
-                        self._logger.warning("WIFI: Could not connect to WIFI SSID '{}'. "
-                                             "Retrying in 30s.".format(self._ssid))
+                        self._logger.warning(f"WIFI: Could not connect to WIFI SSID '{self._ssid}'. "
+                                             "Retrying in {self._retry_time}s.")
                         self._logger.warning(str(e), type(e))
                         tries += 1
-                        time.sleep(30)
+                        time.sleep(self._retry_time)
                         continue
                     else:
                         self._ip = self._wifi.pretty_ip(self._wifi.ip_address)

@@ -24,8 +24,9 @@ This leads to some code bloat. Notes on how to deploy based on platform are belo
 
 * Raspberry Pi OS - Specifically on the Pi Zero W. Other Pis should work just fine, just aren't tested.
 * CircuitPython 9 - CircuitPython 8 is no longer being tested.
-  * [Adafruit Metro M4 Airlift](https://www.adafruit.com/product/4000) - Given notable memory limitations of this board I may stop testing in the near 
-  future. The ESP32 line or possibly the Metro M7 Airlift would be recommended instead.
+  * [Adafruit Metro M4 Airlift](https://www.adafruit.com/product/4000) - Default pystack size on this board is 1536, which should be raised to at least 
+  * 4096. Given notable memory limitations of this board I may stop testing in the near 
+  future. Requires a pystack value of at least 4096, possibly more depending on your control configuration. The ESP32 line or possibly the Metro M7 Airlift would be recommended instead.
   * [Adafruit ESP32 Feather v2](https://www.adafruit.com/product/5400)
 
 Feature set is intended to be 1:1 between CPython and CircuitPython. Documentation notes where this is not true due to

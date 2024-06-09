@@ -85,7 +85,8 @@ class BM2Network:
         # Set up logger. Adafruit Logging doesn't support hierarchical logging.
         self._logger = adafruit_logging.getLogger('BrickMaster2')
         self._logger.setLevel(log_level)
-        self._logger.info("Network System Name: {}".format(self._long_name))
+        self._logger.info(f"Network: System Name is '{self._long_name}'")
+        self._logger.info(f"Network: System Name is '{self._long_name}'")
 
         # Initialize variables
         self._reconnect_timestamp = None
@@ -119,10 +120,13 @@ class BM2Network:
             self._connect_mqtt()
         except Exception as e:
             raise
-        else:
-            # Our own flag will set set True by the _on_connect callback.
-            if self._mqtt_connected:
-                self._run_ha_discovery()
+        # else:
+        #     # Our own flag will set True by the _on_connect callback.
+        # self._logger.debug(f"Network: MQTT status is '{self._mqtt_connected}'")
+        # if self._mqtt_connected:
+        #     self._logger.debug("Network: Running HA discovery.")
+        self._logger.debug("Network: Doing HA discovery now!")
+        self._run_ha_discovery()
         return None
 
     def disconnect(self, message=None):
@@ -241,14 +245,14 @@ class BM2Network:
         self._logger.info("Creating last will.")
         self._mc_will_set(topic="brickmaster2/" + self._short_name + "/connectivity",
             payload='offline', qos=0, retain=True)
-        self._logger.debug("Attempting connection.")
-        try:
+        self._logger.debug("Network: Attempting MQTT connection.")
+        # try:
             # Call the connection method. This gets overridden by a subclass if needed.
-            self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
-        except Exception as e:
-            self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
-            return False
-        self._logger.debug("Connection attempt completed.")
+        self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
+        # except Exception as e:
+        #     self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
+        #     return False
+        self._logger.debug("Network: MQTT connection attempt completed.")
 
         # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
         self._mqtt_connected = True
@@ -273,7 +277,7 @@ class BM2Network:
         # although Paho does. As a general solution, making it a separate method and calling it directly from
         # connect now.
         if self._ha_discover:
-            self._logger.debug("Network: On-Connect running Home Assistant discovery...")
+            self._logger.debug("Network: Running Home Assistant discovery...")
             # Create and stash device info for convenience.
             device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
                                               brickmaster2.__version__)
@@ -281,7 +285,7 @@ class BM2Network:
                 self._short_name, self._system_id, device_info, 'brickmaster2/', self._ha_base,
                 self._ha_meminfo, self._object_register)
 
-            self._logger.debug("Will send discovery messages: {}".format(discovery_messages))
+            self._logger.debug("Network: Will send discovery messages: {}".format(discovery_messages))
             for discovery_message in discovery_messages:
                 self._pub_message(**discovery_message)
             # Reset the topic history so any newly discovered entities get sent to.
@@ -289,6 +293,8 @@ class BM2Network:
             # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
             self._ha_info['override'] = True
             self._ha_info['start'] = time.monotonic()
+        else:
+            self._logger.debug("Network: Home Assistant discovery disabled. Will not run.")
 
     def _on_connect(self, userdata, flags, rc, properties=None):
         """
@@ -300,7 +306,7 @@ class BM2Network:
         :param properties:
         :return:
         """
-        self._logger.info("Connected to MQTT Broker with result code: {}".format(rc))
+        self._logger.info("Network: Connected to MQTT Broker with result code: {}".format(rc))
         self._mqtt_connected = True
 
         # TODO: Make sure subscriptions reconnect.

@@ -1,14 +1,15 @@
 # Brickmaster2 Controls
-import adafruit_logging as logger
+import adafruit_logging
 import board
 import digitalio
 import sys
 
 
 class Control:
-    def __init__(self, id, name, icon="mdi:toy-brick", publish_time=15):
+    def __init__(self, id, name, icon="mdi:toy-brick", publish_time=15, log_level=adafruit_logging.WARNING):
         # Create a logger.
-        self._logger = logger.getLogger('BrickMaster2')
+        self._logger = adafruit_logging.getLogger('BrickMaster2')
+        self._logger.setLevel(log_level)
         # Set the ID.
         self._control_id = id
         # Set the Name.
@@ -52,8 +53,8 @@ class Control:
 # Control class for GPIO
 class CtrlGPIO(Control):
     def __init__(self, id, name, pin, publish_time, addr=None, invert=False,
-                 awboard=None, icon="mdi:toy-brick", **kwargs):
-        super().__init__(id, name, icon, publish_time)
+                 awboard=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING, **kwargs):
+        super().__init__(id, name, icon, publish_time, log_level)
         self._invert = invert
 
         try:
@@ -129,14 +130,28 @@ class CtrlGPIO(Control):
             return 'Unavailable'
 
     def callback(self, client, topic, message):
-        # Convert the message payload (which is binary) to a string.
-        message_text = str(message.payload, 'utf-8').lower()
+        """
+        Control Callback
+
+        :param client: Client instance for the callback.
+        :param topic: Topic the message was received on.
+        :param message: Message.
+        :return: None
+        """
+        print("Control: Incoming message is '{}' ({})".format(message, type(message)))
+        if isinstance(message, str):
+            # MiniMQTT (Circuitpython) outputs a straight string.
+            message_text = message.lower()
+        else:
+            # Paho MQTT (linux) delivers a message object from which we need to extract the payload.
+            # Convert the message payload (which is binary) to a string.
+            message_text = str(message.payload, 'utf-8').lower()
         self._logger.debug("Control: Control '{}' ({}) received message '{}'".format(self.name, self.id,
                                                                                      message_text))
         valid_values = ['on', 'off']
         # If it's not a valid option, just ignore it.
-        if message_text.lower() not in valid_values:
+        if message_text not in valid_values:
             self._logger.info("Control: Control '{}' ({}) received invalid command '{}'. Ignoring.".
                               format(self.name, self.id, message_text))
         else:
-            self.set(message_text.lower())
+            self.set(message_text)

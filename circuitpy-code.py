@@ -2,7 +2,6 @@
 # BrickMaster2 Executor for CircuitPython Boards
 
 import brickmaster2
-# import supervisor
 import microcontroller
 import os
 import time
@@ -36,8 +35,6 @@ wifi_obj = brickmaster2.network.BM2WiFi(
 bm2 = brickmaster2.BrickMaster2(config_json=config_json, mac_id=wifi_obj.wifi_mac, wifi_obj=wifi_obj)
 
 try:
-    # Connect the WiFi system.
-    # wifi_obj.connect()
     # Run it.
     bm2.run()
 except KeyboardInterrupt:
@@ -49,7 +46,6 @@ except brickmaster2.BM2FatalError as fe:
 except Exception as e:
     print("Received unhandled exception - ")
     traceback.print_exception(e)
-    print("Waiting for 30s before soft reset.")
+    print("Waiting for 30s before.")
     time.sleep(30)
-    # supervisor.reload()
     microcontroller.reset()

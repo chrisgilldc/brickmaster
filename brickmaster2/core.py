@@ -233,8 +233,9 @@ class BrickMaster2:
                     self._logger.debug("AW9523 already initialized at address '{}'".format(control_cfg['addr']))
                 awboard=self._extgpio[control_cfg['addr']]
             try:
-                self._controls[control_cfg['id']] = brickmaster2.controls.CtrlGPIO(**control_cfg, publish_time=publish_time,
-                                                         awboard=awboard)
+                self._controls[control_cfg['id']] = (
+                    brickmaster2.controls.CtrlGPIO(**control_cfg, publish_time=publish_time, awboard=awboard,
+                                                   log_level=self._bm2config.system['log_level']))
             except (AssertionError, AttributeError, ValueError):
                 self._logger.warning("Could not create control.")
             # gc.collect()
