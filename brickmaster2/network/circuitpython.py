@@ -49,28 +49,6 @@ class BM2NetworkCircuitPython(BM2Network):
         # Call the base class poll.
         return super().poll()
 
-    def _meminfo(self):
-        """
-        Linux-only method to fetch memory info.
-
-        :return: list
-        """
-        #TODO: Rewrite for CircuitPython
-        # Pull the virtual memory with PSUtil.
-        # m = psutil.virtual_memory()
-        # return_dict = {
-        #     'topic': 'brickmaster2/' + self._short_name + '/meminfo',
-        #     'message':
-        #         {
-        #             'mem_avail': m.available,
-        #             'mem_total': m.total,
-        #             'pct_used': m.percent,
-        #             'pct_avail': 100 - m.percent
-        #          }
-        # }
-        # return [return_dict]
-        return []
-
     def _mc_callback_add(self, topic, callback):
         """
         Add a callback for a given topic.
@@ -93,7 +71,11 @@ class BM2NetworkCircuitPython(BM2Network):
         :type port: int
         :return: None
         """
+        # try:
         self._mini_client.connect(host=host, port=port)
+        # except
+        # raise BM2RecoverableError as e
+
 
     def _mc_loop(self):
         try:
@@ -102,6 +84,27 @@ class BM2NetworkCircuitPython(BM2Network):
             # If the broker has gone away ping will fail and in turn MiniMQTT will throw a ConnectionError.
             # We'll catch that and set ourselves as disconnected. This should let us recover gracefully.
             self._mqtt_connected = False
+
+    def _mc_platform_messages(self):
+        """
+        Platform-specific MQTT messages.
+        :return: list
+        """
+        #TODO: Rewrite for CircuitPython
+        # Pull the virtual memory with PSUtil.
+        # m = psutil.virtual_memory()
+        # return_dict = {
+        #     'topic': 'brickmaster2/' + self._short_name + '/meminfo',
+        #     'message':
+        #         {
+        #             'mem_avail': m.available,
+        #             'mem_total': m.total,
+        #             'pct_used': m.percent,
+        #             'pct_avail': 100 - m.percent
+        #          }
+        # }
+        # return [return_dict]
+        return []
 
     def _mc_publish(self, topic, message, qos=0, retain=False):
         """
@@ -146,17 +149,6 @@ class BM2NetworkCircuitPython(BM2Network):
             payload=payload,
             qos=qos,
             retain=retain)
-
-    def _mqtt_messages_ps(self):
-        """
-        Collect platform-specific MQTT messages.
-
-        :return: list
-        """
-        messages_ps = []
-        # Memory Info.
-        messages_ps.extend(self._meminfo())
-        return messages_ps
 
     def _send_online(self):
         """

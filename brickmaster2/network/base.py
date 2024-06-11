@@ -61,6 +61,7 @@ class BM2Network:
         # Dict for all the Home Assistant info.
         self._ha_info = {
             'discover': ha_discover,
+            'discover_drone': False,
             'override': False,
             'start': time.monotonic()
         }
@@ -86,10 +87,10 @@ class BM2Network:
         self._logger = adafruit_logging.getLogger('BrickMaster2')
         self._logger.setLevel(log_level)
         self._logger.info(f"Network: System Name is '{self._long_name}'")
-        self._logger.info(f"Network: System Name is '{self._long_name}'")
 
         # Initialize variables
         self._reconnect_timestamp = None
+        self._logger.debug("Network: Setting internal MQTT tracker False at startup.")
         self._mqtt_connected = False
 
         # List for commands received and to be passed upward.
@@ -125,15 +126,14 @@ class BM2Network:
         # self._logger.debug(f"Network: MQTT status is '{self._mqtt_connected}'")
         # if self._mqtt_connected:
         #     self._logger.debug("Network: Running HA discovery.")
-        self._logger.debug("Network: Doing HA discovery now!")
-        self._run_ha_discovery()
+        # self._logger.debug("Network: Doing HA discovery now!")
+        # self._run_ha_discovery()
         return None
 
-    def disconnect(self, message=None):
-        self._logger.info('Planned disconnect with message "' + str(message) + '"')
-        # If we have a disconnect message, send it to the device topic.
-        # if message is not None:
-        #     self._mqtt_client.publish(self._topics['system']['device_state']['topic'], message)
+    def disconnect(self):
+        """
+        Base disconnect method.
+        """
         # When disconnecting, mark the device and the bay as unavailable.
         self._send_offline()
         # Disconnect from broker
@@ -156,14 +156,17 @@ class BM2Network:
         }
 
         # If interface is up but broker is not connected, retry every 30s.
+        self._logger.debug(f"Network: MQTT connection status from BM2 Tracker is '{self._mqtt_connected}'")
         if not self._mqtt_connected:
             try_reconnect = False
             # Has is been 30s since the previous attempt?
             try:
                 if time.monotonic() - self._reconnect_timestamp > 30:
-                    self._logger.info("30s since previous connection attempt. Retrying...")
+                    self._logger.info("Network: 30s since previous MQTT connection attempt. Retrying...")
                     try_reconnect = True
                     self._reconnect_timestamp = time.monotonic()
+                else:
+                    self._logger.debug("Network: Too soon to retry MQTT connection")
             except TypeError:
                 try_reconnect = True
                 self._reconnect_timestamp = time.monotonic()
@@ -172,8 +175,10 @@ class BM2Network:
                 reconnect = self._connect_mqtt()
                 # If we failed to reconnect, mark it as failure and return.
                 if not reconnect:
-                    self._logger.warning("Could not connect to MQTT server. Will retry in 30s.")
+                    self._logger.warning("Network: Could not connect to MQTT server. Will retry in 30s.")
                     return return_data
+                else:
+                    self._logger.debug("Network: MQTT reconnect successful.")
         elif self._mqtt_connected:
             # Send all the messages outbound.
             # For the first 15s after HA discovery, send everything. This makes sure data arrives after HA has
@@ -194,7 +199,7 @@ class BM2Network:
             outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
                                                                    force_repeat=force_repeat)
             ## Extend with platform dependent messages.
-            outbound_messages.extend(self._mqtt_messages_ps())
+            outbound_messages.extend(self._mc_platform_messages())
             for message in outbound_messages:
                 self._logger.debug("Publishing MQTT message: {}".format(message))
                 self._pub_message(**message)
@@ -209,6 +214,7 @@ class BM2Network:
         # Remove the upward commands that are being forwarded.
         self._upward_commands = []
         return return_data
+
     def register_object(self, action_object):
         """
 
@@ -246,16 +252,17 @@ class BM2Network:
         self._mc_will_set(topic="brickmaster2/" + self._short_name + "/connectivity",
             payload='offline', qos=0, retain=True)
         self._logger.debug("Network: Attempting MQTT connection.")
-        # try:
+        try:
             # Call the connection method. This gets overridden by a subclass if needed.
-        self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
-        # except Exception as e:
-        #     self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
-        #     return False
-        self._logger.debug("Network: MQTT connection attempt completed.")
+            self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
+        except Exception as e:
+            self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
+            return False
+        # self._logger.debug("Network: MQTT connection attempt completed.")
 
         # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
-        self._mqtt_connected = True
+        # self._logger.debug("Network: Setting internal MQTT tracker True in '_connect_mqtt' call.")
+        # self._mqtt_connected = True
         return True
 
     def _connect_wifi(self):
@@ -277,7 +284,7 @@ class BM2Network:
         # although Paho does. As a general solution, making it a separate method and calling it directly from
         # connect now.
         if self._ha_discover:
-            self._logger.debug("Network: Running Home Assistant discovery...")
+            self._logger.info("Network: Running Home Assistant discovery...")
             # Create and stash device info for convenience.
             device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
                                               brickmaster2.__version__)
@@ -294,7 +301,7 @@ class BM2Network:
             self._ha_info['override'] = True
             self._ha_info['start'] = time.monotonic()
         else:
-            self._logger.debug("Network: Home Assistant discovery disabled. Will not run.")
+            self._logger.warning("Network: Home Assistant discovery disabled. Will not run.")
 
     def _on_connect(self, userdata, flags, rc, properties=None):
         """
@@ -307,6 +314,7 @@ class BM2Network:
         :return:
         """
         self._logger.info("Network: Connected to MQTT Broker with result code: {}".format(rc))
+        self._logger.debug("Network: Setting internal MQTT tracker True in '_on_connect' callback.")
         self._mqtt_connected = True
 
         # TODO: Make sure subscriptions reconnect.
@@ -327,6 +335,8 @@ class BM2Network:
 
         # Send the online message.
         self._send_online()
+        # Do Home Assistant Discovery.
+        self._run_ha_discovery()
 
 
     def _on_disconnect(self, client, userdata, rc):
@@ -339,8 +349,9 @@ class BM2Network:
         :return:
         """
         if rc != 0:
-            self._logger.warning("Unexpected disconnect with code: {}".format(rc))
+            self._logger.warning("Network: Unexpected disconnect with code: {}".format(rc))
         self._reconnect_timer = time.monotonic()
+        self._logger.debug("Network: Setting internal MQTT tracker False in '_on_disconnect' callback.")
         self._mqtt_connected = False
 
     def _on_message(self, client, user, message):
@@ -486,6 +497,14 @@ class BM2Network:
         """
         raise NotImplemented("Must be defined in subclass!")
 
+    def _mc_platform_messages(self):
+        """
+        Generate platform_specific MQTT messages. Most message generation is done in the mqtt.* methods, which are
+        common.
+        :return: list
+        """
+        raise NotImplemented("Must be defined in subclass!")
+
     def _mc_subscribe(self, topic):
         """
         Subscribe the MQTT client to a given topic
@@ -509,13 +528,6 @@ class BM2Network:
         :param retain: Should the message be retained?
         :type retain: bool
         :return: None
-        """
-        raise NotImplemented("Must be defined in subclass!")
-
-    def _mqtt_message_ps(self):
-        """
-        Method to get platform-specific MQTT messages.
-        :return: list
         """
         raise NotImplemented("Must be defined in subclass!")
 

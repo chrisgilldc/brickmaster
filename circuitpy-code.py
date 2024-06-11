@@ -40,7 +40,7 @@ try:
 except KeyboardInterrupt:
     print("Received keyboard interrupt. Cleaning up.")
     bm2.cleanup_and_exit(message="User requested exit from keyboard.")
-except brickmaster2.BM2FatalError as fe:
+except brickmaster2.exceptions.BM2FatalError as fe:
     traceback.print_exception(fe)
     print("Encountered fatal error. Will not restart.")
 except Exception as e:

@@ -2,6 +2,7 @@
 BrickMaster2 Linux Networking
 """
 
+import adafruit_logging
 from brickmaster2.network.base import BM2Network
 import brickmaster2.util
 import brickmaster2.network.mqtt
@@ -22,29 +23,7 @@ class BM2NetworkLinux(BM2Network):
             return { 'online': False, 'mqtt_status': False, 'commands': {} }
 
         # System's interface is up, run the base poll.
-
-        # Call the base class poll.
         return super().poll()
-
-    def _meminfo(self):
-        """
-        Linux-only method to fetch memory info.
-
-        :return: list
-        """
-        # Pull the virtual memory with PSUtil.
-        m = psutil.virtual_memory()
-        return_dict = {
-            'topic': 'brickmaster2/' + self._short_name + '/meminfo',
-            'message':
-                {
-                    'mem_avail': m.available,
-                    'mem_total': m.total,
-                    'pct_used': m.percent,
-                    'pct_avail': 100 - m.percent
-                 }
-        }
-        return [return_dict]
 
     def _mc_callback_add(self, topic, callback):
         """
@@ -68,13 +47,34 @@ class BM2NetworkLinux(BM2Network):
         :type port: int
         :return: None
         """
-        self._paho_client.connect(host=host, port=port)
+        # Connect
+        try:
+            self._paho_client.connect(host=host, port=port)
+        except ConnectionRefusedError as e:
+            # These are the exceptions can happen. Wrap this as BM2RecoverableError.
+            raise brickmaster2.exceptions.BM2RecoverableError from e
+        else:
+            # Start the background thread.
+            self._paho_client.loop_start()
+            return True
 
     def _mc_disconnect(self):
-        raise NotImplemented("Must be defined in subclass!")
+        """
+        Disconnect from the client.
+        :return:
+        """
+        # Stop the loop thread.
+        self._paho_client.loop_stop()
+        # Disconnect.
+        self._paho_client.disconnect()
 
     def _mc_loop(self):
-        self._paho_client.loop()
+        """
+        Call the looping methods.
+        :return:
+        """
+        # Looping not required since PAHO is running in a background thread.
+        pass
 
     def _mc_onmessage(self, callback):
         """
@@ -85,6 +85,28 @@ class BM2NetworkLinux(BM2Network):
         :return:
         """
         self._paho_client.on_connect = callback
+
+    def _mc_platform_messages(self):
+        """
+        Linux platform specific messages.
+
+        :return: list
+        """
+        messages_ps = []
+        # Pull the virtual memory with PSUtil.
+        m = psutil.virtual_memory()
+        messages_ps.append({
+            'topic': 'brickmaster2/' + self._short_name + '/meminfo',
+            'message':
+                {
+                    'mem_avail': m.available,
+                    'mem_total': m.total,
+                    'pct_used': m.percent,
+                    'pct_avail': 100 - m.percent
+                }
+        })
+        return messages_ps
+
     def _mc_publish(self, topic, message, qos=0, retain=False):
         """
         Publish via the client object.
@@ -129,16 +151,6 @@ class BM2NetworkLinux(BM2Network):
             qos=qos,
             retain=retain)
 
-    def _mqtt_messages_ps(self):
-        """
-        Collect platform-specific MQTT messages.
-
-        :return: list
-        """
-        messages_ps = []
-        # Memory Info.
-        messages_ps.extend(self._meminfo())
-        return messages_ps
 
     def _send_online(self):
         """
@@ -172,7 +184,8 @@ class BM2NetworkLinux(BM2Network):
         )
         # Connect MQTT Logger.
         # Uncomment this to get more detailed MQTT logging.
-        # self._mqtt_client.enable_logger(self._logger)
+        if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+            self._paho_client.enable_logger(self._logger)
 
         # Connect callback.
         self._paho_client.on_connect = self._on_connect

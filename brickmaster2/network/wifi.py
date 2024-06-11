@@ -95,7 +95,7 @@ class BM2WiFi:
                 self._wifi.disconnect()
             except OSError:
                 self._logger.critical("WiFi: Could not disconnect from WiFi Network.")
-                raise brickmaster2.BM2RecoverableError("WiFi could not disconnect")
+                raise brickmaster2.exceptions.BM2RecoverableError("WiFi could not disconnect")
         else:
             pass
 
