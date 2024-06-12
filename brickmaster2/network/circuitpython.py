@@ -6,8 +6,7 @@ import adafruit_logging
 from brickmaster2.network.base import BM2Network
 import brickmaster2.util
 import brickmaster2.network.mqtt
-#import psutil
-#from paho.mqtt.client import Client
+import gc
 import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
 import time
 
@@ -91,20 +90,29 @@ class BM2NetworkCircuitPython(BM2Network):
         :return: list
         """
         #TODO: Rewrite for CircuitPython
-        # Pull the virtual memory with PSUtil.
-        # m = psutil.virtual_memory()
-        # return_dict = {
-        #     'topic': 'brickmaster2/' + self._short_name + '/meminfo',
-        #     'message':
-        #         {
-        #             'mem_avail': m.available,
-        #             'mem_total': m.total,
-        #             'pct_used': m.percent,
-        #             'pct_avail': 100 - m.percent
-        #          }
-        # }
-        # return [return_dict]
-        return []
+        # On Linux we use PSUtil for this. Here we can use the
+        # CircuitPython gc doesn't have all the methods psutil does, so we have to do some math.
+        return_dict = {
+            'topic': 'brickmaster2/' + self._short_name + '/meminfo',
+            'message': { 'mem_avail': 'Unknown', 'mem_total': 'Unknown', 'pct_used': 'Unknown',
+                    'pct_avail': 'Unknown'  }
+        }
+
+        # If gc can't determine the amount of free memory, it will return -1 and we can't math it out.
+        if gc.mem_free() < 0:
+            return [return_dict]
+        else:
+            alloc = gc.mem_alloc()
+            free = gc.mem_free()
+
+            return_dict['message']['mem_avail'] = free
+            return_dict['message']['mem_total'] = free + alloc # Free + allocated = Total? We hope!
+            return_dict['message']['pct_avail'] = round(
+                (return_dict['message']['mem_avail']/return_dict['message']['mem_total'])*100,2)
+            return_dict['message']['pct_used'] = round(
+                (alloc/return_dict['message']['mem_total'])*100,2)
+            # Return it!
+            return [return_dict]
 
     def _mc_publish(self, topic, message, qos=0, retain=False):
         """
@@ -185,6 +193,7 @@ class BM2NetworkCircuitPython(BM2Network):
             # socket_timeout=1 # Default is one, don't need to set.
         )
 
+        #TODO: Add option to enable and disable MQTT debugging separately.
         # If the overall Network module's logger is on at level debug, use that.
         # if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
         #     self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")

@@ -182,10 +182,10 @@ class BM2NetworkLinux(BM2Network):
             username=self._mqtt_username,
             password=self._mqtt_password
         )
-        # Connect MQTT Logger.
-        # Uncomment this to get more detailed MQTT logging.
-        if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
-            self._paho_client.enable_logger(self._logger)
+
+        #TODO: Add option to enable and disable MQTT debugging separately.
+        #if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+        #    self._paho_client.enable_logger(self._logger)
 
         # Connect callback.
         self._paho_client.on_connect = self._on_connect

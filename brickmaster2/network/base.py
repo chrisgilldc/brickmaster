@@ -201,7 +201,7 @@ class BM2Network:
             ## Extend with platform dependent messages.
             outbound_messages.extend(self._mc_platform_messages())
             for message in outbound_messages:
-                self._logger.debug("Publishing MQTT message: {}".format(message))
+                self._logger.debug("Network: Publishing MQTT message - {}".format(message))
                 self._pub_message(**message)
             # Check for any incoming commands.
             self._mc_loop()
@@ -401,37 +401,37 @@ class BM2Network:
             if (isinstance(message, str) and isinstance(previous_message, str)) or \
                     (isinstance(message, (int, float)) and isinstance(previous_message, (int, float))):
                 if message != previous_message:
-                    self._logger.debug("Message '{}' does not match previous message '{}'. Publishing.".format(message,
-                                                                                                               previous_message))
+                    self._logger.debug("Network: Message '{}' does not match previous message '{}'. Publishing.".
+                                       format(message, previous_message))
                     send = True
                 else:
-                    self._logger.debug("Message has not changed, will not publish")
+                    self._logger.debug("Network: Message has not changed, will not publish")
                     return
             # For dictionaries, compare individual elements. This doesn't handle nested dicts, but those aren't used.
             elif isinstance(message, dict) and isinstance(previous_message, dict):
                 for item in message:
                     if item not in previous_message:
-                        self._logger.debug("Message dict contains new key, publishing.")
+                        self._logger.debug("Network: Message dict contains new key, publishing.")
                         send = True
                         break
                     if message[item] != previous_message[item]:
-                        self._logger.debug("Message dict key '{}' has changed value, publishing.".format(item))
+                        self._logger.debug("Network: Message dict key '{}' has changed value, publishing.".format(item))
                         send = True
                         break
             # If type has changed, which is odd,  (and it shouldn't, usually), send it.
             elif type(message) != type(previous_message):
-                self._logger.debug("Message type has changed from '{}' to '{}'. Unusual, but publishing anyway.".
+                self._logger.debug("Network: Message type has changed from '{}' to '{}'. Unusual, but publishing anyway.".
                                    format(type(previous_message), type(message)))
                 send = True
 
         # If we're sending do it.
         if send:
-            self._logger.debug("Publishing message...")
+            self._logger.debug("Network: Publishing message...")
             # New message becomes the previous message.
             self._topic_history[topic] = message
             # Convert the message to JSON if it's a dict, otherwise just send it.
             if isinstance(message, dict):
-                outbound_message = json_dumps(message, default=str)
+                outbound_message = json_dumps(message)
             else:
                 outbound_message = message
             # Make the client-specific call!
