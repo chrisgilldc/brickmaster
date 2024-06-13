@@ -4,12 +4,12 @@
     "name": "US Capitol (Lego Version)",
     "log_level": "warning",
     "ha":{
-      "area": ### Area name here is recommended but not required. ###
+      "area": "Unknown"
     },
     "mqtt": {
-      "broker": ### Broker hostname or IP ###
-      "user": ### MQTT Username ###,
-      "key": ### MQTT Password ###
+      "broker": "172.16.10.46",
+      "user": "bm_capitol",
+      "key": "2rV7ny8X1LrDWHsL"
     }
   },
   "controls": [

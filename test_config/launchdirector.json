@@ -1,0 +1,73 @@
+
+{
+  "system": {
+    "id": "launchdirector",
+    "name": "Launch Director",
+    "log_level": "warning",
+    "ha":{
+      "area": "Unknown"
+    },
+    "mqtt": {
+      "broker": "172.16.10.46",
+      "user": "bm_launchdirector",
+      "key": "fh&V5&LYBWUbfuN^"
+    }
+  },
+  "controls": [
+    {
+      "id": "s5_stage1",
+      "name": "Saturn V Stage I",
+      "type": "gpio",
+      "pin": "D22"
+    },
+    {
+      "id": "s5_stage2",
+      "name": "Saturn V Stage II",
+      "type": "gpio",
+      "pin": "D23"
+    },
+    {
+      "id": "s5_stage3",
+      "name": "Saturn V Stage III",
+      "type": "gpio",
+      "pin": "D24"
+    },
+    {
+      "id": "iss",
+      "name": "ISS",
+      "type": "gpio",
+      "pin": "D25"
+    }
+  ],
+  "displays":[
+    {
+      "name": "main",
+      "type": "bigseg7x4",
+      "address": "0x70",
+      "idle":{
+        "show": "time",
+        "brightness": 0.25
+      }
+    },
+    {
+      "name": "lower_left",
+      "type": "seg7x4",
+      "address": "0x71",
+      "idle":{
+        "show": "date",
+        "brightness": "foo"
+      }
+    },
+    {
+      "name": "lower_right",
+      "type": "seg7x4",
+      "address": "0x72",
+      "idle": {
+        "show": "blank"
+      }
+    }
+  ],
+  "scripts": {
+    "dir": "scripts"
+  }
+}
