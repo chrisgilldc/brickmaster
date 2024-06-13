@@ -1,0 +1,76 @@
+
+{
+  "system": {
+    "id": "launchdirector",
+    "name": "Launch Director",
+    "log_level": "warning",
+    "ha":{
+      "area": ### Area name here is recommended but not required. ###
+    },
+    "mqtt": {
+      "broker": ### Broker hostname or IP ###
+      "user": ### MQTT Username ###,
+      "key": ### MQTT Password ###
+    }
+  },
+  "controls": [
+    {
+      "id": "s5_stage1",
+      "name": "Saturn V Stage I",
+      "type": "gpio",
+      "pin": "D22"
+    },
+    {
+      "id": "s5_stage2",
+      "name": "Saturn V Stage II",
+      "type": "gpio",
+      "pin": "D23"
+    },
+    {
+      "id": "s5_stage3",
+      "name": "Saturn V Stage III",
+      "type": "gpio",
+      "pin": "D24"
+    },
+    {
+      "id": "iss",
+      "name": "ISS",
+      "type": "gpio",
+      "pin": "D25"
+    }
+  ],
+  "displays":[
+    {
+      "id": "main",
+      "name": "Main",
+      "type": "bigseg7x4",
+      "address": "0x70",
+      "idle":{
+        "show": "time",
+        "brightness": 0.25
+      }
+    },
+    {
+      "id": "lower_left",
+      "name": "Lower Left",
+      "type": "seg7x4",
+      "address": "0x71",
+      "idle":{
+        "show": "date",
+        "brightness": "foo"
+      }
+    },
+    {
+      "id": "lower_right",
+      "name": "Lower Right",
+      "type": "seg7x4",
+      "address": "0x72",
+      "idle": {
+        "show": "blank"
+      }
+    }
+  ],
+  "scripts": {
+    "dir": "scripts"
+  }
+}

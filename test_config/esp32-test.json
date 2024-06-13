@@ -1,0 +1,41 @@
+
+{
+  "system": {
+    "id": "esp32-test",
+    "name": "ESP32 Test Board",
+    "log_level": "debug",
+    "ha":{
+      "area": "Chris' Study"
+    },
+    "mqtt": {
+      "broker": "172.16.10.46",
+      "user": "bm_esp32test",
+      "key": "0$tl#ZPQS6M9UmMJ"
+    }
+  },
+  "controls": [
+    {
+      "id": "test0",
+      "name": "Test D0",
+      "type": "gpio",
+      "pin": "D0"
+    },
+    {
+      "id": "test1",
+      "name": "Test D1",
+      "type": "gpio",
+      "pin": "D1"
+    },
+    {
+      "id": "test2",
+      "name": "Test D2",
+      "type": "gpio",
+      "pin": "D2"
+    }
+  ],
+  "displays":[
+  ],
+  "scripts": {
+    "dir": "scripts"
+  }
+}

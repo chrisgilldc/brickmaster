@@ -1,24 +1,24 @@
 # Brickmaster2 Controls
-import adafruit_logging as logger
+import adafruit_logging
 import board
 import digitalio
 import sys
 
 
 class Control:
-    def __init__(self, control_id, control_name, icon="mdi:toy-brick", publish_time=15):
+    def __init__(self, id, name, icon="mdi:toy-brick", publish_time=15, log_level=adafruit_logging.WARNING):
         # Create a logger.
-        self._logger = logger.getLogger('BrickMaster2')
+        self._logger = adafruit_logging.getLogger('BrickMaster2')
+        self._logger.setLevel(log_level)
         # Set the ID.
-        self._control_id = control_id
+        self._control_id = id
         # Set the Name.
-        self._control_name = control_name
+        self._control_name = name
         self._topics = None
         self._status = None
         self._icon = icon
         self._publish_time = publish_time
         # Create topics for the control. This must be implemented per subclass.
-        self._create_topics()
 
     # This method creates a list of topics to subscribe to for this control.
     # Usually this will be 'name'/'set' and 'name'/'state'. Separating the two allows for controls
@@ -45,10 +45,6 @@ class Control:
     def id(self):
         return self._control_id
 
-    # Create topics. Each subclass should create its own control topics appropriate to its operating method.
-    def _create_topics(self):
-        raise NotImplemented("Create Topics must be implemented in a control subclass")
-
     # Callback the network will access to get messages to this control.
     def callback(self, client, topic, message):
         raise NotImplemented("Control callbacks must be implemented in a control subclass.")
@@ -56,15 +52,18 @@ class Control:
 
 # Control class for GPIO
 class CtrlGPIO(Control):
-    def __init__(self, control_id, control_name, pin, publish_time, addr=None, ctrltype=None, invert=False,
-                 awboard=None, icon="mdi:toy-brick", **kwargs):
-        super().__init__(control_id, control_name, icon, publish_time)
+    def __init__(self, id, name, pin, publish_time, addr=None, invert=False,
+                 awboard=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING, **kwargs):
+        super().__init__(id, name, icon, publish_time, log_level)
         self._invert = invert
 
-        if ctrltype == 'aw9523':
-            self._setup_pin_aw9523(awboard, pin)
-        else:
-            self._setup_pin_onboard(pin)
+        try:
+            if awboard is not None:
+                self._setup_pin_aw9523(awboard, pin)
+            else:
+                self._setup_pin_onboard(pin)
+        except (AssertionError, AttributeError, ValueError) as e:
+            raise e
 
         # Set self to off.
         self.set('off')
@@ -74,10 +73,15 @@ class CtrlGPIO(Control):
         # Have the import. Now create the pin.
         try:
             self._pin = digitalio.DigitalInOut(getattr(board, str(pin)))
-        except AttributeError:
-            self._logger.critical("Control: Control '{}' references pin '{}', does not exist. Exiting!".
+        except AttributeError as ae:
+            self._logger.critical("Control: Control '{}' references non-existent pin '{}', does not exist. Exiting!".
                                   format(self.name, pin))
-            sys.exit(1)
+            raise ae
+        except ValueError as ve:
+            # Using an in-use pin will return a ValueError.
+            self._logger.critical("Control: Control '{}' uses pin '{}' which is already in use!".
+                                  format(self.name, pin))
+            raise ve
         # Set the pin to an output
         self._pin.direction = digitalio.Direction.OUTPUT
 
@@ -85,9 +89,9 @@ class CtrlGPIO(Control):
     def _setup_pin_aw9523(self, awboard, pin):
         try:
             self._pin = awboard.get_pin(pin)
-        except AssertionError:
+        except AssertionError as ae:
             self._logger.critical("Control: Control '{}' asserted pin '{}', not valid.".format(self.name, pin))
-            raise
+            raise ae
         # Have a pin now, set it up.
         self._pin.direction = digitalio.Direction.OUTPUT
 
@@ -126,53 +130,28 @@ class CtrlGPIO(Control):
             return 'Unavailable'
 
     def callback(self, client, topic, message):
-        # Convert the message payload (which is binary) to a string.
-        self._logger.debug("Control: Control '{}' ({}) received message '{}'".format(self.name, self.id, message))
+        """
+        Control Callback
+
+        :param client: Client instance for the callback.
+        :param topic: Topic the message was received on.
+        :param message: Message.
+        :return: None
+        """
+        print("Control: Incoming message is '{}' ({})".format(message, type(message)))
+        if isinstance(message, str):
+            # MiniMQTT (Circuitpython) outputs a straight string.
+            message_text = message.lower()
+        else:
+            # Paho MQTT (linux) delivers a message object from which we need to extract the payload.
+            # Convert the message payload (which is binary) to a string.
+            message_text = str(message.payload, 'utf-8').lower()
+        self._logger.debug("Control: Control '{}' ({}) received message '{}'".format(self.name, self.id,
+                                                                                     message_text))
         valid_values = ['on', 'off']
         # If it's not a valid option, just ignore it.
-        if message.lower() not in valid_values:
+        if message_text not in valid_values:
             self._logger.info("Control: Control '{}' ({}) received invalid command '{}'. Ignoring.".
-                              format(self.name, self.id, message))
+                              format(self.name, self.id, message_text))
         else:
-            self.set(message)
-
-    # GPIO topic creation.
-    def _create_topics(self):
-        self._topics = [
-            {
-                'topic': self.id + '/set',
-                'type': 'inbound',
-                'values': ['on', 'off']  # Values an inbound topic will consider valid.
-            },
-            {
-                'topic': self.id + '/status',
-                'type': 'outbound',
-                'retain': True,  # Should this be retained? False is almost always the right choice.
-                'repeat': False,  # Should this be sent, even if the value doesn't change?
-                'publish_after_discovery': 15,  # How long after discovery should the value be repeated. This forces
-                                                # a repeat in case it takes longer for the entity to be created than
-                                                # it takes for the first message to send.
-                'obj': self,  # Object to reference to get value. Should really always be 'self' to pass a reference
-                # to this object.
-                'value_attr': 'status'  # What attribute to try to get?
-            }
-        ]
-
-    # Topics property.
-    @property
-    def topics(self):
-        return self._topics
-
-
-# Control class for Lego Power Functions (IR)
-class CtrlPowerFunctions(Control):
-    def __init__(self, config):
-        super().__init__(config)
-        raise NotImplemented("Power Functions is not yet implemented")
-
-
-# Control class for Lego Powered Up (Bluetooth)
-class CtrlPoweredUp(Control):
-    def __init__(self, config):
-        super().__init__(config)
-        raise NotImplemented("Powered Up is not yet implemented")
+            self.set(message_text)

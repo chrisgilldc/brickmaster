@@ -1,0 +1,40 @@
+#
+# Recommended configs for using with the Lego Capitol
+#
+# Sensors for Congress
+sensors:
+  # Determine when the next convening of the Senate is.
+  - platform: rest
+    resource: "https://www.senate.gov/legislative/schedule/floor_schedule.json"
+    name: US Senate Next Conveening
+    value_template: >-
+      {{ value_json['floorProceedings'][0]['conveneYear'] ~ "-" ~
+      value_json['floorProceedings'][0]['conveneMonth'] ~ "-" ~
+      value_json['floorProceedings'][0]['conveneDay'] ~ " " ~
+      value_json['floorProceedings'][0]['conveneHour'] ~ ":" ~
+      value_json['floorProceedings'][0]['conveneMinutes'] }}
+  - platform: rest
+    # House's in-session site conveniently just provides a boolean value!
+    resource: "https://in-session.house.gov"
+    name: US House In Session
+    value_template: >-
+      {% if value == '1' %}
+        In Session
+      {% elif value == '0' %}
+        Not in Session
+      {% else %}
+        Unknown
+      {% endif %}
+  - platform: template
+    # Based on the next Convening of the Senate, determine if the Senate is In Session or Adjourned.
+    sensors:
+      us_senate_in_session:
+        friendly_name: 'US Senate In Session'
+        value_template: >-
+          {% if strptime(states('sensor.us_senate_next_conveening'),"%Y-%m-%d %H:%M")|as_local <= now() %}
+            In Session
+          {% elif strptime(states('sensor.us_senate_next_conveening'),"%Y-%m-%d %H:%M")|as_local > now() %}
+            Not in Session
+          {% else %}
+            Unknown
+          {% endif %}

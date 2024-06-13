@@ -8,36 +8,13 @@ import gc
 
 
 class BM2Config:
-    def __init__(self, config_file=None):
-        self._config = None
-        self._config_file = None
+    def __init__(self, config_json):
+        self._config = config_json
         self._logger = logging.getLogger("BrickMaster2")
         self._logger.setLevel(logging.INFO)
-        # If we're running under Circuitpython, we *must* have the config.json in a specific place.
-        if sys.implementation.name == 'circuitpython':
 
-            if config_file is None:
-                self._config_file = 'config.json'
-            else:
-                self._config_file = config_file
-            self._logger.info("Config: Running on Circuitpython, loading '{}' in root directory.".
-                              format(self._config_file))
-        elif os.uname().sysname.lower() == 'linux':
-            self._logger.info("Config: Running on general-purpose Linux, checking system paths...")
-            # Otherwise, add support for locating the search path.
-            global Path
-            from pathlib import Path
-            self._search_paths = [Path.cwd().joinpath('config.json')]
-            # If config file was provided, insert it to the beginning of the search path.
-            if config_file is not None:
-                self._search_paths.insert(0, Path(config_file))
-        else:
-            self._logger.critical("Config: Unidentified platform, not supported. Cannot continue.\n\tOS System Name: {}"
-                                  "\n\tPython Implementation: {}".
-                                  format(os.uname().sysname, sys.implementation.name))
-            sys.exit(1)
-
-        self.process_config()
+        if not self._validate():
+            raise ValueError("File is not a valid Brickmaster configuration.")
 
         self._logger.info("Config: Setting log level to: {}".format(self._config['system']['log_level_name']))
         self._logger.setLevel(self._config['system']['log_level'])
@@ -48,69 +25,13 @@ class BM2Config:
         '''
         return json.dumps(self._config)
 
-    def process_config(self):
-        self._logger.info("Processing config.")
-        if sys.implementation.name != 'circuitpython':
-            # Now try to find the config file.
-            for path in self._search_paths:
-                try:
-                    self.config_file = path
-                except TypeError:
-                    self._logger.info("Rejecting config path {}, value isn't a string or path".format(path))
-                except ValueError:
-                    self._logger.info("Rejecting config path {}, value isn't an actual, accessible file.".format(path))
-            if self._config_file is None:
-                raise ValueError("Cannot find valid config file! Attempted: {}".format(self._search_paths))
-        self.load_config()
-
-    @property
-    def config_file(self):
-        if self._config_file is None:
-            return None
-        else:
-            return str(self._config_file)
-
-    @config_file.setter
-    def config_file(self, the_input):
-        if sys.implementation.name == 'circuitpython':
-            self._config_file = the_input
-        else:
-            # IF a string, convert to a path.
-            if isinstance(the_input, str):
-                the_input = Path(the_input)
-            if not isinstance(the_input, Path):
-                # If it's not a Path now, we can't use this.
-                raise TypeError("Config file must be either a string or a Path object.")
-            if not the_input.is_file():
-                raise ValueError("Provided config file {} is not actually a file!".format(the_input))
-            # If we haven't trapped yet, assign it.
-            self._config_file = the_input
-
-    def load_config(self):
-        # Open the current config file and suck it into a staging variable.
-        self._config = self._open_json(self.config_file)
-        self._logger.debug("Read config JSON:")
-        self._logger.debug(json.dumps(self._config))
-        if not self._validate():
-            self._logger.critical("Could not validate configuration! Cannot continue.")
-            sys.exit(1)
-        else:
-            self._logger.info("Config file validated.")
-
-    # Method for opening loading a JSON file and slurping it in.
-    @staticmethod
-    def _open_json(config_path):
-        with open(config_path, 'r') as config_file_handle:
-            # Need to do a try except here to actully test for valid JSON.
-            the_json = json.load(config_file_handle)
-        return the_json
-
     # Validation methods.
 
     # Master validator
     def _validate(self):
         # Check for the required config sections.
         required_keys = ['system', 'controls', 'scripts']
+        print(self._config)
         for key in required_keys:
             self._logger.debug("Checking for section '{}'".format(key))
             if key not in self._config:
@@ -122,8 +43,6 @@ class BM2Config:
         self._logger.setLevel(self._config['system']['log_level'])
         # Make sure the right sections exist.
         self._validate_system()
-        # Validate the secrets and merge into the main system config.
-        self._validate_secrets()
         # Validate the controls.
         self._validate_controls()
         # Validate the displays.
@@ -135,14 +54,11 @@ class BM2Config:
     # Validate system settings
     def _validate_system(self):
         self._logger.debug("Validating system section")
-        required_params = ['system_id']
-        optional_params = ['log_level', 'secrets', 'wifihw', 'time_mqtt']
+        required_params = ['id', 'mqtt']
+        optional_params = ['name', 'log_level', 'wifihw']
         optional_defaults = {
             'log_level': 'info',
-            'secrets': 'secrets.json',
-            'ntp_server': None,
-            'wifihw': None,
-            'time_mqtt': False
+            'wifihw': None
         }
         # Check for presence of required options.
         for param in required_params:
@@ -150,6 +66,7 @@ class BM2Config:
             if param not in self._config['system']:
                 self._logger.critical("Required config option '{}' missing. Cannot continue!".format(param))
                 sys.exit(0)
+
         # Check for optional settings, assign the defaults if need be.
         for param in optional_params:
             self._logger.debug("Checking for optional parameter '{}'".format(param))
@@ -157,8 +74,14 @@ class BM2Config:
                 self._logger.warning("Option '{}' not found, using default '{}'".
                                      format(param, optional_defaults[param]))
                 self._config['system'][param] = optional_defaults[param]
-        if 'system_name' not in self._config['system']:
-            self._config['system']['system_name'] = self._config['system']['id']
+        if 'name' not in self._config['system']:
+            self._config['system']['name'] = self._config['system']['id']
+
+        # Confirm all MQTT sub-keys are defined.
+        mqtt_keys = {'broker','user','key'}
+        if not mqtt_keys <= set(self._config['system']['mqtt'].keys()):
+            self._logger.error("All MQTT keys not defined. Cannot continue!")
+            sys.exit(1)
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:
@@ -272,7 +195,11 @@ class BM2Config:
         optional_defaults = {'port': 1883}
 
         # Open the secrets file.
-        secrets = self._open_json(self._config['system']['secrets'])
+        self._logger.info("Secrets on CL: {}".format(self._secrets_file))
+        if self._secrets_file is not None:
+            secrets = self._open_json(self._secrets_file)
+        else:
+            secrets = self._open_json(self._config['system']['secrets'])
         self._logger.debug("Got secrets: {}".format(json.dumps(secrets)))
         # Check for presence of required options.
         for key in required_keys:
@@ -297,19 +224,16 @@ class BM2Config:
         to_delete = []
         while i < len(self._config['controls']):
             # Check to see if required items are defined.
-            required_keys = ['control_id', 'type']
+            required_keys = ['id', 'type']
             for key in required_keys:
-                self._logger.debug("Checking for required control key '{}'".format(key))
                 if key not in self._config['controls'][i]:
-                    self._logger.critical("Required control config option '{}' missing in control {}. Cannot continue!".
-                                          format(key, i))
+                    self._logger.critical("Required control config option '{}' missing in control {}. Cannot configure!".
+                                          format(key, i+1))
                     to_delete.append(i)
-                    i += 1
-                    continue
 
             # Check to see if name is defined.
-            if 'control_name' not in self._config['controls'][i]:
-                self._config['controls'][i]['control_name'] = self._config['controls'][i]['control_id']
+            if 'name' not in self._config['controls'][i]:
+                self._config['controls'][i]['name'] = self._config['controls'][i]['id']
 
             # Check to see if the control is disabled. This allows items to be left in the config file but skipped
             try:
@@ -375,29 +299,33 @@ class BM2Config:
         to_delete = []
         while i < len(self._config['displays']):
             self._logger.debug("Checking display {}. Has raw config {}".format(i, self._config['displays'][i]))
-            required_keys = ['name', 'type', 'address']
+            required_keys = ['id', 'type', 'address']
             for key in required_keys:
                 self._logger.debug("Checking for required display key '{}'".format(key))
                 if key not in self._config['displays'][i]:
                     self._logger.critical("Required control display option '{}' missing in display {}. "
                                           "Discarding display.".format(key, i))
                     to_delete.append(i)
-                    i += 1
+                    # i += 1
                     continue
             # Make sure type is legitimate.
             if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4'):
                 self._logger.critical("Display type '{}' not known in display {}. Discarding display.".
                                       format(self._config['displays'][i]['type'], i))
                 to_delete.append(i)
-                i += 1
+                # i += 1
                 continue
+            # If name isn't defined, convert ID to name.
+            if 'name' not in self._config['displays'][i]:
+                self._config['displays'][i]['name'] = self._config['displays'][i]['id']
+
             # Convert the address to a hex value.
             try:
                 self._config['displays'][i]['address'] = int(self._config['displays'][i]['address'], 16)
             except TypeError:
                 self._logger.critical("Address not a string for display {}. Should be in \"0xXX\" format. "
                                       "Discarding display.".format(i))
-                i += 1
+                # i += 1
                 to_delete.append(i)
                 continue
             # Default when_idle to blank, if not otherwise specified.
@@ -442,17 +370,25 @@ class BM2Config:
         # Can we scan the scripts directory?
         # If we're not on linux, absolutely not! CircuitPython doesn't support Pathlib and scanning.
 
-        if os.uname().sysname != 'linux':
+        if sys.implementation.name != 'cpython':
             self._logger.warning("Cannot scan scripts directory. Scripts must be individually enumerated.")
-        elif 'scan_dir' in self._config['scripts']:
-            # Scan_dir setting, use that, convert it to a proper bool.
-            if self._config['scripts']['scan_dir'].lower() == 'true':
-                self._config['scripts']['scan_dir'] = True
-            else:
-                self._config['scripts']['scan_dir'] = False
+            self._config['scripts']['scan_dir'] = False
         else:
-            # Scan_dir not included, default it to True since we're on linux.
-            self._config['scripts']['scan_dir'] = True
+            try:
+                # Scan_dir setting, use that, convert it to a proper bool.
+                if self._config['scripts']['scan_dir'].lower() == 'true':
+                    self._config['scripts']['scan_dir'] = True
+                else:
+                    self._config['scripts']['scan_dir'] = False
+            except KeyError:
+                self._logger.warning("Config: scripts/scan_dir setting not found. Defaulting based on platform.")
+                if sys.implementation.name == 'cpython':
+                    # Scan_dir not included, default it to True since we're on linux.
+                    self._config['scripts']['scan_dir'] = True
+                    self._logger.warning("Config: cpython, this is likely linux/posix, enabling.")
+                else:
+                    self._logger.warning("Config: circuitpython, disabling, not supported.")
+                    self._config['scripts']['scan_dir'] = False
 
         # If files isn't explicitly defined, make it an empty list.
         if 'files' not in self._config['scripts']:
@@ -462,14 +398,36 @@ class BM2Config:
     @property
     def system(self):
         """
-        System configuration, includes the system and secrets sections of the config file.
-        :return:
+        System configuration.
+        :return: dict
         """
-        return {k: v for d in (self._config['system'], self._config['secrets']) for k, v in d.items()}
+        return self._config['system']
 
     @property
     def network(self):
-        pass
+        """
+        Network settings, platform dependent.
+        :return: dict
+        """
+        # On Circuitpython, we both need to support WiFi directly and pull these from the settings.toml environment.
+        if sys.implementation.name == 'circuitpython':
+            return {
+                "wifihw": self._config['system']['wifihw'],
+                "wifi_ssid": os.getenv('CIRCUITPY_WIFI_SSID'),
+                "wifi_pw": os.getenv('CIRCUITPY_WIFI_PASSWORD'),
+                "mqtt_broker": self._config['system']['mqtt']['broker'],
+                "mqtt_user": self._config['system']['mqtt']['user'],
+                "mqtt_key": self._config['system']['mqtt']['key']
+            }
+        else:
+            return {
+                "wifihw": None,
+                "wifi_ssid": None,
+                "wifi_pw": None,
+                "mqtt_broker": self._config['system']['mqtt']['broker'],
+                "mqtt_user": self._config['system']['mqtt']['user'],
+                "mqtt_key": self._config['system']['mqtt']['key']
+            }
 
     # Controls config. No merging of data required here.
     @property

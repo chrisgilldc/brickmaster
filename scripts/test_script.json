@@ -1,9 +1,11 @@
 {
-  "script": "basic_test",
+  "id": "basic_test",
+  "name": "Basic 3-Output Test",
   "type": "basic",
   "run": "repeat",
   "loops": 5,
   "at_completion": "restore",
+  "disable": "false",
   "blocks": [
     {
       "name": "Line1",

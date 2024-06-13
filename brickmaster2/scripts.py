@@ -1,4 +1,4 @@
-# Brickmaster2 Script
+""" Brickmaster2 Script Handling """
 
 import adafruit_logging as logger
 import time
@@ -34,33 +34,37 @@ class BM2Script:
         # Create MQTT topics.
         self._create_topics()
 
-    # Name of the script.
     @property
     def name(self):
+        """ Name of the script"""
         return self._name
 
-    # Script Type
     @property
     def type(self):
+        """ Type of the script """
         return self._type
 
     @property
     def loops(self):
+        """ How many loops the script runs for."""
         if self._type == 'once':
             # Single run scripts definitionally only run once!
             return 1
         else:
             return self._loops
 
-    # Which loop are we on?
     @property
     def current_loop(self):
+        """Which loop the script is currently in."""
         return self._current_loop
 
-    # Report our status.
-    # Will be 'ON' or 'OFF'
+    @property
+    def id(self):
+        return self._id
+
     @property
     def status(self):
+        """ Is the script running? Will be 'ON' or 'OFF'"""
         return self._status
 
     # How long does the script take to run?
@@ -165,7 +169,7 @@ class BM2Script:
     # Pull basic settings for the object out of the provided script.
     def _validate(self, script):
         # Make sure our required parameters are present.
-        required_parameters = ["script", "type", "run", "blocks"]
+        required_parameters = ["id", "type", "run", "blocks"]
         for rp in required_parameters:
             if rp not in script:
                 self._logger.error("Required script parameter '{}' not present. Cannot continue.".format(rp))
@@ -176,7 +180,11 @@ class BM2Script:
             raise ValueError
 
         # Name is a string, it can be anything.
-        self._name = script['script']
+        self._id = script['id']
+        try:
+            self._name = script['name']
+        except KeyError:
+            self._name = script['id']
         # Validate settings for type and run.
         # Type of script.
         if script['type'] not in ('basic', 'flight'):

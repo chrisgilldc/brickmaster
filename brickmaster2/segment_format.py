@@ -1,11 +1,8 @@
-###
-#
-# Mini-library to format strings for 7 segment displays
-#
-###
+""" Mini-library to format strings for 7 segment displays """
 
 
 def time_7s(data):
+    """Format time for a 7-segment display."""
     # Return an error if this is out of range.
     if data <= -599 or data > 6039:
         return "ERR"
@@ -27,6 +24,7 @@ def time_7s(data):
 
 
 def number_7s(data, length=4):
+    """ Format a string for a 7-segment display"""
     data = str(data).split('.')
     # Return error if integer part is too long to display.
     if len(data[0]) > length:

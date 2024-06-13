@@ -4,8 +4,6 @@ import adafruit_logging as logger
 # from .segment_format import number_7s, time_7s
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
 import time
-
-
 class Display:
     def __init__(self, config, i2c_bus):
         # Create a logger
@@ -94,16 +92,16 @@ class Display:
             raise ValueError("Clock can only 12 or 24 hours.")
 
         # Return date in format "mm.dd"
-        if field is 'date':
+        if field == 'date':
             date_val = str(time.localtime().tm_mon).rjust(2, ' ') + "." + str(time.localtime().tm_mday).rjust(2, ' ')
             return date_val
-        if field is 'time':
+        if field == 'time':
             hour = time.localtime().tm_hour
             if clkhr == 12 and hour > 12:
                 hour = hour - 12
             time_val = str(hour).rjust(2, ' ') + ":" + str(time.localtime().tm_min).rjust(2, '0')
             return time_val
-        if field is 'pm':
+        if field == 'pm':
             if time.localtime().tm_hour >= 12:
                 ampm_val = True
             else:
