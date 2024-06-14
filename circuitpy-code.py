@@ -46,6 +46,7 @@ except brickmaster2.exceptions.BM2FatalError as fe:
 except Exception as e:
     print("Received unhandled exception - ")
     traceback.print_exception(e)
+    print("Exception type: {}".format(type(e)))
     print("Waiting for 30s before.")
     time.sleep(30)
     microcontroller.reset()

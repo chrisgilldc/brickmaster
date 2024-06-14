@@ -92,6 +92,7 @@ class BM2Network:
         self._reconnect_timestamp = None
         self._logger.debug("Network: Setting internal MQTT tracker False at startup.")
         self._mqtt_connected = False
+        self._total_failures = 0
 
         # List for commands received and to be passed upward.
         self._upward_commands = []
@@ -106,6 +107,11 @@ class BM2Network:
         self._logger.info("Defined Client ID: {}".format(self._system_id))
 
         self._setup_mqtt() # Create the MQTT Object, connect basic callbacks
+        # Setup the will.
+        # Set the last will prior to connecting.
+        self._logger.info("Creating last will.")
+        self._mc_will_set(topic="brickmaster2/" + self._short_name + "/connectivity",
+            payload='offline', qos=0, retain=True)
 
         self._logger.info('Network: Initialization complete.')
 
@@ -156,7 +162,6 @@ class BM2Network:
         }
 
         # If interface is up but broker is not connected, retry every 30s.
-        self._logger.debug(f"Network: MQTT connection status from BM2 Tracker is '{self._mqtt_connected}'")
         if not self._mqtt_connected:
             try_reconnect = False
             # Has is been 30s since the previous attempt?
@@ -165,8 +170,6 @@ class BM2Network:
                     self._logger.info("Network: 30s since previous MQTT connection attempt. Retrying...")
                     try_reconnect = True
                     self._reconnect_timestamp = time.monotonic()
-                else:
-                    self._logger.debug("Network: Too soon to retry MQTT connection")
             except TypeError:
                 try_reconnect = True
                 self._reconnect_timestamp = time.monotonic()
@@ -247,16 +250,17 @@ class BM2Network:
 
         :return:
         """
-        # Set the last will prior to connecting.
-        self._logger.info("Creating last will.")
-        self._mc_will_set(topic="brickmaster2/" + self._short_name + "/connectivity",
-            payload='offline', qos=0, retain=True)
+
         self._logger.debug("Network: Attempting MQTT connection.")
         try:
             # Call the connection method. This gets overridden by a subclass if needed.
             self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
         except Exception as e:
-            self._logger.warning("Could not connect to MQTT broker. Received exception '{}'".format(e))
+            self._logger.warning(f"Could not connect to MQTT broker. {self._total_failures}/5 failures. Received exception '{e}'")
+            self._total_failures += 1
+            if self._total_failures > 5:
+                self._logger.critical("Network: Too many network failures.")
+                raise
             return False
         # self._logger.debug("Network: MQTT connection attempt completed.")
 

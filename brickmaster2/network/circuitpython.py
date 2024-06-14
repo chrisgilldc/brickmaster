@@ -126,7 +126,18 @@ class BM2NetworkCircuitPython(BM2Network):
         :type retain: bool
         :return: None
         """
-        self._mini_client.publish(topic, message, retain, qos)
+        try:
+            self._mini_client.publish(topic, message, retain, qos)
+        except OSError as e:
+            if e.args[0] == 104:
+                self._logger.error("Network: Tried to publish while not connected! Marking broker as not connected, "
+                                   "will retry.")
+                self._mqtt_connected = False
+            else:
+                raise e
+        except BrokenPipeError as e:
+            self._logger.error("Network: Disconnection while publishing! Marking broker as not connected, will retry.")
+            self._mqtt_connected = False
 
     def _mc_subscribe(self, topic):
         """
@@ -195,9 +206,9 @@ class BM2NetworkCircuitPython(BM2Network):
 
         #TODO: Add option to enable and disable MQTT debugging separately.
         # If the overall Network module's logger is on at level debug, use that.
-        # if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
-        #     self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")
-        #     self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'BrickMaster2')
+        if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+            self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")
+            self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'BrickMaster2')
 
         # Connect callback.
         self._mini_client.on_connect = self._on_connect
