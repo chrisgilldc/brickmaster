@@ -256,13 +256,14 @@ class BM2Network:
             # Call the connection method. This gets overridden by a subclass if needed.
             self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
         except Exception as e:
-            self._logger.warning(f"Could not connect to MQTT broker. {self._total_failures}/5 failures. Received exception '{e}'")
+            self._logger.warning(f"Network: Could not connect to MQTT broker. {self._total_failures}/5 failures. Received exception '{e}'")
+            self._logger.debug(f"Network: Exception is type '{type(e)}', args is '{e.args}'")
             self._total_failures += 1
             if self._total_failures > 5:
                 self._logger.critical("Network: Too many network failures.")
                 raise
             return False
-        # self._logger.debug("Network: MQTT connection attempt completed.")
+        self._logger.debug("Network: MQTT connection attempt completed.")
 
         # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
         # self._logger.debug("Network: Setting internal MQTT tracker True in '_connect_mqtt' call.")
@@ -439,7 +440,6 @@ class BM2Network:
             else:
                 outbound_message = message
             # Make the client-specific call!
-
             self._mc_publish(topic, outbound_message)
 
     # Method studs to be overridden.

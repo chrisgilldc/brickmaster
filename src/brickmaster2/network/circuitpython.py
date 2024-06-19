@@ -89,9 +89,8 @@ class BM2NetworkCircuitPython(BM2Network):
         Platform-specific MQTT messages.
         :return: list
         """
-        #TODO: Rewrite for CircuitPython
-        # On Linux we use PSUtil for this. Here we can use the
-        # CircuitPython gc doesn't have all the methods psutil does, so we have to do some math.
+        # On Linux we use PSUtil for this. Here we use the CircuitPython garbage collector (gc), which doesn't have
+        # all the same convenience methods psutil does, so we have to do some math.
         return_dict = {
             'topic': 'brickmaster2/' + self._short_name + '/meminfo',
             'message': { 'mem_avail': 'Unknown', 'mem_total': 'Unknown', 'pct_used': 'Unknown',
@@ -128,6 +127,12 @@ class BM2NetworkCircuitPython(BM2Network):
         """
         try:
             self._mini_client.publish(topic, message, retain, qos)
+        except BrokenPipeError as e:
+            self._logger.error("Network: Disconnection while publishing! Marking broker as not connected, will retry.")
+            self._mqtt_connected = False
+        except ConnectionError as e:
+            self._logger.error("Network: Connection failed, raised error '{}'".format(e.args[0]))
+            self._mqtt_connected = False
         except OSError as e:
             if e.args[0] == 104:
                 self._logger.error("Network: Tried to publish while not connected! Marking broker as not connected, "
@@ -135,9 +140,6 @@ class BM2NetworkCircuitPython(BM2Network):
                 self._mqtt_connected = False
             else:
                 raise e
-        except BrokenPipeError as e:
-            self._logger.error("Network: Disconnection while publishing! Marking broker as not connected, will retry.")
-            self._mqtt_connected = False
 
     def _mc_subscribe(self, topic):
         """

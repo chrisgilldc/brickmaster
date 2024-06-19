@@ -31,31 +31,16 @@ def load_config(config_path):
     return the_json
 
 
-def mac_id(wifihw=None):
+def mac_id(wifihw='wlan0'):
     """
-    Get the MAC ID of the default gateway interface for a Linux system.
+    Get the MAC ID of the default gateway interface for a Linux system. Circuitpython doesn't need to use this method,
+    as MAC is retrieved by the wifi class which is invoked by code.py prior to creating the Brickmaster instance.
+
     :return:
     """
-    # getmac = __import__('getmac')
     # #TODO: Replace this with actually checking against the default route. May be too many edge cases.
-    # mac = getmac.get_mac_address(interface="wlan0")
-    # return mac.replace(':', '')
-    if sys.implementation.name == 'cpython':
-        mac = netifaces.ifaddresses('wlan0')[netifaces.AF_PACKET][0]['addr']
-        return mac.replace(':', '')
-    elif sys.implementation.name == 'circuitpython':
-        #TODO: Test for Circuitpython MACs.
-        # Try to auto-determine Wifi hardware if not explicitly set.
-        if wifihw is None:
-            pass
-        if wifihw == 'esp32':
-            pass
-        elif wifihw == 'esp32spi':
-            pass
-        else:
-            raise NotImplemented("Cannot determine platform!")
-    else:
-        raise NotImplemented("Unknown platform!")
+    mac = netifaces.ifaddresses(wifihw)[netifaces.AF_PACKET][0]['addr']
+    return mac.replace(':', '')
 
 def determine_wifi_hw():
     """
