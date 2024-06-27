@@ -145,7 +145,6 @@ class BrickMaster2:
         self._logger.debug("Core: Entering run loop.")
         while True:
             # Poll the network.
-            self._logger.debug("Core: Polling network.")
             self._network.poll()
 
             # If there's an active script, do it.

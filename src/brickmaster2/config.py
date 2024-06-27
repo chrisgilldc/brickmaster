@@ -218,16 +218,17 @@ class BM2Config:
 
     def _validate_controls(self):
         if not isinstance(self._config['controls'], list):
-            self._logger.critical('Controls not correctly defined. Must be a list of dictionaries.')
+            self._logger.critical('Config: Controls not correctly defined. Must be a list of dictionaries.')
             return
         i = 0
         to_delete = []
         while i < len(self._config['controls']):
+            self._logger.debug("Config: Validating control definition '{}'".format(self._config['controls'][i]))
             # Check to see if required items are defined.
             required_keys = ['id', 'type']
             for key in required_keys:
                 if key not in self._config['controls'][i]:
-                    self._logger.critical("Required control config option '{}' missing in control {}. Cannot configure!".
+                    self._logger.critical("Config: Required control config option '{}' missing in control {}. Cannot configure!".
                                           format(key, i+1))
                     to_delete.append(i)
 
@@ -257,14 +258,14 @@ class BM2Config:
             elif ctrltype == 'aw9523':
                 required_parameters = ['addr', 'pin']
             else:
-                self._logger.error("Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
+                self._logger.error("Config: Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
                 to_delete.append(i)
                 i += 1
                 continue
 
             for req_param in required_parameters:
                 if req_param not in self._config['controls'][i]:
-                    self._logger.error("Cannot set up control '{}', no '{}' directive.".format(
+                    self._logger.error("Config: Cannot set up control '{}', no '{}' directive.".format(
                         self._config['controls'][i]['name'], req_param))
                     to_delete.append(i)
                     i += 1
@@ -275,11 +276,15 @@ class BM2Config:
                 'icon': 'mdi:toy-brick'
             }
             for param in optional_params:
-                self._logger.debug("Checking for optional parameter '{}'".format(param))
-                if param not in self._config['system']:
-                    self._logger.warning("Option '{}' not found, using default '{}'".
+                self._logger.debug("Config: Checking for optional parameter '{}'".format(param))
+                if param not in self._config['controls'][i]:
+                    self._logger.warning("Config: Option '{}' not found, using default '{}'".
                                          format(param, optional_defaults[param]))
                     self._config['controls'][i][param] = optional_defaults[param]
+                else:
+                    self._logger.debug("Config: Optional parameter '{}' set to '{}'".format(
+                        param, self._config['controls'][i][param]
+                    ))
 
             i += 1
         # Make the to_delete list unique.

@@ -1,12 +1,12 @@
 [Unit]
 Description=Brickmaster2 Control System
-After=default.target
+Requires=sys-subsystem-net-devices-wlan0.device
+After=sys-subsystem-net-devices-wlan0.device
 
 [Service]
-Type=idle
-WorkingDirectory=/home/pi/brickmaster2
-ExecStart=/usr/bin/python3 /home/pi/brickmaster2/brickmaster2.py
-Restart=always
+Type=simple
+Environment="PYTHONPATH=/home/pi/brickmaster2-main"
+ExecStart=/usr/bin/python3 /home/pi/brickmaster2-main/brickmaster2/cli/bm2cli.py -c /home/pi/lego_capitol.json
 
 [Install]
 WantedBy=default.target

@@ -1,6 +1,6 @@
 {
     "id": "saturn5_full",
-    "name": "Saturn 5 Full Launch",
+    "name": "Saturn V Full Launch",
     "type": "flight",
     "run": "once",
     "at_completion": "restore",

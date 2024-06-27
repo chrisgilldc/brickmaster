@@ -11,10 +11,18 @@ print("Brickmaster2 - {}".format(brickmaster2.__version__))
 
 # Check for the WIFI HW environment setting.
 try:
-    wifihw = os.getenv("WIFI_HW")
+    wifihw = os.getenv("BRICKMASTER_WIFI_HW")
     print("Wireless hardware pre-defined as '{}'".format(wifihw))
 except AttributeError:
+    print("Wireless hardware not specified, auto-determining.")
     wifihw = brickmaster2.util.determine_wifi_hw()
+
+# Check for a hostname
+try:
+    hostname = os.getenv("CIRCUITPY_WEB_INSTANCE_NAME")
+except AttributeError:
+    print("Hostname not available. Set with 'CIRCUITPY_WEB_INSTANCE_NAME' in 'settings.toml'.")
+    hostname = None
 
 # Open the config file.
 #TODO: Replace this with fancier config open logic.
@@ -28,7 +36,8 @@ print("Setting up wireless interface...")
 wifi_obj = brickmaster2.network.BM2WiFi(
     ssid=os.getenv("CIRCUITPY_WIFI_SSID"),
     password=os.getenv("CIRCUITPY_WIFI_PASSWORD"),
-    wifihw=wifihw
+    wifihw=wifihw,
+    hostname = hostname
 )
 
 # Create the BrickMaster2 Object.
@@ -46,6 +55,7 @@ except brickmaster2.exceptions.BM2FatalError as fe:
 except Exception as e:
     print("Received unhandled exception - ")
     traceback.print_exception(e)
+    print("Exception type: {}".format(type(e)))
     print("Waiting for 30s before.")
     time.sleep(30)
     microcontroller.reset()

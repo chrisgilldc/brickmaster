@@ -1,0 +1,36 @@
+[project]
+name = "BrickMaster2"
+dynamic = ["version"]
+authors = [
+  { name="Christopher Gill", email="chris@chrisgill.net" },
+]
+description = "CobraBay Parking Guidance System"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "adafruit-circuitpython-ht16k33",
+    "adafruit-circuitpython-logging",
+    "Adafruit-Blinka",
+    "netifaces2",
+    "paho-mqtt",
+    "psutil",
+    "pid"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Home Automation"
+]
+
+[project.urls]
+Homepage = "https://github.com/chrisgilldc/cobrabay"
+Issues = "https://github.com/chrisgilldc/cobrabay/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "pkg/__about__.py"

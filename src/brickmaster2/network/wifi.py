@@ -12,7 +12,8 @@ class BM2WiFi:
     """
     BrickMaster2 WiFi Handling for CircuitPython Boards
     """
-    def __init__(self, ssid, password, wifihw=None, retry_limit = 5, retry_time = 30, log_level=adafruit_logging.DEBUG):
+    def __init__(self, ssid, password, wifihw=None, retry_limit = 5, retry_time = 30, hostname = None, 
+                 log_level=adafruit_logging.DEBUG):
         """
         Set up the BrickMaster2 WiFi handler. Works for ESP32s, direct or SPI connected.
 
@@ -26,12 +27,15 @@ class BM2WiFi:
         :type retry_limit: int
         :param retry_time: How long to wait between retries, in seconds.
         :type retry_time: int
+        :param hostname: Hostname to set. Otherwise will default to whatever the board wants.
+        :type hostname: str
         :param log_level:
         """
         # Create the logger and set the level to debug. This will get reset later.
         self._logger = adafruit_logging.getLogger("BrickMaster2")
         self._logger.setLevel(log_level)
 
+        self._hostname = hostname
         self._mac_string = None
         self._password = password
         self._retry_limit = retry_limit
@@ -159,13 +163,15 @@ class BM2WiFi:
             global wifi
             import wifi
             # Do the setup.
-            self._logger.info("Network: Configuring Native ESP32...")
+            self._logger.info("Wifi: Configuring Native ESP32...")
             self._wifi = wifi.radio
             self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}". \
                 format(self._wifi.mac_address[0], self._wifi.mac_address[1], self._wifi.mac_address[2],
                        self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5])
             # Set the hostname
-            # self._wifi.hostname(self._system_name)
+            if self._hostname is not None:
+                self._logger.info(f"Wifi: Setting hostname to '{self._hostname}'")
+                self._wifi.hostname = self._hostname
         elif self._wifihw == 'esp32spi':
             # Conditional imports for ESP32SPI boards.
             ## Board
@@ -201,13 +207,15 @@ class BM2WiFi:
                     self._logger.warning("WIFI: ESP32 co-processor busy. Resetting!")
                     supervisor.reload()
                 time.sleep(5)
-                self._logger.info("Network: ESP32 Firmware version is '{}.{}.{}'".format(
+                self._logger.info("Wifi: ESP32 Firmware version is '{}.{}.{}'".format(
                     self._wifi.firmware_version[0], self._wifi.firmware_version[1], self._wifi.firmware_version[2]))
                 self._mac_string = "{:X}{:X}{:X}{:X}{:X}{:X}".format(
                     self._wifi.MAC_address[5], self._wifi.MAC_address[4], self._wifi.MAC_address[3],
                     self._wifi.MAC_address[2], self._wifi.MAC_address[1], self._wifi.MAC_address[0])
                 # # Set the hostname
-                # self._wifi.set_hostname(self._system_id)
+                if self._hostname is not None:
+                    self._logger.debug(f"Wifi: Setting hostname to {self._hostname}")
+                    self._wifi.set_hostname(self._hostname)
                 # self._logger.info("WIFI: Set hostname to '{}'".format(self._system_id))
         else:
             raise ValueError("WIFI: Hardware type '{}' not supported.".format(self._wifihw))
