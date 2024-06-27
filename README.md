@@ -13,7 +13,7 @@ A (Circuit)Python application for controlling relays and devices. The most impor
 * Be able to do cool automations with connected devices (ie: Saturn 5 launch simulation)
 * Teach myself some more python (and hardware, and MQTT)
 
-## Latest Updates - V0.5
+## Latest Updates - V0.5.0
 Having struggled with CircuitPython/Adafruit-MiniMQTT stability issues, I have refactored the whole network module and
 split based on platform.
 Brickmaster2 will now use the very robust [PAHO MQTT](https://eclipse.dev/paho/index.php?page=clients/python/index.php),
@@ -22,7 +22,7 @@ This leads to some code bloat. Notes on how to deploy based on platform are belo
 
 ## Supported Platforms
 
-* Raspberry Pi OS - Specifically on the Pi Zero W. Other Pis should work just fine, just aren't tested.
+* Raspberry Pi OS (Bookworm) - Specifically on the Pi Zero W. Other Pis should work just fine, just aren't tested.
 * CircuitPython 9 - CircuitPython 8 is no longer being tested.
   * [Adafruit Metro M4 Airlift](https://www.adafruit.com/product/4000) - Default pystack size on this board is 1536, which should be raised to at least 
   * 4096. Given notable memory limitations of this board I may stop testing in the near 
@@ -40,15 +40,67 @@ Assumes Raspberry Pi OS/Rasbian on a Pi.
 
 _Probably works for other Linux versions, but not tested, adapt as appropriate._
 
-1. Fetch the package to an appropriate directory. Assumed here you're using /home/pi/brickmaster2
-2. Install all required python packages
-   `pip3 install -r requirements.txt`
-3. Copy the example systemd unit to ~/.config/systemd/user.
-4. Edit the systemd unit if necessary, ie: if you're using an alternate path.
-5. Ask systemd to reload user units - `systemctl --user daemon-reload`
-6. Test the unit - `systemctl --user start brickmaster2.service`
-7. If it starts cleanly, now enable the unit - `systemctl --user enable brickmaster2.service`
-8. Make sure linger is enabled for the user - `sudo loginctl enable-linger pi`
+1. Download the code from github: 
+
+
+     `wget https://github.com/chrisgilldc/brickmaster2/archive/refs/heads/main.zip`
+2. Extract the file. This will put code into `~/brickmaster2-main`:
+
+
+     `unzip main.zip`
+3. Create a venv for brickmaster.
+
+
+     `python3 -m venv ~/.env_bm2`
+4. Enter the python venv.
+
+
+     `source ~/.env_bm2/bin/activate`
+5. Install all the python requirements.
+
+
+     `pip3 install -r ~/brickmaster2-main/requirements.txt`
+6. Create a config file. You can do this from scratch or copy a file from `~/brickmaster2-main/hwconfigs/`, which has 
+starting configs for [BrickMaster Hardware](hardware.md). By default, the systemd unit will try to load `~/config.json`.
+6. Create a scripts directory separate from the distribution. This will make sure any custom scripts don't get 
+overwritten in future updates.
+
+
+     `mkdir ~/scripts`
+
+     `cp -R ~/brickmaster2-main/scripts/* ~/scripts`
+7. Make a user systemd directory. This isn't created by default on a freshly installed system.
+
+
+     `mkdir -p ~/.config/systemd/user`
+8. Copy the example systemd unit to ~/.config/systemd/user.
+
+
+     `cp ~/brickmaster2-main/examples/brickmaster2.service ~/.config/systemd/user`
+9. If your config file is somewhere other than `~/config.json`, update the unit file to point to that file. Edit the 
+`ExecStart` line with the full path of the config file.
+10. Have systemd reload the user units so brickmaster2 is available.
+
+
+     `systemctl --user daemon-reload`
+11. Start brickmaster.
+
+
+     `systemctl --user start brickmaster2.service`
+12. Check the status of the unit. Be sure the active line says `active (running)`.
+
+
+     `systemctl --user status brickmaster2.service`
+
+13. If it started successfully, enable the unit.
+
+
+     `systemctl --user enable brickmaster2.service`
+14. Enable linger for the user. This will start the user's systemd instance on system boot and in turn start
+brickmaster2.
+
+    
+     `sudo loginctl enable-linger pi`
 
 ### CircuitPython
 

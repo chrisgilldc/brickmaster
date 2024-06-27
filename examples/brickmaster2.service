@@ -5,8 +5,8 @@ After=sys-subsystem-net-devices-wlan0.device
 
 [Service]
 Type=simple
-Environment="PYTHONPATH=/home/pi/brickmaster2-main"
-ExecStart=/usr/bin/python3 /home/pi/brickmaster2-main/brickmaster2/cli/bm2cli.py -c /home/pi/lego_capitol.json
+Environment="PYTHONPATH=/home/pi/brickmaster2-main/src"
+ExecStart=/home/pi/.env_bm2/bin/python3 /home/pi/brickmaster2-main/cli/bm2cli.py -c /home/pi/config.json
 
 [Install]
 WantedBy=default.target
