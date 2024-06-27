@@ -104,15 +104,36 @@ brickmaster2.
 
 ### CircuitPython
 
-1. Download the package and put the contents of the "brickmaster2" directory into the board root directory.
-2. Download and install the required libraries.
-3. Copy the "code.py" file to the board root directory.
-4. Create a config.json and copy that to the board root directory.
-5. Note that depending on the board, you may need to increase the stack size. You can do this by adding the below to 
-'settings.toml'. This example increases it to 2 Mb. Raise as needed.
-    ```
-    CIRCUITPY_PYSTACK_SIZE=2048
-    ```
+#### Requirements
+* CircuitPython 9. Tested on 9.0.5. Later versions should work fine.
+  * If your board is not on CP9, update it. Updates can be found [here](https://circuitpython.org/downloads).
+* The current [CircuitPython 9 Library Bundle](https://github.com/adafruit/Adafruit_CircuitPython_Bundle/releases/download/20240625/adafruit-circuitpython-bundle-9.x-mpy-20240625.zip). Use libraries from here unless otherwise specified.
+* Adafruit MiniMQTT at least [7.9.0](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/releases/tag/7.9.0).
+* If you're using an ESP32 SPI board (ie: Metro M4/M7), use at least Adafruit ESP32SPI at least [8.4.0](https://github.com/adafruit/Adafruit_CircuitPython_ESP32SPI/releases/tag/8.4.0).
+
+#### Install Process
+1. Download the package from github.
+
+
+     `wget https://github.com/chrisgilldc/brickmaster2/archive/refs/heads/main.zip`
+2. Extract the package. The package location will be referred to here as "brickmaster2-main" (wherever you have it).
+3. Copy "brickmaster2-main/src/brickmaster2" to your circuitpython board's `lib` directory.
+4. Copy "brickmaster2-main/circuitpy-code.py" to your circuitpython board's root directory as `code.py`.
+5. Copy the following libraries from the bundle into the board's `lib` directory.
+   * adafruit_aw9523.mpy
+   * adafruit_connection_manager.mpy
+   * adafruit_ht16k33
+   * adafruit_logging.mpy
+   * adafruit_register
+6. Copy the adafruit_minimqtt libarary into the board's `lib` directory.
+7. If you're using an ESP32 SPI board, copy the current esp32spi library into the board's `lib` directory
+8. Create a config file. You can do this from scratch or copy a file from `brickmaster2-main/hwconfigs/`, which has 
+starting configs for [BrickMaster Hardware](hardware.md). Place the config file in the board's root directory.
+9. Create a `settings.toml` file. You can start with `brickmaster2-main/examples/settings.toml`.
+   * Fill in all the required parameters with your SSID and Password.
+   * An increased, 4Mb PYSTACK size is set by default in the example. This is tested as good on the Metro M4 Airlift.
+10. Connect to the serial console (via USB or Web Workflow, depending) and monitor startup.
+
 ## Configuration file
 
 The configuration file is a JSON text file, which unfortunately means it can't be commented.
