@@ -15,9 +15,9 @@ class BM2Network:
     """
     BrickMaster2 Networking class for Linux
     """
-    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, net_on=None,
-                 net_off=None, port=1883, ha_discover=True, ha_base='homeassistant', ha_area=None,
-                 ha_meminfo='unified', wifi_obj=None, log_level=None):
+    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
+                 net_interface='wlan0', net_on=None, net_off=None, port=1883, ha_discover=True,
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
         """
         BrickMaster2 Network Class
 
@@ -35,6 +35,10 @@ class BM2Network:
         :type mqtt_username: str
         :param mqtt_password: MQTT Password
         :type mqtt_password: str
+        :param mqtt_timeout: Timeout for MQTT polling in seconds.
+        :type mqtt_timeout: int
+        :param net_interface: Linux network interface to use. Defaults to 'wlan0'.
+        :type net_interface: str
         :param net_on:
         :param net_off:
         :param ha_discover: Should we send Home Assistant discovery messages?
@@ -58,6 +62,8 @@ class BM2Network:
         self._mqtt_port = port
         self._mqtt_username = mqtt_username
         self._mqtt_password = mqtt_password
+        self._mqtt_timeout = mqtt_timeout
+        self._net_interface = net_interface
         # Dict for all the Home Assistant info.
         self._ha_info = {
             'discover': ha_discover,
@@ -385,6 +391,8 @@ class BM2Network:
         :type message: str
         :param force_repeat: Should the message be sent even if it was also the previous message sent.
         :type force_repeat: bool
+        :param retain: Should the message be retained by the broker?
+        :type retain: bool
         :return:
         """
         self._logger.debug("Network: Processing message publication on topic '{}'".format(topic))

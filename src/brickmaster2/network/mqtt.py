@@ -30,14 +30,15 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
         control_object = object_register['controls'][item]
         # logger.debug("Generating messages for object '{}' (type: {})".
         #              format(control_object.id, type(control_object)))
+        # Control statuses should be retained. This allows state to be preserved over HA restarts.
         outbound_messages.append(
             {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
-             'message': control_object.status, 'force_repeat': force_repeat}
+             'message': control_object.status, 'force_repeat': force_repeat, 'retain': True}
         )
 
-    # Displays
-    for item in object_register['displays']:
-        display_object = object_register['displays'][item]
+    # Displays aren't yet supported. Maybe some day.
+    # for item in object_register['displays']:
+        # display_object = object_register['displays'][item]
         # logger.debug("Generating messages for object '{}' (type: {})".format(
         #     display_object.id, type(display_object)))
         # outbound_messages

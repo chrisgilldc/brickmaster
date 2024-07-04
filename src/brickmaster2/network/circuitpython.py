@@ -78,7 +78,7 @@ class BM2NetworkCircuitPython(BM2Network):
 
     def _mc_loop(self):
         try:
-            self._mini_client.loop(5)
+            self._mini_client.loop(self._mqtt_timeout)
         except ConnectionError:
             # If the broker has gone away ping will fail and in turn MiniMQTT will throw a ConnectionError.
             # We'll catch that and set ourselves as disconnected. This should let us recover gracefully.
@@ -194,6 +194,7 @@ class BM2NetworkCircuitPython(BM2Network):
         """
         self._logger.debug("Network: Circuitpython MQTT setup start.")
         self._logger.debug("Network: Wifi Object can present socket pool: {}".format(type(self._wifi_obj.socket_pool)))
+        self._logger.debug(f"Network: Setting socket timeout to '{self._mqtt_timeout}'s. This will also be the loop timeout.")
 
         # Create the MQTT Client.
         self._mini_client = af_mqtt.MQTT(
@@ -203,7 +204,7 @@ class BM2NetworkCircuitPython(BM2Network):
             username=self._mqtt_username,
             password=self._mqtt_password,
             socket_pool=self._wifi_obj.socket_pool,
-            socket_timeout=1 # Default is 1. BMXL times out at 1. Try 5?
+            socket_timeout=self._mqtt_timeout
         )
 
         #TODO: Add option to enable and disable MQTT debugging separately.
