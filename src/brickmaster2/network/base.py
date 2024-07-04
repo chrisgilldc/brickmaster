@@ -299,7 +299,7 @@ class BM2Network:
 
             self._logger.debug("Network: Will send discovery messages: {}".format(discovery_messages))
             for discovery_message in discovery_messages:
-                self._pub_message(**discovery_message)
+                self._pub_message(**discovery_message, force_repeat=True, retain=True)
             # Reset the topic history so any newly discovered entities get sent to.
             self._topic_history = {}
             # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
@@ -374,7 +374,7 @@ class BM2Network:
                 message.topic, message.payload
             ))
 
-    def _pub_message(self, topic, message, force_repeat=False):
+    def _pub_message(self, topic, message, force_repeat=False, retain=False):
         """
         Publish a message to the MQTT broker. By default, will not publish a message if that message has previously been
         sent to that topic. This makes it safe to dump the same data in repeatedly without spamming the broker.
@@ -440,7 +440,7 @@ class BM2Network:
             else:
                 outbound_message = message
             # Make the client-specific call!
-            self._mc_publish(topic, outbound_message)
+            self._mc_publish(topic, outbound_message, retain=retain)
 
     # Method studs to be overridden.
     def _mc_callback_add(self, topic, callback):
