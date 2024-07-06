@@ -6,8 +6,23 @@ import microcontroller
 import os
 import time
 import traceback
+import sys
 
 print("Brickmaster2 - {}".format(brickmaster2.__version__))
+
+# Define a pin to use for System Status.
+sysrun_pin = "D0"
+
+# try:
+sysrun_ctrl = brickmaster2.controls.CtrlGPIO('sysrun','System Status', sysrun_pin, 15)
+# except (KeyError, TypeError):
+#     print(f"No pin defined for status LED '{id}'. Will not configure.")
+#     sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
+# except AttributeError:
+#     print(f"System Status LED pin '{sysrun_pin}' cannot be configured.")
+#     sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
+# Turn it on.
+sysrun_ctrl.set('on')
 
 # Check for the WIFI HW environment setting.
 try:
@@ -41,18 +56,22 @@ wifi_obj = brickmaster2.network.BM2WiFi(
 )
 
 # Create the BrickMaster2 Object.
-bm2 = brickmaster2.BrickMaster2(config_json=config_json, mac_id=wifi_obj.wifi_mac, wifi_obj=wifi_obj)
+bm2 = brickmaster2.BrickMaster2(config_json=config_json, mac_id=wifi_obj.wifi_mac, wifi_obj=wifi_obj,
+                                sysrun=sysrun_ctrl)
 
 try:
     # Run it.
     bm2.run()
 except KeyboardInterrupt:
     print("Received keyboard interrupt. Cleaning up.")
+    sysrun_ctrl.set('off')
     bm2.cleanup_and_exit(message="User requested exit from keyboard.")
 except brickmaster2.exceptions.BM2FatalError as fe:
     traceback.print_exception(fe)
+    sysrun_ctrl.set('off')
     print("Encountered fatal error. Will not restart.")
 except Exception as e:
+    sysrun_ctrl.set('off')
     print("Received unhandled exception - ")
     traceback.print_exception(e)
     print("Exception type: {}".format(type(e)))

@@ -184,9 +184,9 @@ class BM2NetworkLinux(BM2Network):
             password=self._mqtt_password
         )
 
-        #TODO: Add option to enable and disable MQTT debugging separately.
-        # if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
-        #    self._paho_client.enable_logger(self._logger)
+        # If MQTT Logging is requested and the logger's effective level is debug, log the client.
+        if self._mqtt_log and self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+            self._paho_client.enable_logger(self._logger)
 
         # Connect callback.
         self._paho_client.on_connect = self._on_connect

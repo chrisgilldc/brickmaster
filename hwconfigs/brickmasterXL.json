@@ -6,6 +6,11 @@
     "ha":{
       "area": ### Area name here is recommended but not required. ###
     },
+    "indicators": {
+      "system": "D0",
+      "neton": "D1",
+      "netoff": "D2"
+    },
     "mqtt": {
       "broker": ### Broker hostname or IP ###
       "user": ### MQTT Username ###,

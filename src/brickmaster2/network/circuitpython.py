@@ -207,9 +207,8 @@ class BM2NetworkCircuitPython(BM2Network):
             socket_timeout=self._mqtt_timeout
         )
 
-        #TODO: Add option to enable and disable MQTT debugging separately.
-        # If the overall Network module's logger is on at level debug, use that.
-        if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+        # If MQTT Logging is requested and the logger's effective level is debug, log the client.
+        if self._mqtt_log and self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
             self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")
             self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'BrickMaster2')
 

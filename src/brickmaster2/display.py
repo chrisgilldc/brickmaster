@@ -62,18 +62,18 @@ class Display:
     def off(self):
         self._display_obj.fill(False)
         if isinstance(self._display_obj, Seg7x4):
-            self._logger.debug("Display: Setting colon off.")
+            # self._logger.debug("Display: Setting colon off.")
             self._display_obj.colon = False
         if isinstance(self._display_obj, BigSeg7x4):
-            self._logger.debug("Display: Setting am/pm off.")
+            # self._logger.debug("Display: Setting am/pm off.")
             self._display_obj.ampm = False
-            self._logger.debug("Display: Setting top-left dot off.")
+            # self._logger.debug("Display: Setting top-left dot off.")
             self._display_obj.top_left_dot = False
-            self._logger.debug("Display: Setting bottom-left dot off.")
+            # self._logger.debug("Display: Setting bottom-left dot off.")
             self._display_obj.bottom_left_dot = False
-            self._logger.debug("Display: Setting first colon off off.")
+            # self._logger.debug("Display: Setting first colon off off.")
             self._display_obj.colons[0] = False
-            self._logger.debug("Display: Setting second colon off.")
+            # self._logger.debug("Display: Setting second colon off.")
             self._display_obj.colons[1] = False
 
     def _create_object(self, disptype, address):

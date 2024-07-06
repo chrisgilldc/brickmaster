@@ -1,2 +1,2 @@
 """ Brickmaster2 Version """
-__version__ = "0.5.0alpha4"
+__version__ = "0.5.1"

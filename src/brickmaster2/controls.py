@@ -109,6 +109,9 @@ class CtrlGPIO(Control):
                 self._pin.value = True
             else:
                 self._pin.value = False
+        else:
+            self._logger.warning(f"Control: ID '{self.name}' received unknown set value '{value}'")
+            print(f"Control: ID '{self.name}' received unknown set value '{value}'")
 
     @property
     def icon(self):
@@ -155,3 +158,25 @@ class CtrlGPIO(Control):
                               format(self.name, self.id, message_text))
         else:
             self.set(message_text)
+
+class CtrlNull(Control):
+    """
+    Null control class. When we need a control to exist but not do anything.
+    """
+    def __init__(self, id, name):
+        super().__init__(id, name)
+
+    def set(self, value):
+        self._logger.debug(f"Null control set to '{value}'")
+
+    def icon(self):
+        return self._icon
+
+    def status(self):
+        return 'Unavailable'
+
+    def callback(self, client, topic, message):
+        """
+        Callback does nothing.
+        """
+        pass
