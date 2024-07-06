@@ -82,27 +82,25 @@ class BM2Config:
         if not mqtt_keys <= set(self._config['system']['mqtt'].keys()):
             self._logger.error("All MQTT keys not defined. Cannot continue!")
             sys.exit(1)
+        # Optional MQTT parameter.
+        if 'log' not in self._config['system']['mqtt']:
+            self._config['system']['mqtt']['log'] = False
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:
-            try:
-                self._config['system']['sys_run'] = self._config['system']['indicators']['system']
-                del self._config['system']['indicators']['system']
-            except KeyError:
-                pass
-            # Net_on and net_off must be paired.
-            if 'net_on' in self._config['system']['indicators'] and 'net_off' in self._config['system']['indicators']:
-                self._config['system']['net_on'] = self._config['system']['indicators']['net_on']
-                self._config['system']['net_off'] = self._config['system']['indicators']['net_off']
-            else:
-                self._logger.warning("Config: When network indicator provided, both 'net_on' and 'net_off' "
-                                     "must be defined!")
+            # Make sure 'sysrun' is defined, even if not in the config.
+            if 'sysrun' not in self._config['system']['indicators']:
+                self._config['system']['indicators']['sysrun'] = None
 
-            try:
-                del self._config['system']['indicators']['net_on']
-                del self._config['system']['indicators']['net_off']
-            except KeyError:
-                pass
+            # Neton and netoff must be paired.
+            if not ('neton' in self._config['system']['indicators'] and 'netoff' in self._config['system']['indicators']):
+                self._logger.warning("Config: When network indicator provided, both 'neton' and 'netoff' "
+                                     "must be defined!")
+                self._config['system']['indicators']['neton'] = None
+                self._config['system']['indicators']['netoff'] = None
+
+        else:
+            self._config['system']['indicators'] = { 'sysrun': None, 'neton': None, 'netoff': None }
 
         # Check for a modified publish time.
         try:
@@ -182,39 +180,40 @@ class BM2Config:
             self._config['system']['log_level_name'] = 'warning'
             self._config['system']['log_level'] = logging.WARNING
 
-    def _validate_secrets(self):
-        self._logger.debug("Integrating secrets.")
-        self._config['secrets'] = {}
-        required_keys = ['broker', 'mqtt_username', 'mqtt_password']
-        # Systems with a full OS handle their own networking. CircuitPython boards need us to handle the network.
-        # In the latter case, SSID and passphrase are required
-        if os.uname().sysname.lower() != "linux":
-            required_keys.append("SSID")
-            required_keys.append("password")
-        optional_keys = ['port']
-        optional_defaults = {'port': 1883}
-
-        # Open the secrets file.
-        self._logger.info("Secrets on CL: {}".format(self._secrets_file))
-        if self._secrets_file is not None:
-            secrets = self._open_json(self._secrets_file)
-        else:
-            secrets = self._open_json(self._config['system']['secrets'])
-        self._logger.debug("Got secrets: {}".format(json.dumps(secrets)))
-        # Check for presence of required options.
-        for key in required_keys:
-            self._logger.debug("Checking for required key '{}'".format(key))
-            if key not in secrets:
-                self._logger.critical("Required config option '{}' missing. Cannot continue!".format(key))
-                sys.exit(0)
-            else:
-                self._config['secrets'][key.lower()] = secrets[key]
-        # Check for optional settings, assign the defaults if need be.
-        for key in optional_keys:
-            self._logger.debug("Checking for optional key '{}'".format(key))
-            if key not in secrets:
-                self._logger.warning("Option '{}' not found, using default '{}'".format(key, optional_defaults[key]))
-                self._config['secrets'][key] = optional_defaults[key]
+    #No longer needed, don't use separate secrets file.
+    # def _validate_secrets(self):
+    #     self._logger.debug("Integrating secrets.")
+    #     self._config['secrets'] = {}
+    #     required_keys = ['broker', 'mqtt_username', 'mqtt_password']
+    #     # Systems with a full OS handle their own networking. CircuitPython boards need us to handle the network.
+    #     # In the latter case, SSID and passphrase are required
+    #     if os.uname().sysname.lower() != "linux":
+    #         required_keys.append("SSID")
+    #         required_keys.append("password")
+    #     optional_keys = ['port']
+    #     optional_defaults = {'port': 1883}
+    #
+    #     # Open the secrets file.
+    #     self._logger.info("Secrets on CL: {}".format(self._secrets_file))
+    #     if self._secrets_file is not None:
+    #         secrets = self._open_json(self._secrets_file)
+    #     else:
+    #         secrets = self._open_json(self._config['system']['secrets'])
+    #     self._logger.debug("Got secrets: {}".format(json.dumps(secrets)))
+    #     # Check for presence of required options.
+    #     for key in required_keys:
+    #         self._logger.debug("Checking for required key '{}'".format(key))
+    #         if key not in secrets:
+    #             self._logger.critical("Required config option '{}' missing. Cannot continue!".format(key))
+    #             sys.exit(0)
+    #         else:
+    #             self._config['secrets'][key.lower()] = secrets[key]
+    #     # Check for optional settings, assign the defaults if need be.
+    #     for key in optional_keys:
+    #         self._logger.debug("Checking for optional key '{}'".format(key))
+    #         if key not in secrets:
+    #             self._logger.warning("Option '{}' not found, using default '{}'".format(key, optional_defaults[key]))
+    #             self._config['secrets'][key] = optional_defaults[key]
 
     def _validate_controls(self):
         if not isinstance(self._config['controls'], list):
@@ -408,31 +407,34 @@ class BM2Config:
         """
         return self._config['system']
 
-    @property
-    def network(self):
-        """
-        Network settings, platform dependent.
-        :return: dict
-        """
-        # On Circuitpython, we both need to support WiFi directly and pull these from the settings.toml environment.
-        if sys.implementation.name == 'circuitpython':
-            return {
-                "wifihw": self._config['system']['wifihw'],
-                "wifi_ssid": os.getenv('CIRCUITPY_WIFI_SSID'),
-                "wifi_pw": os.getenv('CIRCUITPY_WIFI_PASSWORD'),
-                "mqtt_broker": self._config['system']['mqtt']['broker'],
-                "mqtt_user": self._config['system']['mqtt']['user'],
-                "mqtt_key": self._config['system']['mqtt']['key']
-            }
-        else:
-            return {
-                "wifihw": None,
-                "wifi_ssid": None,
-                "wifi_pw": None,
-                "mqtt_broker": self._config['system']['mqtt']['broker'],
-                "mqtt_user": self._config['system']['mqtt']['user'],
-                "mqtt_key": self._config['system']['mqtt']['key']
-            }
+    # No longer needed, will remove later.
+    # @property
+    # def network(self):
+    #     """
+    #     Network settings, platform dependent.
+    #     :return: dict
+    #     """
+    #     # On Circuitpython, we both need to support WiFi directly and pull these from the settings.toml environment.
+    #     if sys.implementation.name == 'circuitpython':
+    #         return {
+    #             "wifihw": self._config['system']['wifihw'],
+    #             "wifi_ssid": os.getenv('CIRCUITPY_WIFI_SSID'),
+    #             "wifi_pw": os.getenv('CIRCUITPY_WIFI_PASSWORD'),
+    #             "mqtt_broker": self._config['system']['mqtt']['broker'],
+    #             "mqtt_user": self._config['system']['mqtt']['user'],
+    #             "mqtt_key": self._config['system']['mqtt']['key'],
+    #             "mqtt_log": self._config['system']['mqtt']['log']
+    #         }
+    #     else:
+    #         return {
+    #             "wifihw": None,
+    #             "wifi_ssid": None,
+    #             "wifi_pw": None,
+    #             "mqtt_broker": self._config['system']['mqtt']['broker'],
+    #             "mqtt_user": self._config['system']['mqtt']['user'],
+    #             "mqtt_key": self._config['system']['mqtt']['key'],
+    #             "mqtt_log": self._config['system']['mqtt']['log']
+    #         }
 
     # Controls config. No merging of data required here.
     @property

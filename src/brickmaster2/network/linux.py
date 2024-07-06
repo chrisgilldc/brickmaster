@@ -18,8 +18,8 @@ class BM2NetworkLinux(BM2Network):
         :return:
         """
 
-        # Is the system's interface up? If not, we know MQTT can't be up and there can't be commands.
-        if not brickmaster2.util.interface_status('wlan0'):
+        # Is the system's interface up? If not, we can't do anything else.
+        if not brickmaster2.util.interface_status(self._net_interface):
             return { 'online': False, 'mqtt_status': False, 'commands': {} }
 
         # System's interface is up, run the base poll.
@@ -119,6 +119,7 @@ class BM2NetworkLinux(BM2Network):
         :type retain: bool
         :return: None
         """
+
         self._paho_client.publish(topic, message, qos, retain)
 
     def _mc_subscribe(self, topic):
@@ -183,9 +184,9 @@ class BM2NetworkLinux(BM2Network):
             password=self._mqtt_password
         )
 
-        #TODO: Add option to enable and disable MQTT debugging separately.
-        #if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
-        #    self._paho_client.enable_logger(self._logger)
+        # If MQTT Logging is requested and the logger's effective level is debug, log the client.
+        if self._mqtt_log and self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+            self._paho_client.enable_logger(self._logger)
 
         # Connect callback.
         self._paho_client.on_connect = self._on_connect

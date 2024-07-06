@@ -16,7 +16,7 @@ class BrickMaster2:
     """
     Core BrickMaster2 class. Create one of these, then run it.
     """
-    def __init__(self, config_json, mac_id, wifi_obj=None):
+    def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None):
         """
         BrickMaster2 Core Module
 
@@ -30,21 +30,26 @@ class BrickMaster2:
         # Force a garbage collection
         gc.collect()
 
+        # Initialize variables.
+        self._controls = {} # Controls
+        self._displays = {} # I2C displays
+        self._indicators = { 'sysrun': sysrun } # LED indicators, if any.
+        # If system running indicator was passed, use it, otherwise set up a null indicator.
+        if self._indicators['sysrun'] is None:
+            self._indicators['sysrun'] = brickmaster2.controls.CtrlNull('sysrun', 'System Status Null')
+
+        self._scripts = {} # Scripts
+        self._extgpio = {} # GPIO Expanders (ie: AW9523 boards)
+        self._active_script = None
+        # Lists for displays that show the time or date.
+        self._clocks = []
+        self._dates = []
+
         # Save the MAC/system id
         self._mac_id = mac_id
         print("Mac ID is: {}".format(mac_id))
         # Save the Wifi object.
         self._wifi_obj = wifi_obj
-
-        # Set up the status indicator, if available.
-        try:
-            # Set up the system status indicator
-            self._led_sysstat = digitalio.DigitalInOut(board.D0)
-        except AttributeError:
-            pass
-        else:
-            self._led_sysstat.switch_to_output()
-            self._led_sysstat.value = True
 
         # If we're on a general-purpose linux system, register signal handlers to get signals from elsewhere.
         if os.uname().sysname.lower() == 'linux':
@@ -66,18 +71,38 @@ class BrickMaster2:
         self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
         self._logger.setLevel(self._bm2config.system['log_level'])
 
+        # Set up the status indicator, if available.
+        self._logger.debug("Core: System config is: {}".format(self._bm2config.system))
+        # Create status indicators.
+        self._logger.info("Core: Creating status indicator controls.")
+
+        for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
+            id = target[0]
+            name = target[1]
+            self._logger.debug("Core: Creating indicator for '{}'".format(id))
+            try:
+                if self._bm2config.system['indicators'][id] is not None:
+                    self._indicators[id] = brickmaster2.controls.CtrlGPIO(id, name,
+                                                                          self._bm2config.system['indicators'][id], 15)
+                else:
+                    self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
+                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
+            except (KeyError, TypeError):
+                 self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
+                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
+            except AttributeError:
+                 self._logger.warning(f"Core: Status LED pin '{self._bm2config.system['indicators'][id]}' "
+                                      f"for '{id}' cannot be configured.")
+                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
+
+        # All indicators should be configured.
+        self._logger.info("Core: Configured indicators - {}".format(self._indicators))
+        # Set the system indicator on.
+        # This should have been done earlier, but in case it wasn't, we do it again here.
+        self._indicators['sysrun'].set('on')
+
         # Set up the I2C Bus.
         self._setup_i2c_bus()
-
-        # Initialize variables.
-        self._controls = {} # Controls
-        self._displays = {} # I2C displays
-        self._scripts = {} # Scripts
-        self._extgpio = {} # GPIO Expanders (ie: AW9523 boards)
-        self._active_script = None
-        # Lists for displays that show the time or date.
-        self._clocks = []
-        self._dates = []
 
         gc.collect()
 
@@ -105,6 +130,9 @@ class BrickMaster2:
                                             broker=self._bm2config.system['mqtt']['broker'],
                                             mqtt_username=self._bm2config.system['mqtt']['user'],
                                             mqtt_password=self._bm2config.system['mqtt']['key'],
+                                            mqtt_log=self._bm2config.system['mqtt']['log'],
+                                            neton=self._indicators['neton'],
+                                            netoff=self._indicators['netoff'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             log_level=self._bm2config.system['log_level']
                                             )
@@ -119,6 +147,9 @@ class BrickMaster2:
                                             broker=self._bm2config.system['mqtt']['broker'],
                                             mqtt_username=self._bm2config.system['mqtt']['user'],
                                             mqtt_password=self._bm2config.system['mqtt']['key'],
+                                            mqtt_log=self._bm2config.system['mqtt']['log'],
+                                            neton=self._indicators['neton'],
+                                            netoff=self._indicators['netoff'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             log_level=self._bm2config.system['log_level']
                                             )
@@ -437,7 +468,7 @@ class BrickMaster2:
         self._print_or_log("critical", "Core: Setting system run light off.")
         # Set the system light off.
         try:
-            self._led_sysstat.value = False
+            self._led_sysrun.value = False
         except AttributeError:
             pass
         self._print_or_log("critical", "Core: Cleanup complete.")

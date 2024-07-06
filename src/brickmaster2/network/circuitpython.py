@@ -78,7 +78,7 @@ class BM2NetworkCircuitPython(BM2Network):
 
     def _mc_loop(self):
         try:
-            self._mini_client.loop(1)
+            self._mini_client.loop(self._mqtt_timeout)
         except ConnectionError:
             # If the broker has gone away ping will fail and in turn MiniMQTT will throw a ConnectionError.
             # We'll catch that and set ourselves as disconnected. This should let us recover gracefully.
@@ -194,6 +194,7 @@ class BM2NetworkCircuitPython(BM2Network):
         """
         self._logger.debug("Network: Circuitpython MQTT setup start.")
         self._logger.debug("Network: Wifi Object can present socket pool: {}".format(type(self._wifi_obj.socket_pool)))
+        self._logger.debug(f"Network: Setting socket timeout to '{self._mqtt_timeout}'s. This will also be the loop timeout.")
 
         # Create the MQTT Client.
         self._mini_client = af_mqtt.MQTT(
@@ -202,13 +203,12 @@ class BM2NetworkCircuitPython(BM2Network):
             port=self._mqtt_port,
             username=self._mqtt_username,
             password=self._mqtt_password,
-            socket_pool=self._wifi_obj.socket_pool
-            # socket_timeout=1 # Default is one, don't need to set.
+            socket_pool=self._wifi_obj.socket_pool,
+            socket_timeout=self._mqtt_timeout
         )
 
-        #TODO: Add option to enable and disable MQTT debugging separately.
-        # If the overall Network module's logger is on at level debug, use that.
-        if self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
+        # If MQTT Logging is requested and the logger's effective level is debug, log the client.
+        if self._mqtt_log and self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
             self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")
             self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'BrickMaster2')
 

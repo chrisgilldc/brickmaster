@@ -15,9 +15,9 @@ class BM2Network:
     """
     BrickMaster2 Networking class for Linux
     """
-    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, net_on=None,
-                 net_off=None, port=1883, ha_discover=True, ha_base='homeassistant', ha_area=None,
-                 ha_meminfo='unified', wifi_obj=None, log_level=None):
+    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
+                 mqtt_log=False, net_interface='wlan0', neton=None, netoff=None, port=1883, ha_discover=True,
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
         """
         BrickMaster2 Network Class
 
@@ -35,8 +35,16 @@ class BM2Network:
         :type mqtt_username: str
         :param mqtt_password: MQTT Password
         :type mqtt_password: str
-        :param net_on:
-        :param net_off:
+        :param mqtt_log: Enable logging of the base MQTT client. Disabled by default. Will only be logged at the Debug level.
+        :type mqtt_log: bool
+        :param mqtt_timeout: Timeout for MQTT polling in seconds.
+        :type mqtt_timeout: int
+        :param net_interface: Linux network interface to use. Defaults to 'wlan0'.
+        :type net_interface: str
+        :param neton: Control for the Network-Connected LED
+        :type neton: brickmaster2.control.Control
+        :param netoff: Control for the Network Disconnected LED.
+        :type netoff: brickmaster2.control.Control
         :param ha_discover: Should we send Home Assistant discovery messages?
         :type ha_discover: bool
         :param ha_base: When doing Home Assistant discovery, base topic name?
@@ -55,9 +63,12 @@ class BM2Network:
         self._short_name = short_name
         self._long_name = long_name
         self._mqtt_broker = broker
+        self._mqtt_log = mqtt_log
         self._mqtt_port = port
         self._mqtt_username = mqtt_username
         self._mqtt_password = mqtt_password
+        self._mqtt_timeout = mqtt_timeout
+        self._net_interface = net_interface
         # Dict for all the Home Assistant info.
         self._ha_info = {
             'discover': ha_discover,
@@ -76,9 +87,7 @@ class BM2Network:
             'scripts': {},
             'displays': {}
         }
-        #self._unit_system = unit_system
-        #self._system_name = system_name
-        #self._interface = interface
+
         # Default the logging level.
         if log_level is None:
             log_level = adafruit_logging.WARNING
@@ -87,6 +96,32 @@ class BM2Network:
         self._logger = adafruit_logging.getLogger('BrickMaster2')
         self._logger.setLevel(log_level)
         self._logger.info(f"Network: System Name is '{self._long_name}'")
+
+        # Set up the network status LEDs, if defined.
+        # Net On
+        self._logger.debug("Network: Connection status LED object - {}".format(neton))
+        if neton is None:
+            self._logger.info("Network: Connection status LED not defined.")
+            self._neton = brickmaster2.controls.CtrlNull("neton_null","Net On Null")
+        elif not isinstance(neton, brickmaster2.controls.Control):
+            self._logger.info("Network: Connection status LED is not a valid control.")
+            self._neton = brickmaster2.controls.CtrlNull("neton_null", "Net On Null")
+        else:
+            self._neton = neton
+        # Net Off
+        self._logger.debug("Network: Disconnection status LED object - {}".format(netoff))
+        if netoff is None:
+            self._logger.info("Network: Disconnection status LED not defined.")
+            self._netoff = brickmaster2.controls.CtrlNull("netoff_null", "Net Off Null")
+        elif not isinstance(neton, brickmaster2.controls.Control):
+            self._logger.info("Network: Disconnection status LED is not a valid control.")
+            self._netoff = brickmaster2.controls.CtrlNull("netoff_null", "Net Off Null")
+        else:
+            self._netoff = netoff
+
+        # Set the status LEDs to initial state.
+        self._neton.set('off')
+        self._netoff.set('on')
 
         # Initialize variables
         self._reconnect_timestamp = None
@@ -107,8 +142,7 @@ class BM2Network:
         self._logger.info("Defined Client ID: {}".format(self._system_id))
 
         self._setup_mqtt() # Create the MQTT Object, connect basic callbacks
-        # Setup the will.
-        # Set the last will prior to connecting.
+        # Setup the last will prior to connecting.
         self._logger.info("Creating last will.")
         self._mc_will_set(topic="brickmaster2/" + self._short_name + "/connectivity",
             payload='offline', qos=0, retain=True)
@@ -127,6 +161,8 @@ class BM2Network:
             self._connect_mqtt()
         except Exception as e:
             raise
+        self._neton.set('on')
+        self._netoff.set('off')
         # else:
         #     # Our own flag will set True by the _on_connect callback.
         # self._logger.debug(f"Network: MQTT status is '{self._mqtt_connected}'")
@@ -143,8 +179,12 @@ class BM2Network:
         # When disconnecting, mark the device and the bay as unavailable.
         self._send_offline()
         # Disconnect from broker
+
         self._mc_disconnect()
-        # Set the internal tracker to disconnected.
+
+        # Set Status Indicators
+        self._netoff.set('on')
+        self._neton.set('off')
 
     def poll(self):
         """
@@ -299,7 +339,7 @@ class BM2Network:
 
             self._logger.debug("Network: Will send discovery messages: {}".format(discovery_messages))
             for discovery_message in discovery_messages:
-                self._pub_message(**discovery_message)
+                self._pub_message(**discovery_message, force_repeat=True, retain=True)
             # Reset the topic history so any newly discovered entities get sent to.
             self._topic_history = {}
             # Set the override stamp. This makes sure force repeat is set to send out data after discovery.
@@ -322,7 +362,7 @@ class BM2Network:
         self._logger.debug("Network: Setting internal MQTT tracker True in '_on_connect' callback.")
         self._mqtt_connected = True
 
-        # TODO: Make sure subscriptions reconnect.
+        #TODO: Add monitoring of the homeassistant/status online/offline status to do logic.
         # Subscribe to the script set topic.
         self._mc_subscribe('brickmaster2/' + self._short_name + '/script/set')
         self._mc_callback_add('brickmaster2/' + self._short_name + '/script/set',
@@ -374,7 +414,7 @@ class BM2Network:
                 message.topic, message.payload
             ))
 
-    def _pub_message(self, topic, message, force_repeat=False):
+    def _pub_message(self, topic, message, force_repeat=False, retain=False):
         """
         Publish a message to the MQTT broker. By default, will not publish a message if that message has previously been
         sent to that topic. This makes it safe to dump the same data in repeatedly without spamming the broker.
@@ -385,6 +425,8 @@ class BM2Network:
         :type message: str
         :param force_repeat: Should the message be sent even if it was also the previous message sent.
         :type force_repeat: bool
+        :param retain: Should the message be retained by the broker?
+        :type retain: bool
         :return:
         """
         self._logger.debug("Network: Processing message publication on topic '{}'".format(topic))
@@ -440,7 +482,7 @@ class BM2Network:
             else:
                 outbound_message = message
             # Make the client-specific call!
-            self._mc_publish(topic, outbound_message)
+            self._mc_publish(topic, outbound_message, retain=retain)
 
     # Method studs to be overridden.
     def _mc_callback_add(self, topic, callback):
