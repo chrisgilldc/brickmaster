@@ -134,6 +134,7 @@ class BrickMaster2:
                                             neton=self._indicators['neton'],
                                             netoff=self._indicators['netoff'],
                                             ha_discover=self._bm2config.system['ha_discover'],
+                                            ha_area=self._bm2config.system['ha_area'],
                                             log_level=self._bm2config.system['log_level']
                                             )
         elif sys.implementation.name == 'circuitpython':
@@ -151,6 +152,7 @@ class BrickMaster2:
                                             neton=self._indicators['neton'],
                                             netoff=self._indicators['netoff'],
                                             ha_discover=self._bm2config.system['ha_discover'],
+                                            ha_area=self._bm2config.system['ha_area'],
                                             log_level=self._bm2config.system['log_level']
                                             )
         else:

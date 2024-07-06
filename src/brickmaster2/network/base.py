@@ -331,8 +331,7 @@ class BM2Network:
         if self._ha_discover:
             self._logger.info("Network: Running Home Assistant discovery...")
             # Create and stash device info for convenience.
-            device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area,
-                                              brickmaster2.__version__)
+            device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area, brickmaster2.__version__)
             discovery_messages = mqtt.ha_discovery(
                 self._short_name, self._system_id, device_info, 'brickmaster2/', self._ha_base,
                 self._ha_meminfo, self._object_register)

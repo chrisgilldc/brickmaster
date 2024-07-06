@@ -62,6 +62,7 @@ def ha_device_info(system_id, long_name, ha_area, version):
         identifiers=[system_id],
         manufacturer='ConHugeCo',
         model='BrickMaster2 Lego Control',
+        suggested_area=ha_area,
         sw_version=str(version)
     )
     # Only add suggested_area if it's set to not None, otherwise discovery will reject this.
