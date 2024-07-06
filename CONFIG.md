@@ -18,18 +18,18 @@ The configuration file is a JSON text file, which unfortunately means it can't b
 
 :white_check_mark: **means required**
 
-| Name                   | Type   | Default    | Since  | Description                                                                                                         |
-|------------------------|--------|------------|--------|---------------------------------------------------------------------------------------------------------------------|
+| Name                  | Type   | Default    | Since  | Description                                                                                                         |
+|-----------------------|--------|------------|--------|---------------------------------------------------------------------------------------------------------------------|
 | :white_check_mark: `name` | string | 'hostname' | v0.1   | Name of the system to be used in MQTT topics and elsewhere.                                                         |
-| `log_level`            | string | 'warning'  | v0.1   | How verbose to be.                                                                                                  |
-| `wifihw`               | string | None | v0.4   | Type of WiFi hardware. May be 'esp32' or 'esp32spi'. If not specified, will try to auto-detect, but not guaranteed. | 
-| `i2c`                  | dict   | None       | v0.1   | Defines I2C bus to use. Only required if using displays.                                                            |
-| `indicators`           | dict | None | v0.3.1 | Defines GPIO pins for indicators lights.                                                                            |
-| `ha`                    | dict | None | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                       |
-| `time_mqtt` | bool | False | v0.4.3 | Time MQTT polls. Used for development, you almost certainly don't need this. |
+| `log_level`           | string | 'warning'  | v0.1   | How verbose to be.                                                                                                  |
+| `wifihw`              | string | None | v0.4   | Type of WiFi hardware. May be 'esp32' or 'esp32spi'. If not specified, will try to auto-detect, but not guaranteed. | 
+| `i2c`                 | dict   | None       | v0.1   | Defines I2C pins to use. Required if using I2C displays.                                                            |
+| `indicators`          | dict | None | v0.3.1 | Defines GPIO pins for indicators lights.                                                                            |
+| `ha`                  | dict | None | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                       |
 
 #### I2C
-The only option for I2C is 'bus_id', which must be an integer. Should probably always be '1'.
+I2C is required if using I2C displays (the only kind of supported displays) because obviously.
+
 
 #### Indicators
 

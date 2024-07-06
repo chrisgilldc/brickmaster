@@ -53,34 +53,36 @@ class BM2Config:
 
     # Validate system settings
     def _validate_system(self):
-        self._logger.debug("Validating system section")
+        self._logger.debug("Config: Validating system section")
         required_params = ['id', 'mqtt']
-        optional_params = ['name', 'log_level', 'wifihw']
+        optional_params = ['name', 'i2c', 'log_level', 'wifihw']
         optional_defaults = {
+            'i2c': None,
             'log_level': 'info',
             'wifihw': None
         }
         # Check for presence of required options.
         for param in required_params:
-            self._logger.debug("Checking for required key '{}'".format(param))
+            self._logger.debug("Config: Checking for required key '{}'".format(param))
             if param not in self._config['system']:
-                self._logger.critical("Required config option '{}' missing. Cannot continue!".format(param))
+                self._logger.critical("Config: Required config option '{}' missing. Cannot continue!".format(param))
                 sys.exit(0)
 
         # Check for optional settings, assign the defaults if need be.
         for param in optional_params:
-            self._logger.debug("Checking for optional parameter '{}'".format(param))
+            self._logger.debug("Config: Checking for optional parameter '{}'".format(param))
             if param not in self._config['system']:
                 self._logger.warning("Option '{}' not found, using default '{}'".
                                      format(param, optional_defaults[param]))
                 self._config['system'][param] = optional_defaults[param]
         if 'name' not in self._config['system']:
+            self._logger.info("Config: Name not set, defaulting to ID.")
             self._config['system']['name'] = self._config['system']['id']
 
         # Confirm all MQTT sub-keys are defined.
         mqtt_keys = {'broker','user','key'}
         if not mqtt_keys <= set(self._config['system']['mqtt'].keys()):
-            self._logger.error("All MQTT keys not defined. Cannot continue!")
+            self._logger.error("Config: All MQTT keys not defined. Cannot continue!")
             sys.exit(1)
         # Optional MQTT parameter.
         if 'log' not in self._config['system']['mqtt']:

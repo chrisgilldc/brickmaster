@@ -13,10 +13,22 @@ A (Circuit)Python application for controlling relays and devices. The most impor
 * Be able to do cool automations with connected devices (ie: Saturn 5 launch simulation)
 * Teach myself some more python (and hardware, and MQTT)
 
+## Latest Updates - V0.5.1
+- Debugged issues with client reconnection when the broker goes away (ie: restarts)
+- Discovery and Status messages are now retained, which allows devices/entities and their status to be maintained across
+HA restarts. No more disappearing devices.
+- Added new MQTT 'log' option to control logging of the base MQTT client. This is a deep debug option, should really
+only be needed for debugging.
+- Fixed indicator LEDs - those broke at some point - and rewrote them to use CtrlGPIO control objects for consistency.
+- Included and tested example systemd units for Linux installs.
+- Updated CircuitPython 'code.py' startup file to be smarter and behave as a parallel to the cli invoker on Linux.
+- Reorganized with an eye towards packaging. Will learn how to do that at some point.
+- Cleaned up some settings and updated documentation.
+ 
 ## Latest Updates - V0.5.0
 Having struggled with CircuitPython/Adafruit-MiniMQTT stability issues, I have refactored the whole network module and
 split based on platform.
-Brickmaster2 will now use the very robust [PAHO MQTT](https://eclipse.dev/paho/index.php?page=clients/python/index.php),
+Brickmaster2 on linux will now use the very robust [PAHO MQTT](https://eclipse.dev/paho/index.php?page=clients/python/index.php),
 which I also use in my other project, [CobraBay](https://github.com/chrisgilldc/cobrabay).
 This leads to some code bloat. Notes on how to deploy based on platform are below.
 

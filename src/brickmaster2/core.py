@@ -91,8 +91,8 @@ class BrickMaster2:
                  self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
                  self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
             except AttributeError:
-                 self._logger.warning(f"Core: Status LED pin '{self._bm2config.system['indicators'][id]}' "
-                                      f"for '{id}' cannot be configured.")
+                 self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
+                     self._bm2config.system['indicators'][id], id))
                  self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
 
         # All indicators should be configured.
@@ -275,12 +275,16 @@ class BrickMaster2:
             #                                                                            gc.mem_free()))
 
     def _create_displays(self):
+        if len(self._bm2config.displays) == 0:
+            self._logger.debug("Core: No displays configured, nothing to do.")
+            return
+
         if self._i2c_bus is None:
-            self._logger.error("Cannot set up I2C displays without working I2C bus!")
+            self._logger.error("Core: Cannot set up I2C displays without working I2C bus!")
             return
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
-            self._logger.info("Setting up display '{}'".format(display_cfg['name']))
+            self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
             self._displays[display_cfg['name']] = brickmaster2.Display(display_cfg, self._i2c_bus, )
             if display_cfg['idle']['show'] == 'time':
                 self._clocks.append(display_cfg['name'])
@@ -370,16 +374,19 @@ class BrickMaster2:
         return aw
 
     def _setup_i2c_bus(self):
-        try:
-            self._i2c_bus = busio.I2C(board.SCL, board.SDA)
-        except RuntimeError as e:
-            self._logger.error("Received Runtime Error while setting up I2C")
-            self._logger.error(str(e))
-            self._i2c_bus = None
-        except ValueError as e:
-            self._logger.error("Received Value Error while setting up I2C")
-            self._logger.error(str(e))
-            self._i2c_bus = None
+        if self._bm2config.system['i2c'] is not None:
+            try:
+                self._i2c_bus = busio.I2C(board.SCL, board.SDA)
+            except RuntimeError as e:
+                self._logger.error("Received Runtime Error while setting up I2C")
+                self._logger.error(str(e))
+                self._i2c_bus = None
+            except ValueError as e:
+                self._logger.error("Received Value Error while setting up I2C")
+                self._logger.error(str(e))
+                self._i2c_bus = None
+        else:
+            self._logger.info("Core: No I2C bus defined. Skipping setup.")
 
 
     # Active script. Returns friendly name of the Active Script. Used to send to MQTT.

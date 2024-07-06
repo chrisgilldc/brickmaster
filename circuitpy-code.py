@@ -13,16 +13,17 @@ print("Brickmaster2 - {}".format(brickmaster2.__version__))
 # Define a pin to use for System Status.
 sysrun_pin = "D0"
 
-# try:
-sysrun_ctrl = brickmaster2.controls.CtrlGPIO('sysrun','System Status', sysrun_pin, 15)
-# except (KeyError, TypeError):
-#     print(f"No pin defined for status LED '{id}'. Will not configure.")
-#     sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
-# except AttributeError:
-#     print(f"System Status LED pin '{sysrun_pin}' cannot be configured.")
-#     sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
-# Turn it on.
-sysrun_ctrl.set('on')
+if sysrun_pin is not None:
+    try:
+        sysrun_ctrl = brickmaster2.controls.CtrlGPIO('sysrun','System Status', sysrun_pin, 15)
+    except (KeyError, TypeError):
+        print(f"No pin defined for status LED '{id}'. Will proceed without indicator.")
+        sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
+    except AttributeError:
+        print(f"System Status LED pin '{sysrun_pin}' cannot be configured on board. Will proceed without indicator.")
+        sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
+    # Turn it on.
+    sysrun_ctrl.set('on')
 
 # Check for the WIFI HW environment setting.
 try:

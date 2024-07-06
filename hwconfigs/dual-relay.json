@@ -1,0 +1,34 @@
+{
+  "system": {
+    "id": "bm2-2xrelay",
+    "name": "Brickmaster2 Dual Relay ESP32 Feather",
+    "wifihw": "esp32",
+    "log_level": "warning",
+    "ha": {
+      "area": ### Area name here is recommended but not required. ###
+    },
+    "mqtt": {
+      "broker": ### Broker hostname or IP ###
+      "user": ### MQTT Username ###,
+      "key": ### MQTT Password ###
+    }
+  },
+  "controls": [
+    {
+      "id": "rly1",
+      "name": "Relay 1",
+      "type": "gpio",
+      "pin": "A0"
+    },
+    {
+      "id": "rly2",
+      "name": "Relay 2",
+      "type": "gpio",
+      "pin": "A1"
+    }
+  ],
+  "displays": [
+  ],
+  "scripts": {
+  }
+}
