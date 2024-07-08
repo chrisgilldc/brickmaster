@@ -170,8 +170,8 @@ class BM2WiFi:
                        self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5])
             # Set the hostname
             if self._hostname is not None:
-                self._logger.info(f"Wifi: Setting hostname to '{self._hostname}'")
                 self._wifi.hostname = self._hostname
+                self._logger.info(f"Wifi: Set hostname to '{self._wifi.hostname}'")
         elif self._wifihw == 'esp32spi':
             # Conditional imports for ESP32SPI boards.
             ## Board
@@ -213,10 +213,9 @@ class BM2WiFi:
                     self._wifi.MAC_address[5], self._wifi.MAC_address[4], self._wifi.MAC_address[3],
                     self._wifi.MAC_address[2], self._wifi.MAC_address[1], self._wifi.MAC_address[0])
                 # # Set the hostname
-                if self._hostname is not None:
-                    self._logger.debug(f"Wifi: Setting hostname to {self._hostname}")
-                    self._wifi.set_hostname(self._hostname)
-                # self._logger.info("WIFI: Set hostname to '{}'".format(self._system_id))
+                # if self._hostname is not None:
+                #     self._wifi.set_hostname(self._hostname)
+                #     self._logger.debug(f"Wifi: Set hostname to {self._wifi.hostname}")
         else:
             raise ValueError("WIFI: Hardware type '{}' not supported.".format(self._wifihw))
 

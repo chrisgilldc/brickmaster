@@ -36,6 +36,7 @@ except AttributeError:
 # Check for a hostname
 try:
     hostname = os.getenv("CIRCUITPY_WEB_INSTANCE_NAME")
+    print("Hostname/Instance name set to: {}".format(hostname))
 except AttributeError:
     print("Hostname not available. Set with 'CIRCUITPY_WEB_INSTANCE_NAME' in 'settings.toml'.")
     hostname = None

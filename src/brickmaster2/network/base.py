@@ -361,7 +361,8 @@ class BM2Network:
         self._logger.debug("Network: Setting internal MQTT tracker True in '_on_connect' callback.")
         self._mqtt_connected = True
 
-        #TODO: Add monitoring of the homeassistant/status online/offline status to do logic.
+        #TODO: Add monitoring of the homeassistant/status online/offline status to do logic. What logic? Not sure.
+
         # Subscribe to the script set topic.
         self._mc_subscribe('brickmaster2/' + self._short_name + '/script/set')
         self._mc_callback_add('brickmaster2/' + self._short_name + '/script/set',

@@ -126,7 +126,7 @@ def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, memi
         outbound_messages.extend(ha_discovery_control(
             short_name, system_id, device_info, topic_prefix, ha_base, object_registry['controls'][control_id]))
 
-    #TODO: Add items for scripts as a config option.
+    #TODO: Add discovery for scripts and send script data, ie: elapsed time.
     # The outbound topics dict includes references to the objects, so we can get the objects from there.
     # for item in self._topics_outbound:
     #     if isinstance(self._topics_outbound[item]['obj'], brickmaster2.controls.CtrlGPIO):
