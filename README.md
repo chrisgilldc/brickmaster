@@ -133,19 +133,20 @@ brickmaster2.
      `wget https://github.com/chrisgilldc/brickmaster2/archive/refs/heads/main.zip`
 2. Extract the package. The package location will be referred to here as "brickmaster2-main" (wherever you have it).
 3. Copy "brickmaster2-main/src/brickmaster2" to your circuitpython board's `lib` directory.
-4. Copy "brickmaster2-main/circuitpy-code.py" to your circuitpython board's root directory as `code.py`.
-5. Copy the following libraries from the bundle into the board's `lib` directory.
+4. Copy the following libraries from the bundle into the board's `lib` directory. If using the web workflow, the bolded 
+libraries are directories and need to use the directory upload option. 
    * adafruit_aw9523.mpy
    * adafruit_connection_manager.mpy
-   * adafruit_ht16k33
+   * **adafruit_esp32spi** - Only for ESP32SPI boards like the Metro M4/M7
+   * **adafruit_ht16k33**
    * adafruit_logging.mpy
-   * adafruit_register
-6. Copy the adafruit_minimqtt libarary into the board's `lib` directory.
-7. If you're using an ESP32 SPI board, copy the current esp32spi library into the board's `lib` directory
-8. Create a config file. You can do this from scratch or copy a file from `brickmaster2-main/hwconfigs/`, which has 
+   * **adafruit_minimqtt**
+   * **adafruit_register**
+5. Create a config file. You can do this from scratch or copy a file from `brickmaster2-main/hwconfigs/`, which has 
 starting configs for [BrickMaster Hardware](hardware.md). Place the config file in the board's root directory.
-9. Create a `settings.toml` file. You can start with `brickmaster2-main/examples/settings.toml`.
+6. Create a `settings.toml` file. You can start with `brickmaster2-main/examples/settings.toml`.
    * Fill in all the required parameters with your SSID and Password.
    * An increased, 4Mb PYSTACK size is set by default in the example. This is tested as good on the Metro M4 Airlift.
-10. Connect to the serial console (via USB or Web Workflow, depending) and monitor startup.
+7. Copy "brickmaster2-main/circuitpy-code.py" to your circuitpython board's root directory as `code.py`.
+8. Connect to the serial console (via USB or Web Workflow, depending) and monitor startup.
 
