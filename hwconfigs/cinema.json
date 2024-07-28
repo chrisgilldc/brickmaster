@@ -1,0 +1,72 @@
+{
+  "system": {
+    "id": "bm2_palacecinema",
+    "name": "Palace Cinema",
+    "wifihw": "esp32",
+    "log_level": "warning",
+    "i2c": "True",
+    "ha": {
+      "area": ### Area name here is recommended but not required. ###
+    },
+    "mqtt": {
+      "broker": ### Broker hostname or IP ###
+      "user": ### MQTT Username ###,
+      "key": ### MQTT Password ###
+    }
+  },
+  "controls": [
+    {
+      "id": "streetlight",
+      "name": "Street Light",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 0
+    },
+    {
+      "id": "sign",
+      "name": "Sign",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 1
+    },
+    {
+      "id": "lobby",
+      "name": "Lobby",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 2
+    },
+    {
+      "id": "theater",
+      "name": "Lobby",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 3
+    },
+    {
+      "id": "projectorlobby",
+      "name": "Lobby",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 4
+    },
+    {
+      "id": "posters",
+      "name": "Posters",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 5
+    },
+    {
+      "id": "accents",
+      "name": "Accent Lights",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 6
+    }
+  ],
+  "displays": [
+  ],
+  "scripts": {
+  }
+}
