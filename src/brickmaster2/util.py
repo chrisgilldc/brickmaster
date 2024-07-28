@@ -1,4 +1,6 @@
+import board
 import json
+import microcontroller
 import os
 import sys
 
@@ -6,6 +8,24 @@ import sys
 if sys.implementation.name == 'cpython':
     import netifaces
 
+
+def active_interface():
+    """
+    Find the active interface.
+    :return:
+    """
+    pass
+
+def board_pins():
+    """
+    Fetch all the pins for the board. Filter out things that aren't pins.
+    """
+    actual_pins = []
+    for item in dir(board):
+        obj = getattr(board, item)
+        if isinstance(obj, microcontroller.Pin):
+            actual_pins.append(item)
+    return actual_pins
 
 def fetch_config(base_url):
     """
@@ -56,12 +76,6 @@ def determine_wifi_hw():
     else:
         raise OSError("OS Sysname '{}' does not have a known wifi type! Cannot continue!")
 
-def active_interface():
-    """
-    Find the active interface.
-    :return:
-    """
-    pass
 
 
 def interface_status(interface):

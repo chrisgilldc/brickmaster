@@ -158,6 +158,7 @@ class BM2NetworkLinux(BM2Network):
         Publish an MQTT Online message.
         :return:
         """
+        self._logger.debug("Network: Sending online status.")
         self._paho_client.publish("brickmaster2/" + self._short_name + "/connectivity",
                                   payload="online", retain=True)
     def _send_offline(self):
@@ -165,6 +166,7 @@ class BM2NetworkLinux(BM2Network):
         Publish an MQTT Offline message.
         :return:
         """
+        self._logger.debug("Network: Sending offline status.")
         self._paho_client.publish("brickmaster2/" + self._short_name + "/connectivity",
                                   payload="offline", retain=True)
 

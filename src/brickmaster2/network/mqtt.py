@@ -7,9 +7,23 @@ classes to handle the actual publication!
 
 import adafruit_logging
 import json
+import brickmaster2.util
+import board
 
 logger = adafruit_logging.getLogger('BrickMaster2')
 logger.setLevel(adafruit_logging.DEBUG)
+
+
+def initial_messages(short_name, topic_prefix='brickmaster2'):
+    """
+    Generate initial messages to send once on start-up that don't change dynamically.
+    """
+
+    outbound_messages = [
+        {'topic': 'brickmaster2/' + short_name + '/system/board_id', 'message': board.board_id},
+        {'topic': 'brickmaster2/' + short_name + '/system/pins', 'message': brickmaster2.util.board_pins()}
+    ]
+    return outbound_messages
 
 
 def messages(core, object_register, short_name, force_repeat=False, topic_prefix='brickmaster2'):
@@ -38,10 +52,10 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
 
     # Displays aren't yet supported. Maybe some day.
     # for item in object_register['displays']:
-        # display_object = object_register['displays'][item]
-        # logger.debug("Generating messages for object '{}' (type: {})".format(
-        #     display_object.id, type(display_object)))
-        # outbound_messages
+    # display_object = object_register['displays'][item]
+    # logger.debug("Generating messages for object '{}' (type: {})".format(
+    #     display_object.id, type(display_object)))
+    # outbound_messages
 
     ## Active script.
     # logger.debug("Generating active script message...")
@@ -49,7 +63,6 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
         'topic': topic_prefix + '/' + short_name + '/script/active',
         'message': core.active_script,
         'force_repeat': force_repeat})
-
 
     return outbound_messages
 
@@ -367,7 +380,6 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
     return_data.append(script_selector)
 
     return return_data
-
 
 # def ha_discovery_display(short_name, system_id, device_info, topic_prefix, ha_base, display_obj):
 #     """

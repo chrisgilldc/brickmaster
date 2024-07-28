@@ -176,6 +176,7 @@ class BM2NetworkCircuitPython(BM2Network):
         Publish an MQTT Online message.
         :return:
         """
+        self._logger.debug("Network: Sending online status.")
         self._mini_client.publish(topic="brickmaster2/" + self._short_name + "/connectivity",
                                   msg="online", retain=True)
     def _send_offline(self):
@@ -183,6 +184,7 @@ class BM2NetworkCircuitPython(BM2Network):
         Publish an MQTT Offline message.
         :return:
         """
+        self._logger.debug("Network: Sending offline status.")
         self._mini_client.publish(topic="brickmaster2/" + self._short_name + "/connectivity", msg="offline",
                                   retain=True)
 

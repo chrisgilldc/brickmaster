@@ -56,6 +56,8 @@ class BM2Network:
         :type wifi_obj: brickmaster.network.BM2WiFi
         :param log_level: Level to log at.
         """
+        # Set our status to initialization.
+        self._status = ('disconnected', time.monotonic())
 
         # Save parameters.
         self._core = core
@@ -125,8 +127,6 @@ class BM2Network:
 
         # Initialize variables
         self._reconnect_timestamp = None
-        self._logger.debug("Network: Setting internal MQTT tracker False at startup.")
-        self._mqtt_connected = False
         self._total_failures = 0
 
         # List for commands received and to be passed upward.
@@ -157,12 +157,19 @@ class BM2Network:
 
         :return:
         """
+
         try:
+            # Try to connect.
             self._connect_mqtt()
         except Exception as e:
+            # If we get an immediate exception (ie: no route to host, no such hostname, etc), raise.
             raise
-        self._neton.set('on')
-        self._netoff.set('off')
+        else:
+            # Otherwise, mark as 'connecting'. This will signal the loop to check for connacks.
+            self.status = 'connecting'
+
+        # self._neton.set('on')
+        # self._netoff.set('off')
         # else:
         #     # Our own flag will set True by the _on_connect callback.
         # self._logger.debug(f"Network: MQTT status is '{self._mqtt_connected}'")
@@ -179,12 +186,11 @@ class BM2Network:
         # When disconnecting, mark the device and the bay as unavailable.
         self._send_offline()
         # Disconnect from broker
-
         self._mc_disconnect()
-
         # Set Status Indicators
         self._netoff.set('on')
         self._neton.set('off')
+        self.status = 'disconnected-planned'
 
     def poll(self):
         """
@@ -197,12 +203,48 @@ class BM2Network:
         # Set up the return dict.
         return_data = {
             'online': True,
-            'mqtt_data': self._mqtt_connected,
+            'mqtt_data': self.status[0],
             'commands': {}
         }
 
         # If interface is up but broker is not connected, retry every 30s.
-        if not self._mqtt_connected:
+        if self.status[0] == 'connected':
+            # Send all the messages outbound.
+            # For the first 15s after HA discovery, send everything. This makes sure data arrives after HA has
+            # established entities. Otherwise, you wind up with entities with unknown status.
+            if self._ha_info['override']:
+                if time.monotonic() - self._ha_info['start'] <= 15:
+                    self._logger.debug(
+                        "Network: HA discovery {}s ago, sending all".format(time.monotonic() - self._ha_info['start']))
+                    force_repeat = True
+                else:
+                    self._logger.info("Network: Have sent all messages for 15s after HA discovery. Disabling.")
+                    self._ha_info['override'] = False
+                    force_repeat = False
+            else:
+                force_repeat = False
+            # Collect messages.
+            ## The platform-independent messages. These should always work.
+            outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
+                                                                   force_repeat=force_repeat)
+            ## Extend with platform dependent messages.
+            outbound_messages.extend(self._mc_platform_messages())
+            for message in outbound_messages:
+                self._logger.debug("Network: Publishing MQTT message - {}".format(message))
+                self._pub_message(**message)
+            # Poll the MQTT broker.
+            self._mc_loop()
+            # Add the upward commands to the return data.
+            return_data['commands'] = self._upward_commands
+            # Remove the upward commands that are being forwarded.
+            self._upward_commands = []
+        elif self.status[0] == 'connecting':
+            self._logger.debug("Network: Awaiting broker acknowledgement.")
+            # Make sure we still poll the broker.
+            self._mc_loop()
+
+        elif self.status[0] == 'disconnected':
+            self._logger.debug("Network: Not connected. Will attempt connection.")
             try_reconnect = False
             # Has is been 30s since the previous attempt?
             try:
@@ -221,41 +263,14 @@ class BM2Network:
                     self._logger.warning("Network: Could not connect to MQTT server. Will retry in 30s.")
                     return return_data
                 else:
-                    self._logger.debug("Network: MQTT reconnect successful.")
-        elif self._mqtt_connected:
-            # Send all the messages outbound.
-            # For the first 15s after HA discovery, send everything. This makes sure data arrives after HA has
-            # established entities. Otherwise, you wind up with entities with unknown status.
-            if self._ha_info['override']:
-                if time.monotonic() - self._ha_info['start'] <= 15:
-                    self._logger.debug(
-                        "HA discovery {}s ago, sending all".format(time.monotonic() - self._ha_info['start']))
-                    force_repeat = True
-                else:
-                    self._logger.info("Have sent all messages for 15s after HA discovery. Disabling.")
-                    self._ha_info['override'] = False
-                    force_repeat = False
-            else:
-                force_repeat = False
-            # Collect messages.
-            ## The platform-independent messages. These should always work.
-            outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
-                                                                   force_repeat=force_repeat)
-            ## Extend with platform dependent messages.
-            outbound_messages.extend(self._mc_platform_messages())
-            for message in outbound_messages:
-                self._logger.debug("Network: Publishing MQTT message - {}".format(message))
-                self._pub_message(**message)
-            # Check for any incoming commands.
-            self._mc_loop()
+                    self._logger.debug("Network: MQTT connection started.")
+                    self.status = 'connecting'
+        elif self.status[0] == 'disconnected-planned':
+            self._logger.debug("Network: Disconnected by request. Will not attempt connection.")
         else:
-            self._logger.critical("Network: MQTT has undetermined state. This should never happen!")
-            raise ValueError("Network internal MQTT tracker has invalid value '{}".format(self._mqtt_connected))
+            self._logger.debug(f"Network: Unknown network status {self.status}")
 
-        # Add the upward commands to the return data.
-        return_data['commands'] = self._upward_commands
-        # Remove the upward commands that are being forwarded.
-        self._upward_commands = []
+
         return return_data
 
     def register_object(self, action_object):
@@ -283,6 +298,18 @@ class BM2Network:
                 self._logger.error("Cannot determine class of object '{}' (type: {}). Cannot register.".
                                    format(action_object.id, type(action_object)))
 
+    @property
+    def status(self):
+        self._logger.debug(f"Network: Returning status '{self._status}'")
+        return self._status
+
+    @status.setter
+    def status(self, new_status):
+        if new_status in ('disconnected','disconnected-planned', 'connecting','connected'):
+            self._status = (new_status, time.monotonic())
+        else:
+            self._logger.debug(f"Network: New status '{new_status}' is invalid, ignoring.")
+
     # Private methods
     def _connect_mqtt(self):
         """
@@ -302,12 +329,8 @@ class BM2Network:
             if self._total_failures > 5:
                 self._logger.critical("Network: Too many network failures.")
                 raise
-            return False
-        self._logger.debug("Network: MQTT connection attempt completed.")
-
-        # Set the internal MQTT tracker to True. Surprisingly, the client doesn't have a way to track this itself!
-        # self._logger.debug("Network: Setting internal MQTT tracker True in '_connect_mqtt' call.")
-        # self._mqtt_connected = True
+            # return False
+        self._logger.debug("Network: MQTT connection attempt (base._connect_mqtt) completed.")
         return True
 
     def _connect_wifi(self):
@@ -357,19 +380,21 @@ class BM2Network:
         :param properties:
         :return:
         """
-        self._logger.info("Network: Connected to MQTT Broker with result code: {}".format(rc))
-        self._logger.debug("Network: Setting internal MQTT tracker True in '_on_connect' callback.")
-        self._mqtt_connected = True
+        self._logger.info(f"Network: On Connect callback invoked from result code '{rc}'")
+        self._logger.debug("Network: Setting status to 'connected'")
+        self.status = 'connected'
 
         #TODO: Add monitoring of the homeassistant/status online/offline status to do logic. What logic? Not sure.
 
         # Subscribe to the script set topic.
+        self._logger.debug("Network: Subscribing to script topics.")
         self._mc_subscribe('brickmaster2/' + self._short_name + '/script/set')
         self._mc_callback_add('brickmaster2/' + self._short_name + '/script/set',
                               self._core.callback_scr)
         # Subscribe to the Control topics.
         for control_id in self._object_register['controls']:
             # Subscribe to the topic.
+            self._logger.debug(f"Network: Subscribing to control topic for '{self._object_register['controls'][control_id].id}'")
             self._mc_subscribe('brickmaster2/' + self._short_name + '/controls/' +
                                self._object_register['controls'][control_id].id + '/set')
             # Connect the callback.
@@ -378,10 +403,17 @@ class BM2Network:
                 self._object_register['controls'][control_id].id + '/set',
                 self._object_register['controls'][control_id].callback)
 
+        # Do Home Assistant Discovery.
+        self._logger.debug("Network: On Connect invoking HA Discovery.")
+        self._run_ha_discovery()
         # Send the online message.
         self._send_online()
-        # Do Home Assistant Discovery.
-        self._run_ha_discovery()
+        # Send the one-time messages, which reports system information.
+        initial_messages = brickmaster2.network.mqtt.initial_messages(self._short_name)
+        self._logger.debug(f"Network: Have initial messages '{initial_messages}'")
+        for message in initial_messages:
+            self._logger.info(f"Network: Sending initial message - {message}")
+            self._pub_message(**message)
 
 
     def _on_disconnect(self, client, userdata, rc):
@@ -394,10 +426,12 @@ class BM2Network:
         :return:
         """
         if rc != 0:
+            #TODO: Add some logic here or in the platform class to actually handle the result codes and back off when
+            # a specific error type is unrecoverable.
             self._logger.warning("Network: Unexpected disconnect with code: {}".format(rc))
         self._reconnect_timer = time.monotonic()
         self._logger.debug("Network: Setting internal MQTT tracker False in '_on_disconnect' callback.")
-        self._mqtt_connected = False
+        self.status = 'disconnected'
 
     def _on_message(self, client, user, message):
         """
@@ -479,6 +513,8 @@ class BM2Network:
             # Convert the message to JSON if it's a dict, otherwise just send it.
             if isinstance(message, dict):
                 outbound_message = json_dumps(message)
+            elif isinstance(message, list):
+                outbound_message = str(message)
             else:
                 outbound_message = message
             # Make the client-specific call!
