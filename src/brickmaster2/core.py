@@ -82,8 +82,8 @@ class BrickMaster2:
             self._logger.debug("Core: Creating indicator for '{}'".format(id))
             try:
                 if self._bm2config.system['indicators'][id] is not None:
-                    self._indicators[id] = brickmaster2.controls.CtrlGPIO(id, name,
-                                                                          self._bm2config.system['indicators'][id], 15)
+                    self._indicators[id] = brickmaster2.controls.CtrlSingle(id, name,
+                                                                            self._bm2config.system['indicators'][id], 15)
                 else:
                     self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
                     self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
@@ -266,8 +266,8 @@ class BrickMaster2:
                 awboard=self._extgpio[control_cfg['addr']]
             try:
                 self._controls[control_cfg['id']] = (
-                    brickmaster2.controls.CtrlGPIO(**control_cfg, publish_time=publish_time, awboard=awboard,
-                                                   log_level=self._bm2config.system['log_level']))
+                    brickmaster2.controls.CtrlSingle(**control_cfg, publish_time=publish_time, awboard=awboard,
+                                                     log_level=self._bm2config.system['log_level']))
             except (AssertionError, AttributeError, ValueError):
                 self._logger.warning("Could not create control.")
             # gc.collect()
