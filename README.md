@@ -20,6 +20,7 @@ A (Circuit)Python application for controlling relays and devices. The most impor
   - Groups to wrap multiple controls together.
   - Multicast option, to let multiple Brickmaster systems work together.
   - Flasher option.
+  - Multiple AW9523 expanders
 
 ## Latest Updates - V0.5.1
 - Debugged issues with client reconnection when the broker goes away (ie: restarts)

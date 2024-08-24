@@ -105,7 +105,7 @@ class BM2Network:
         if neton is None:
             self._logger.info("Network: Connection status LED not defined.")
             self._neton = brickmaster2.controls.CtrlNull("neton_null","Net On Null")
-        elif not isinstance(neton, brickmaster2.controls.Control):
+        elif not isinstance(neton, brickmaster2.controls.BaseControl):
             self._logger.info("Network: Connection status LED is not a valid control.")
             self._neton = brickmaster2.controls.CtrlNull("neton_null", "Net On Null")
         else:
@@ -115,7 +115,7 @@ class BM2Network:
         if netoff is None:
             self._logger.info("Network: Disconnection status LED not defined.")
             self._netoff = brickmaster2.controls.CtrlNull("netoff_null", "Net Off Null")
-        elif not isinstance(neton, brickmaster2.controls.Control):
+        elif not isinstance(neton, brickmaster2.controls.BaseControl):
             self._logger.info("Network: Disconnection status LED is not a valid control.")
             self._netoff = brickmaster2.controls.CtrlNull("netoff_null", "Net Off Null")
         else:
@@ -226,7 +226,7 @@ class BM2Network:
             # Collect messages.
             ## The platform-independent messages. These should always work.
             outbound_messages = brickmaster2.network.mqtt.messages(self._core, self._object_register, self._short_name,
-                                                                   force_repeat=force_repeat)
+                                                                   self._logger, force_repeat=force_repeat)
             ## Extend with platform dependent messages.
             outbound_messages.extend(self._mc_platform_messages())
             for message in outbound_messages:
@@ -288,7 +288,7 @@ class BM2Network:
                                format(type(action_object)))
         else:
             # Save the object.
-            if issubclass(type(action_object), brickmaster2.controls.Control):
+            if issubclass(type(action_object), brickmaster2.controls.BaseControl):
                 self._logger.debug("Registering control '{}'".format(action_object.id))
                 self._object_register['controls'][action_object.id] = action_object
             elif issubclass(type(action_object), brickmaster2.scripts.BM2Script):

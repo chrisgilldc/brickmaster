@@ -120,7 +120,12 @@ class BM2NetworkLinux(BM2Network):
         :return: None
         """
 
-        self._paho_client.publish(topic, message, qos, retain)
+        try:
+            self._paho_client.publish(topic, message, qos, retain)
+        except TypeError as te:
+            self._logger.error("Network: Could not publish message, wrong type. '{}' ({})".
+                               format(message, type(message)))
+            raise te
 
     def _mc_subscribe(self, topic):
         """

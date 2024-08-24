@@ -4,6 +4,8 @@ Brickmaster2
 
 # Controls
 from . import controls
+# GPIO
+from . import gpio
 # Network
 from . import network
 # Scripts
@@ -12,7 +14,6 @@ from . import scripts
 from . import util
 
 # Unitary Classes from files
-
 from .core import BrickMaster2
 from .config import BM2Config
 from .display import Display

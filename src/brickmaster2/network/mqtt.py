@@ -9,6 +9,7 @@ import adafruit_logging
 import json
 import brickmaster2.util
 import board
+import brickmaster2.controls.CtrlFlasher
 
 logger = adafruit_logging.getLogger('BrickMaster2')
 logger.setLevel(adafruit_logging.DEBUG)
@@ -26,10 +27,18 @@ def initial_messages(short_name, topic_prefix='brickmaster2'):
     return outbound_messages
 
 
-def messages(core, object_register, short_name, force_repeat=False, topic_prefix='brickmaster2'):
+def messages(core, object_register, short_name, logger, force_repeat=False, topic_prefix='brickmaster2'):
     """
     Generate mqtt messages to send out.
 
+    :param core: Reference to the Brickmaster Core.
+    :type core: Object
+    :param object_register: The control objects to generate messages for.
+    :type object_register: dict
+    :param short_name: Short name of the system. No spaces!
+    :type short_name: str
+    :param logger: The Network Module's logger.
+    :type logger: adafruit_logger
     :param force_repeat: Should we send messages that haven't changed since previous send?
     :type force_repeat: bool
     :return: dict
@@ -42,6 +51,8 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
     # Controls
     for item in object_register['controls']:
         control_object = object_register['controls'][item]
+        logger.debug("Network (MQTT): Generating control message for control '{}' ({})".
+                     format(control_object.id, type(control_object)))
         # logger.debug("Generating messages for object '{}' (type: {})".
         #              format(control_object.id, type(control_object)))
         # Control statuses should be retained. This allows state to be preserved over HA restarts.
@@ -49,6 +60,12 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
             {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
              'message': control_object.status, 'force_repeat': force_repeat, 'retain': True}
         )
+        # For flashers, report where we are in the list.
+        if isinstance(control_object, brickmaster2.controls.CtrlFlasher):
+            outbound_messages.append(
+                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/seq_pos',
+                 'message': control_object.seq_pos, 'force_repeat': force_repeat, 'retain': False}
+            )
 
     # Displays aren't yet supported. Maybe some day.
     # for item in object_register['displays']:

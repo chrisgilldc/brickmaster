@@ -1,6 +1,6 @@
 {
   "system": {
-    "id": "bm2_palacecinema",
+    "id": "bm_palacecinema",
     "name": "Palace Cinema",
     "wifihw": "esp32",
     "log_level": "warning",
@@ -18,51 +18,31 @@
     {
       "id": "streetlight",
       "name": "Street Light",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 0
-    },
-    {
-      "id": "sign",
-      "name": "Sign",
+      "icon": "mdi:floor-lamp",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 1
     },
     {
-      "id": "lobby",
-      "name": "Lobby",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 2
-    },
-    {
-      "id": "theater",
-      "name": "Lobby",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 3
-    },
-    {
-      "id": "projectorlobby",
-      "name": "Lobby",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 4
-    },
-    {
-      "id": "posters",
-      "name": "Posters",
+      "id": "marquee",
+      "name": "Marquee",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 5
     },
     {
-      "id": "accents",
-      "name": "Accent Lights",
+      "id": "posters",
+      "name": "Movie Posters",
       "type": "aw9523",
       "addr": "0x58",
       "pin": 6
+    },
+    {
+      "id": "accent",
+      "name": "Accent Lights",
+      "type": "aw9523",
+      "addr": "0x58",
+      "pin": 0
     }
   ],
   "displays": [
