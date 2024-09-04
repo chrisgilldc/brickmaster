@@ -50,8 +50,8 @@ class BM2NetworkLinux(BM2Network):
         # Connect
         try:
             self._paho_client.connect(host=host, port=port)
-        except ConnectionRefusedError as e:
-            # These are the exceptions can happen. Wrap this as BM2RecoverableError.
+        except (ConnectionRefusedError, TimeoutError) as e:
+            # These are exceptions that we should be able to recover from with retries, ie: the broker is rebooting.
             raise brickmaster2.exceptions.BM2RecoverableError from e
         else:
             # Start the background thread.
