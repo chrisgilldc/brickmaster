@@ -120,7 +120,12 @@ class BM2NetworkLinux(BM2Network):
         :return: None
         """
 
-        self._paho_client.publish(topic, message, qos, retain)
+        try:
+            self._paho_client.publish(topic, message, qos, retain)
+        except TypeError as te:
+            self._logger.error("Network: Could not publish message, wrong type. '{}' ({})".
+                               format(message, type(message)))
+            raise te
 
     def _mc_subscribe(self, topic):
         """
@@ -158,6 +163,7 @@ class BM2NetworkLinux(BM2Network):
         Publish an MQTT Online message.
         :return:
         """
+        self._logger.debug("Network: Sending online status.")
         self._paho_client.publish("brickmaster2/" + self._short_name + "/connectivity",
                                   payload="online", retain=True)
     def _send_offline(self):
@@ -165,6 +171,7 @@ class BM2NetworkLinux(BM2Network):
         Publish an MQTT Offline message.
         :return:
         """
+        self._logger.debug("Network: Sending offline status.")
         self._paho_client.publish("brickmaster2/" + self._short_name + "/connectivity",
                                   payload="offline", retain=True)
 

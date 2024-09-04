@@ -1,4 +1,6 @@
-# Brickmaster2 Config File Progressor
+"""
+Brickmaster2 Configuration Processing
+"""
 
 import adafruit_logging as logging
 import sys
@@ -8,6 +10,9 @@ import gc
 
 
 class BM2Config:
+    """
+    Brickmaster2 Configuration Class
+    """
     def __init__(self, config_json):
         self._config = config_json
         self._logger = logging.getLogger("BrickMaster2")
@@ -20,9 +25,9 @@ class BM2Config:
         self._logger.setLevel(self._config['system']['log_level'])
 
     def config_json(self):
-        '''
+        """
         Return the validated, active config as JSON.
-        '''
+        """
         return json.dumps(self._config)
 
     # Validation methods.
@@ -182,59 +187,43 @@ class BM2Config:
             self._config['system']['log_level_name'] = 'warning'
             self._config['system']['log_level'] = logging.WARNING
 
-    #No longer needed, don't use separate secrets file.
-    # def _validate_secrets(self):
-    #     self._logger.debug("Integrating secrets.")
-    #     self._config['secrets'] = {}
-    #     required_keys = ['broker', 'mqtt_username', 'mqtt_password']
-    #     # Systems with a full OS handle their own networking. CircuitPython boards need us to handle the network.
-    #     # In the latter case, SSID and passphrase are required
-    #     if os.uname().sysname.lower() != "linux":
-    #         required_keys.append("SSID")
-    #         required_keys.append("password")
-    #     optional_keys = ['port']
-    #     optional_defaults = {'port': 1883}
-    #
-    #     # Open the secrets file.
-    #     self._logger.info("Secrets on CL: {}".format(self._secrets_file))
-    #     if self._secrets_file is not None:
-    #         secrets = self._open_json(self._secrets_file)
-    #     else:
-    #         secrets = self._open_json(self._config['system']['secrets'])
-    #     self._logger.debug("Got secrets: {}".format(json.dumps(secrets)))
-    #     # Check for presence of required options.
-    #     for key in required_keys:
-    #         self._logger.debug("Checking for required key '{}'".format(key))
-    #         if key not in secrets:
-    #             self._logger.critical("Required config option '{}' missing. Cannot continue!".format(key))
-    #             sys.exit(0)
-    #         else:
-    #             self._config['secrets'][key.lower()] = secrets[key]
-    #     # Check for optional settings, assign the defaults if need be.
-    #     for key in optional_keys:
-    #         self._logger.debug("Checking for optional key '{}'".format(key))
-    #         if key not in secrets:
-    #             self._logger.warning("Option '{}' not found, using default '{}'".format(key, optional_defaults[key]))
-    #             self._config['secrets'][key] = optional_defaults[key]
-
     def _validate_controls(self):
+        """
+        Validate the defined controls
+        @return: None
+        """
+        # Is the control definition a list?
         if not isinstance(self._config['controls'], list):
             self._logger.critical('Config: Controls not correctly defined. Must be a list of dictionaries.')
             return
+
+        # Prepare to iterate, set up variables.
         i = 0
         to_delete = []
         while i < len(self._config['controls']):
             self._logger.debug("Config: Validating control definition '{}'".format(self._config['controls'][i]))
-            # Check to see if required items are defined.
-            required_keys = ['id', 'type']
-            for key in required_keys:
-                if key not in self._config['controls'][i]:
-                    self._logger.critical("Config: Required control config option '{}' missing in control {}. Cannot configure!".
-                                          format(key, i+1))
-                    to_delete.append(i)
+            # Control must have an ID.
+            if 'id' not in self._config['controls'][i]:
+                self._logger.critical("Config: Required control config option 'id' missing in control definition {}. "
+                                      "Cannot configure!".format(i+1))
+                to_delete.append(i)
+                i += 1
+                continue
+
+            if 'pins' not in self._config['controls'][i]:
+                self._logger.critical("Config: Control {} does not have pins defined! Cannot configure!".
+                                      format(self._config['controls'][i]['id']))
+                to_delete.append(i)
+                i += 1
+                continue
+            # Control must have a type, if it doesn't, default it to 'single'.
+            if 'type' not in self._config['controls'][i]:
+                self._logger.warning(f"Config: No type defined for control '{self._config['controls'][i]['id']}'. Defaulting to single.")
+                self._config['controls'][i]['type'] = 'single'
 
             # Check to see if name is defined.
             if 'name' not in self._config['controls'][i]:
+                self._logger.warning(f"Config: No name defined for control '{self._config['controls']['id']}'. Defaulting to ID.")
                 self._config['controls'][i]['name'] = self._config['controls'][i]['id']
 
             # Check to see if the control is disabled. This allows items to be left in the config file but skipped
@@ -252,29 +241,13 @@ class BM2Config:
             except KeyError:
                 pass
 
-            # Pull out control type, this just make it easier.
-            ctrltype = self._config['controls'][i]['type']
-            if ctrltype == 'gpio':
-                required_parameters = ['pin']
-            elif ctrltype == 'aw9523':
-                required_parameters = ['addr', 'pin']
-            else:
-                self._logger.error("Config: Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
-                to_delete.append(i)
-                i += 1
-                continue
-
-            for req_param in required_parameters:
-                if req_param not in self._config['controls'][i]:
-                    self._logger.error("Config: Cannot set up control '{}', no '{}' directive.".format(
-                        self._config['controls'][i]['name'], req_param))
-                    to_delete.append(i)
-                    i += 1
-                    continue
-
-            optional_params = ['icon']
+            optional_params = ['icon', 'active_low', 'extio', 'loiter_time', 'switch_time']
             optional_defaults = {
-                'icon': 'mdi:toy-brick'
+                'icon': 'mdi:toy-brick',
+                'active_low': False,
+                'extio': None,
+                'loiter_time': 1,
+                'switch_time': 0
             }
             for param in optional_params:
                 self._logger.debug("Config: Checking for optional parameter '{}'".format(param))
@@ -287,7 +260,35 @@ class BM2Config:
                         param, self._config['controls'][i][param]
                     ))
 
+            # Validate the pin definition
+            if (isinstance(self._config['controls'][i]['pins'], str) or
+                    isinstance(self._config['controls'][i]['pins'], int)):
+                # A string should be a reference to a pin on the appropriate board, that's fine.
+                pass
+            elif isinstance(self._config['controls'][i]['pins'], dict):
+                if 'on' not in self._config['controls'][i]['pins']:
+                    self._logger.error("Config: Control '{}' does not have 'on' pin defined.".
+                                       format(self._config['controls'][i]['name']))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+                if 'off' not in self._config['controls'][i]['pins']:
+                    self._logger.error("Config: Control '{}' does not have 'on' pin defined.".
+                                       format(self._config['controls'][i]['name']))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+            elif isinstance(self._config['controls'][i]['pins'], list):
+                # List of pins is okay for a flasher...
+                pass
+            else:
+                self._logger.error("Config: Control '{}' has unsupported data for pin definition.".
+                                format(self._config['controls'][i]['name']))
+                to_delete.append(i)
+                i += 1
+                continue
             i += 1
+
         # Make the to_delete list unique.
         to_delete = list(set(to_delete))
         self._logger.debug("Controls to remove: {}".format(to_delete))
@@ -295,6 +296,113 @@ class BM2Config:
         for d in sorted(to_delete, reverse=True):
             del self._config['controls'][d]
         self._logger.debug("Config proceeding with successful controls: {}".format(self._config['controls']))
+
+    def _make_pindef(self, input_pindef):
+        """
+        Iteratively process pin definitions.
+
+        @param input_pindef: Pin definition. May be a string to indicate a single pin (ex: D25), a dict specifying
+        on and off, (ex: {"on": "D26", "off": "D27"}) or a list of dicts or strings (ex: ["D25", {"on": "D26", "off": "D27"}])
+        :type input_pindef: str, list or dict
+
+        """
+        if isinstance(input_pindef, str) or isinstance(input_pindef, int):
+            # If it's just a str/int, then it's a single pin, and expand it to an on/off in the list.
+            return { 'on': input_pindef, 'off': input_pindef }
+        elif isinstance(input_pindef, dict):
+            # A dictionary should be 'on','off'. If it is, we can just wrap it in list to return the correct type.
+            for key in ('on', 'off'):
+                if key not in input_pindef:
+                    raise ValueError
+            return input_pindef
+        elif isinstance(input_pindef, list):
+            output_pindef = []
+            # A list should have sets of 'on','off' dicts.
+            for pdef in input_pindef:
+                try:
+                    output_pindef.append(self._make_pindef(pdef))
+                except ValueError:
+                    raise
+            return output_pindef
+
+    # def _validate_controls_old(self):
+    #     if not isinstance(self._config['controls'], list):
+    #         self._logger.critical('Config: Controls not correctly defined. Must be a list of dictionaries.')
+    #         return
+    #     i = 0
+    #     to_delete = []
+    #     while i < len(self._config['controls']):
+    #         self._logger.debug("Config: Validating control definition '{}'".format(self._config['controls'][i]))
+    #         # Check to see if required items are defined.
+    #         required_keys = ['id', 'type']
+    #         for key in required_keys:
+    #             if key not in self._config['controls'][i]:
+    #                 self._logger.critical("Config: Required control config option '{}' missing in control {}. Cannot configure!".
+    #                                       format(key, i+1))
+    #                 to_delete.append(i)
+    #
+    #         # Check to see if name is defined.
+    #         if 'name' not in self._config['controls'][i]:
+    #             self._config['controls'][i]['name'] = self._config['controls'][i]['id']
+    #
+    #         # Check to see if the control is disabled. This allows items to be left in the config file but skipped
+    #         try:
+    #             if self._config['controls'][i]['disable']:
+    #                 self._logger.info("Config: Control {} marked as disabled. Skipping.".
+    #                                   format(self._config['controls'][i]['name']))
+    #                 to_delete.append(i)
+    #                 i += 1
+    #                 continue
+    #             else:
+    #                 # If the 'disable' setting for the control is anything other than true,
+    #                 # enable and ignore the setting.
+    #                 del self._config['controls'][i]['disable']
+    #         except KeyError:
+    #             pass
+    #
+    #         # Pull out control type, this just make it easier.
+    #         ctrltype = self._config['controls'][i]['type']
+    #         if ctrltype == 'gpio':
+    #             required_parameters = ['pin']
+    #         elif ctrltype == 'aw9523':
+    #             required_parameters = ['addr', 'pin']
+    #         else:
+    #             self._logger.error("Config: Cannot set up control '{}', type '{}' is not supported.".format(i, ctrltype))
+    #             to_delete.append(i)
+    #             i += 1
+    #             continue
+    #
+    #         for req_param in required_parameters:
+    #             if req_param not in self._config['controls'][i]:
+    #                 self._logger.error("Config: Cannot set up control '{}', no '{}' directive.".format(
+    #                     self._config['controls'][i]['name'], req_param))
+    #                 to_delete.append(i)
+    #                 i += 1
+    #                 continue
+    #
+    #         optional_params = ['icon']
+    #         optional_defaults = {
+    #             'icon': 'mdi:toy-brick'
+    #         }
+    #         for param in optional_params:
+    #             self._logger.debug("Config: Checking for optional parameter '{}'".format(param))
+    #             if param not in self._config['controls'][i]:
+    #                 self._logger.warning("Config: Option '{}' not found, using default '{}'".
+    #                                      format(param, optional_defaults[param]))
+    #                 self._config['controls'][i][param] = optional_defaults[param]
+    #             else:
+    #                 self._logger.debug("Config: Optional parameter '{}' set to '{}'".format(
+    #                     param, self._config['controls'][i][param]
+    #                 ))
+    #
+    #         i += 1
+    #     # Make the to_delete list unique.
+    #     to_delete = list(set(to_delete))
+    #     self._logger.debug("Controls to remove: {}".format(to_delete))
+    #     # Delete any controls that have been invalidated
+    #     for d in sorted(to_delete, reverse=True):
+    #         del self._config['controls'][d]
+    #     self._logger.debug("Config proceeding with successful controls: {}".format(self._config['controls']))
 
     # Validate the displays on loading.
     def _validate_displays(self):

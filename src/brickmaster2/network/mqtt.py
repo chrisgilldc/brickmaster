@@ -7,15 +7,38 @@ classes to handle the actual publication!
 
 import adafruit_logging
 import json
+import brickmaster2.util
+import board
+import brickmaster2.controls.CtrlFlasher
 
 logger = adafruit_logging.getLogger('BrickMaster2')
 logger.setLevel(adafruit_logging.DEBUG)
 
 
-def messages(core, object_register, short_name, force_repeat=False, topic_prefix='brickmaster2'):
+def initial_messages(short_name, topic_prefix='brickmaster2'):
+    """
+    Generate initial messages to send once on start-up that don't change dynamically.
+    """
+
+    outbound_messages = [
+        {'topic': 'brickmaster2/' + short_name + '/system/board_id', 'message': board.board_id},
+        {'topic': 'brickmaster2/' + short_name + '/system/pins', 'message': brickmaster2.util.board_pins()}
+    ]
+    return outbound_messages
+
+
+def messages(core, object_register, short_name, logger, force_repeat=False, topic_prefix='brickmaster2'):
     """
     Generate mqtt messages to send out.
 
+    :param core: Reference to the Brickmaster Core.
+    :type core: Object
+    :param object_register: The control objects to generate messages for.
+    :type object_register: dict
+    :param short_name: Short name of the system. No spaces!
+    :type short_name: str
+    :param logger: The Network Module's logger.
+    :type logger: adafruit_logger
     :param force_repeat: Should we send messages that haven't changed since previous send?
     :type force_repeat: bool
     :return: dict
@@ -28,6 +51,8 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
     # Controls
     for item in object_register['controls']:
         control_object = object_register['controls'][item]
+        logger.debug("Network (MQTT): Generating control message for control '{}' ({})".
+                     format(control_object.id, type(control_object)))
         # logger.debug("Generating messages for object '{}' (type: {})".
         #              format(control_object.id, type(control_object)))
         # Control statuses should be retained. This allows state to be preserved over HA restarts.
@@ -35,13 +60,19 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
             {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
              'message': control_object.status, 'force_repeat': force_repeat, 'retain': True}
         )
+        # For flashers, report where we are in the list.
+        if isinstance(control_object, brickmaster2.controls.CtrlFlasher):
+            outbound_messages.append(
+                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/seq_pos',
+                 'message': control_object.seq_pos, 'force_repeat': force_repeat, 'retain': False}
+            )
 
     # Displays aren't yet supported. Maybe some day.
     # for item in object_register['displays']:
-        # display_object = object_register['displays'][item]
-        # logger.debug("Generating messages for object '{}' (type: {})".format(
-        #     display_object.id, type(display_object)))
-        # outbound_messages
+    # display_object = object_register['displays'][item]
+    # logger.debug("Generating messages for object '{}' (type: {})".format(
+    #     display_object.id, type(display_object)))
+    # outbound_messages
 
     ## Active script.
     # logger.debug("Generating active script message...")
@@ -49,7 +80,6 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
         'topic': topic_prefix + '/' + short_name + '/script/active',
         'message': core.active_script,
         'force_repeat': force_repeat})
-
 
     return outbound_messages
 
@@ -367,7 +397,6 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
     return_data.append(script_selector)
 
     return return_data
-
 
 # def ha_discovery_display(short_name, system_id, device_info, topic_prefix, ha_base, display_obj):
 #     """

@@ -15,13 +15,13 @@ sysrun_pin = "D0"
 
 if sysrun_pin is not None:
     try:
-        sysrun_ctrl = brickmaster2.controls.CtrlGPIO('sysrun','System Status', sysrun_pin, 15)
+        sysrun_ctrl = brickmaster2.controls.CtrlSingle('sysrun', 'System Status', None, sysrun_pin, 15)
     except (KeyError, TypeError):
         print(f"No pin defined for status LED '{id}'. Will proceed without indicator.")
-        sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
+        sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null', None)
     except AttributeError:
         print(f"System Status LED pin '{sysrun_pin}' cannot be configured on board. Will proceed without indicator.")
-        sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null')
+        sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null', None)
     # Turn it on.
     sysrun_ctrl.set('on')
 
