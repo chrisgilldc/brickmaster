@@ -1,6 +1,4 @@
-"""
-Brickmaster2 Core Object
-"""
+# BrickMaster2 Core
 
 import adafruit_logging as logging
 import board
@@ -36,6 +34,7 @@ class BrickMaster2:
         self._controls = {} # Controls
         self._displays = {} # I2C displays
         self._indicators = { 'sysrun': sysrun } # LED indicators, if any.
+        self._i2c_bus = None
         # If system running indicator was passed, use it, otherwise set up a null indicator.
         if self._indicators['sysrun'] is None:
             self._indicators['sysrun'] = brickmaster2.controls.CtrlNull('sysrun', 'System Status Null', self)
@@ -88,10 +87,10 @@ class BrickMaster2:
                                                                             self._bm2config.system['indicators'][id],15)
                 else:
                     self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
+                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
             except (KeyError, TypeError):
-                 self._logger.warning(f"Core: Error while configuring pin for status LED '{id}'. Will ignore and proceed.")
-                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
+                 self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
+                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
             except AttributeError:
                  self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
                      self._bm2config.system['indicators'][id], id))
@@ -331,12 +330,13 @@ class BrickMaster2:
 
     def _create_displays(self):
         if len(self._bm2config.displays) == 0:
-            self._logger.debug("Core: No displays configured, nothing to do.")
+            self._logger.debug("Core: No displays configured, nothing to initialize.")
             return
 
         if self._i2c_bus is None:
-            self._logger.error("Core: Cannot set up I2C displays without working I2C bus!")
-            return
+                self._logger.error("Core: Cannot set up I2C displays without working I2C bus!")
+                return
+
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
@@ -417,7 +417,11 @@ class BrickMaster2:
             print(message)
 
     def _setup_aw9523(self, addr):
-        # Condition
+        """
+        Set up an AW9523 I/O Expander on the given address. Uses the system-wide I2C bus.
+        """
+
+        # Conditionally import the libraries.
         try:
             import adafruit_aw9523
         except ImportError:
@@ -442,6 +446,7 @@ class BrickMaster2:
                 self._i2c_bus = None
         else:
             self._logger.info("Core: No I2C bus defined. Skipping setup.")
+            self._i2c_bus = None
 
 
     # Active script. Returns friendly name of the Active Script. Used to send to MQTT.

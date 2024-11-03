@@ -2,6 +2,8 @@
 BrickMaster2 Exceptions
 """
 
+#TODO: Fix these to properly wrap them and take their strings.
+
 class BM2RecoverableError(Exception):
     """
     BrickMaster2 error that may be fixable by resetting the system.

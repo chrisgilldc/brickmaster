@@ -5,7 +5,7 @@ Brickmaster2 Configuration Processing
 import adafruit_logging as logging
 import sys
 import json
-import os
+# import os
 import gc
 
 
@@ -77,7 +77,7 @@ class BM2Config:
         for param in optional_params:
             self._logger.debug("Config: Checking for optional parameter '{}'".format(param))
             if param not in self._config['system']:
-                self._logger.warning("Option '{}' not found, using default '{}'".
+                self._logger.info("Option '{}' not found, using default '{}'".
                                      format(param, optional_defaults[param]))
                 self._config['system'][param] = optional_defaults[param]
         if 'name' not in self._config['system']:
@@ -89,9 +89,11 @@ class BM2Config:
         if not mqtt_keys <= set(self._config['system']['mqtt'].keys()):
             self._logger.error("Config: All MQTT keys not defined. Cannot continue!")
             sys.exit(1)
-        # Optional MQTT parameter.
+        # Optional MQTT parameters
         if 'log' not in self._config['system']['mqtt']:
             self._config['system']['mqtt']['log'] = False
+        if 'port' not in self._config['system']['mqtt']:
+            self._config['system']['mqtt']['port'] = 1883
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:
@@ -218,18 +220,18 @@ class BM2Config:
                 continue
             # Control must have a type, if it doesn't, default it to 'single'.
             if 'type' not in self._config['controls'][i]:
-                self._logger.warning(f"Config: No type defined for control '{self._config['controls'][i]['id']}'. Defaulting to single.")
+                self._logger.info(f"Config: No type defined for control '{self._config['controls'][i]['id']}'. Defaulting to single.")
                 self._config['controls'][i]['type'] = 'single'
 
             # Check to see if name is defined.
             if 'name' not in self._config['controls'][i]:
-                self._logger.warning(f"Config: No name defined for control '{self._config['controls']['id']}'. Defaulting to ID.")
+                self._logger.info(f"Config: No name defined for control '{self._config['controls']['id']}'. Defaulting to ID.")
                 self._config['controls'][i]['name'] = self._config['controls'][i]['id']
 
             # Check to see if the control is disabled. This allows items to be left in the config file but skipped
             try:
                 if self._config['controls'][i]['disable']:
-                    self._logger.info("Config: Control {} marked as disabled. Skipping.".
+                    self._logger.warning("Config: Control {} marked as disabled. Skipping.".
                                       format(self._config['controls'][i]['name']))
                     to_delete.append(i)
                     i += 1
@@ -252,13 +254,23 @@ class BM2Config:
             for param in optional_params:
                 self._logger.debug("Config: Checking for optional parameter '{}'".format(param))
                 if param not in self._config['controls'][i]:
-                    self._logger.warning("Config: Option '{}' not found, using default '{}'".
+                    self._logger.info("Config: Option '{}' not found, using default '{}'".
                                          format(param, optional_defaults[param]))
                     self._config['controls'][i][param] = optional_defaults[param]
                 else:
-                    self._logger.debug("Config: Optional parameter '{}' set to '{}'".format(
+                    self._logger.info("Config: Optional parameter '{}' set to '{}'".format(
                         param, self._config['controls'][i][param]
                     ))
+
+            # Validate EXTIO, if used.
+            if isinstance(self._config['controls'][i]['extio'],str):
+                try:
+                    self._config['controls'][i]['extio'] = int(self._config['controls'][i]['extio'], 16)
+                except ValueError:
+                    self._logger.error("Config: Provided extio setting '{}' cannot convert to an integer. Should be in the format '0x##'.".format(self._config['controls'][i]['extio']))
+                    to_delete.append(i)
+                    i += 1
+                    continue
 
             # Validate the pin definition
             if (isinstance(self._config['controls'][i]['pins'], str) or

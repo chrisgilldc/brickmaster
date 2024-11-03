@@ -167,7 +167,7 @@ class BM2NetworkCircuitPython(BM2Network):
         """
         self._mini_client.will_set(
             topic=topic,
-            payload=payload,
+            msg=payload,
             qos=qos,
             retain=retain)
 

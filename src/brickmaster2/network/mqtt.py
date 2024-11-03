@@ -49,7 +49,9 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
     ]
 
     # Controls
+    print("Network (MQTT): Processing Control object list '{}'.".format(object_register['controls']))
     for item in object_register['controls']:
+        print("Network (MQTT): Processing Control '{}' ({})".format(item, type(object_register['controls'][item])))
         control_object = object_register['controls'][item]
         logger.debug("Network (MQTT): Generating control message for control '{}' ({})".
                      format(control_object.id, type(control_object)))

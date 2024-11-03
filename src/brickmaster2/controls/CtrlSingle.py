@@ -3,7 +3,7 @@ Brickmaster Control - Single
 """
 
 import adafruit_logging
-import brickmaster2.controls.BaseControl as BaseControl
+from .BaseControl import BaseControl
 from brickmaster2.gpio import EnhancedDigitalInOut
 # import board
 # import digitalio
@@ -18,16 +18,18 @@ class CtrlSingle(BaseControl):
 
         self._active_low = active_low # Save our active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.
-        if isinstance(pins, str):
-            self._gpio_obj = EnhancedDigitalInOut(pins, extio_obj=self._extio_obj)
-        elif isinstance(pins, dict):
+
+        if isinstance(pins, dict):
             try:
                 self._gpio_obj = EnhancedDigitalInOut(on_pin=pins['on'], off_pin=pins['off'], extio_obj=self._extio_obj)
             except KeyError as ke:
                 self._logger.critial("Control {}: Could not configure due to missing key.".format(self._id))
                 raise ke
         else:
-            raise TypeError("Control {}: pins type {} not allowed for CtrlSingle".format(self._id, type(pins)))
+            self._gpio_obj = EnhancedDigitalInOut(pins, extio_obj=self._extio_obj)
+        #
+        # else:
+        #     raise TypeError("Control {}: pins type {} not allowed for CtrlSingle".format(self._id, type(pins)))
 
 
         # Old method of setting up the pins.

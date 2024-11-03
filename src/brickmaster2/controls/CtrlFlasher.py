@@ -2,10 +2,10 @@
 Brickmaster Control - Flasher
 """
 import adafruit_logging
-import brickmaster2.controls.BaseControl as BaseControl
+from .BaseControl import BaseControl
 from brickmaster2.gpio import EnhancedDigitalInOut
-import board
-import digitalio
+#import board
+#import digitalio
 from time import monotonic_ns
 
 class CtrlFlasher(BaseControl):
@@ -43,7 +43,7 @@ class CtrlFlasher(BaseControl):
 
         self._active_low = active_low # Save the active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.
-        # Conver these times to nanoseconds for easy comparison with monotonic_ns
+        # Convert these times to nanoseconds for easy comparison with monotonic_ns
         self._loiter_time = loiter_time * 1000000
         self._switch_time = switch_time * 1000000
         self._position = 0
@@ -51,12 +51,16 @@ class CtrlFlasher(BaseControl):
         self._updatets = 0
         self._pinlist = pinlist # Save the pinlist config
 
+        self._logger.debug("Control: Processing flasher pinlist '{}'".format(self._pinlist))
+
         # Define a list to keep the pin objects in.
         self._gpio_objects = []
         # Iterate the pin list, create objects for them all.
         for pin_item in pinlist:
-            if isinstance(pin_item, str):
-                pin_obj = EnhancedDigitalInOut(pin_item, extio_obj=self._extio_obj)
+            self._logger.debug("Control: Evaluating pin item '{}'".format(pin_item))
+            if isinstance(pin_item, str) or isinstance(pin_item, int):
+                self._logger.debug("Control: Creating singleton GPIO for pin '{}'".format(pin_item))
+                pin_obj = EnhancedDigitalInOut(pin=pin_item, extio_obj=self._extio_obj)
                 self._gpio_objects.append(pin_obj)
             elif isinstance(pin_item, dict):
                 try:

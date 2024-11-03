@@ -3,6 +3,7 @@
 
 The configuration file is a JSON text file, which unfortunately means it can't be commented.
 
+On non-Linux installs, the file must be "config.json" in the root of the board's filesystem.
 
 ### Main Options 
 :white_check_mark: **means required**
@@ -18,18 +19,19 @@ The configuration file is a JSON text file, which unfortunately means it can't b
 
 :white_check_mark: **means required**
 
-| Name                  | Type   | Default    | Since  | Description                                                                                                         |
-|-----------------------|--------|------------|--------|---------------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: `name` | string | 'hostname' | v0.1   | Name of the system to be used in MQTT topics and elsewhere.                                                         |
-| `log_level`           | string | 'warning'  | v0.1   | How verbose to be.                                                                                                  |
-| `wifihw`              | string | None | v0.4   | Type of WiFi hardware. May be 'esp32' or 'esp32spi'. If not specified, will try to auto-detect, but not guaranteed. | 
-| `i2c`                 | dict   | None       | v0.1   | Defines I2C pins to use. Required if using I2C displays.                                                            |
-| `indicators`          | dict | None | v0.3.1 | Defines GPIO pins for indicators lights.                                                                            |
-| `ha`                  | dict | None | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                       |
+| Name                  | Type   | Default   | Since  | Description                                                                                                                                                    |
+|-----------------------|--------|-----------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `id` | string | None      | v0.6   | ID of the system, used for creating entity names. No spaces!                                                                                                   |
+| `name` | string | id |  v0.1  | Long name of the system for display purposes. If not specified, will default to the ID.                                                                        |
+| `log_level`           | string | 'warning' | v0.1   | How verbose to be.                                                                                                                                             |
+| `wifihw`              | string | None      | v0.4   | Type of WiFi hardware. Ignored on Linux. May be 'esp32' or 'esp32spi'. Will attempt autodetection if not specified, which usually works but is not guaranteed. | 
+| `i2c`                 | bool   | None      | v0.1   | Defines I2C pins to use. Required if using I2C displays.                                                                                                       |
+| `indicators`          | dict   | None      | v0.3.1 | Defines GPIO pins for indicators lights.                                                                                                                       |
+| `mqtt` | dict | None | v0.6 | MQTT settings. |
+| `ha`                  | dict   | None      | v0.3.1 | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                                                                  |
 
 #### I2C
-I2C is required if using I2C displays (the only kind of supported displays) because obviously.
-
+I2C is required if using I2C displays (the only kind of supported displays) or Controls on an I2C board (AW9523).
 
 #### Indicators
 
@@ -45,31 +47,82 @@ System status indicators. These must be GPIO pins on the main board, as they are
 Note in my hardware configuration, the neton and netoff pins run to different legs of a bi-color LED. Separate LEDs
 could also be used.
 
+#### MQTT
+
+Settings for MQTT.
+
+| Name     | Type   | Default | Since  | Description                             |
+|----------|--------|---------|--------|-----------------------------------------|
+| `broker` | string | None    | v0.6   | IP or Hostname of the broker to use.    |
+| `port` | int | 1883 | v0.6 | Port to connect to. Defaults to the MQTT default. |
+| `user`   | string | None    | v0.6 | Username to authenticate to the broker. | 
+| `key`    | string | None | v0.6   | Key to authenticate to the broker.      |
+| `log` | bool | False | v0.6 | Enable MQTT client debugging. Probably don't need this! |
+
 #### Home Assistant (ha)
 
 | Name        | Type   | Default   | Since  | Description                                                                                                                                                                                                                                                                                                                           |
 |-------------|--------|-----------|--------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `area`      | string | None      | v0.3.1 | Area to suggest for the device when performing discovery.                                                                                                                                                                                                                                                                             |
+| `base` | string | 'homeassistant' | v0.3.1 | Base for homeassistant discovery. Default is the same as HA's default, don't change unless you know you changed it in HA. |
 | `meminfo`    | string | 'unified' | v0.3.1 | How to set up system memory information.<li>'unified' creates one entity, showing percent of memory free. <li>'unified-used' creates one entitiy, showing percent of memory used. <li>'split-pct' creates seperate used and free percent entities.<li>'split-all' creates entities for free and used in both percent and total bytes. |
 
 ### Controls
 
 Controls attached to the system. Main controls list must be defined, but may be empty if none are present.
-Each control is defined as a dict with the following settings.
 
-Currently two types are supported, the GPIO type for GPIO pins directly on the main circuitpython board, and the
-aw9523 type, for pins via the AW9523 I2C extension board.
+Four types of control are supported:
+* **Single** - A simple on-off. This is the default.
+* Flasher - Flashes across a sequence of pins.
 
-#### GPIO
+If a type is not specified for a control, it defaults to *Single*.
+
+#### Defining Pins
+
+A pin definition can come in one of three forms.
+
+1. A single GPIO pin.
+
+`"pins": "D1"`
+
+This pin is raised high when the control is turned on, and low when turned off.
+
+2. An on-off pair of pins.
+
+  `"pins": { "on": "D2", "off": "D3" }`
+
+When this control is off pin D3 is set high and D2 is set low. When the control is set on, D2 is set high and D3 low. This configuration is useful for controling latching relays.    
+
+3. A list of pins.
+
+`"pins": {"D1", { "on": "D2", "off": "D3" }, "D4"}`
+
+This list has three sub-elements, D1, D3/D4 and D4. This syntax is used to specify the list for a Flasher control. When the flasher control is set on it activates the first item in the list and works through based on its configuration.
+
+#### I2C Context
+
+All pins are evaluated in one of two contexts.
+
+If no 'extio' is specified, pins are assumed to be directly on the board. (Pi, Feather, what have you).
+
+If an 'extio' is assigned, all pins must be valid on the external io board.
+
+There is no support for mixing pins from different boards.
+
+#### Single Control
 :white_check_mark: **means required**
 
-| Name                    | Type   | Default | Since  | Description                                                                                                                                                      |
-|-------------------------|--------|---------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Name                      | Type   | Default | Since  | Description                                                                                                                                                      |
+|---------------------------|--------|---------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | :white_check_mark: `name` | string | None    | v0.1   | Name of the control. This will be part of the topic name.                                                                                                        |
 | :white_check_mark: `type` | string | 'gpio'  | v0.1   | Defines the control type. This is GPIO.                                                                                                                          | 
-| :white_check_mark: `pin` | string | None    | v0.1   | GPIO control to map too. Must be a valid name from the Adafruit board library. For example, Pi pin 25 is "D25"                                                   |
-| `invert`                | boolean | False | v0.3.1 | Invert the control so 'off' holds the pin high and 'on' sets it low. This is required for some relay boards.                                                     |
-| `disable`                | boolean | False | v0.3.1 | If defined and true, ignore this control. This allows currently unused controls to remain defined in the config file but not be exposed for use or pushed to HA. |
+| :white_check_mark: `pins` | string | None    | v0.1   | GPIO control to map too. Must be a valid name from the Adafruit board library. For example, Pi pin 25 is "D25"                                                   |
+| `invert`                  | boolean | False | v0.3.1 | Invert the control so 'off' holds the pin high and 'on' sets it low. This is required for some relay boards.                                                     |
+| `disable`                 | boolean | False | v0.3.1 | If defined and true, ignore this control. This allows currently unused controls to remain defined in the config file but not be exposed for use or pushed to HA. |
+
+#### Latching Control
+
+#### Flashing Control
 
 ### Displays
 

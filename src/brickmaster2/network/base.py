@@ -10,6 +10,7 @@ import time
 from . import mqtt
 import brickmaster2.util
 import brickmaster2.version
+import brickmaster2.exceptions
 
 class BM2Network:
     """
@@ -128,6 +129,7 @@ class BM2Network:
         # Initialize variables
         self._reconnect_timestamp = None
         self._total_failures = 0
+        self._retry_time = 0
 
         # List for commands received and to be passed upward.
         self._upward_commands = []
@@ -142,7 +144,7 @@ class BM2Network:
         self._logger.info("Defined Client ID: {}".format(self._system_id))
 
         self._setup_mqtt() # Create the MQTT Object, connect basic callbacks
-        # Setup the last will prior to connecting.
+        # Set up the last will prior to connecting.
         self._logger.info("Creating last will.")
         self._mc_will_set(topic="brickmaster2/" + self._short_name + "/connectivity",
             payload='offline', qos=0, retain=True)
@@ -162,8 +164,8 @@ class BM2Network:
             # Try to connect.
             self._connect_mqtt()
         except Exception as e:
-            # If we get an immediate exception (ie: no route to host, no such hostname, etc), raise.
-            raise
+            # If we get an immediate exception (ie: no route to host, no such hostname, etc.), raise.
+            raise e
         else:
             # Otherwise, mark as 'connecting'. This will signal the loop to check for connacks.
             self.status = 'connecting'
@@ -240,16 +242,19 @@ class BM2Network:
             self._upward_commands = []
         elif self.status[0] == 'connecting':
             self._logger.debug("Network: Awaiting broker acknowledgement.")
-            # Make sure we still poll the broker.
+            # Make sure we still poll the broker to try to get its acknowledgement of our connection. We can't *assume*
+            # we're connected after a successful connect call, that just means the request was made successfully, not
+            # that the broker acknowledged it.
             self._mc_loop()
 
         elif self.status[0] == 'disconnected':
+            #TODO: Fix up logging here. Right now both this section and the connect call log, which is chatty.
             self._logger.debug("Network: Not connected. Will attempt connection.")
             try_reconnect = False
             # Has is been 30s since the previous attempt?
             try:
-                if time.monotonic() - self._reconnect_timestamp > 30:
-                    self._logger.info("Network: 30s since previous MQTT connection attempt. Retrying...")
+                if time.monotonic() - self._reconnect_timestamp > self._retry_time:
+                    self._logger.info(f"Network: {self._retry_time}s since previous MQTT connection attempt. Retrying...")
                     try_reconnect = True
                     self._reconnect_timestamp = time.monotonic()
             except TypeError:
@@ -260,7 +265,7 @@ class BM2Network:
                 reconnect = self._connect_mqtt()
                 # If we failed to reconnect, mark it as failure and return.
                 if not reconnect:
-                    self._logger.warning("Network: Could not connect to MQTT server. Will retry in 30s.")
+                    self._logger.warning(f"Network: Could not connect to MQTT server. Will retry in {self._retry_time}s.")
                     return return_data
                 else:
                     self._logger.debug("Network: MQTT connection started.")
@@ -322,16 +327,27 @@ class BM2Network:
         try:
             # Call the connection method. This gets overridden by a subclass if needed.
             self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
-        except Exception as e:
-            self._logger.warning(f"Network: Could not connect to MQTT broker. {self._total_failures}/5 failures. Received exception '{e}'")
-            self._logger.debug(f"Network: Exception is type '{type(e)}', args is '{e.args}'")
+        except brickmaster2.exceptions.BM2RecoverableError as e:
+            # Update our failure tracker.
             self._total_failures += 1
-            if self._total_failures > 5:
-                self._logger.critical("Network: Too many network failures.")
-                raise
-            # return False
-        self._logger.debug("Network: MQTT connection attempt (base._connect_mqtt) completed.")
-        return True
+            self._logger.warning(f"Network: Could not connect to MQTT broker. Received exception '{e.__str__()}'")
+            self._logger.warning(f"Network: {self._total_failures} failures. Will retry in {self._retry_time}s.")
+            self._logger.debug(f"Network: Exception is type '{type(e)}', args is '{e.args}'")
+            self._retry_time += 5
+            # if self._total_failures > 5:
+            #     self._logger.critical("Network: Too many network failures.")
+            #     raise
+            # # return False
+        except brickmaster2.exceptions.BM2FatalError as e:
+            self._logger.critical(f"Network: Fatal exception while attempting to connect to MQTT Broker '{e.__str__()}'")
+            self._logger.critical(f"Network: Made {self._total_failures} attempts before fatal error.")
+            raise
+        else:
+            self._logger.debug("Network: MQTT connection attempt (base._connect_mqtt) completed.")
+            # Reset the trackers
+            self._total_failures = 0
+            self._retry_time = 5
+            return True
 
     def _connect_wifi(self):
         """

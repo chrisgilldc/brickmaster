@@ -126,11 +126,12 @@ brickmaster2.
 ### CircuitPython
 
 #### Requirements
-* CircuitPython 9. Tested on 9.0.5. Later versions should work fine.
+* CircuitPython 9. Tested on 9.2.0. Later versions should work fine.
   * If your board is not on CP9, update it. Updates can be found [here](https://circuitpython.org/downloads).
 * The current [CircuitPython 9 Library Bundle](https://github.com/adafruit/Adafruit_CircuitPython_Bundle/releases/download/20240625/adafruit-circuitpython-bundle-9.x-mpy-20240625.zip). Use libraries from here unless otherwise specified.
 * Adafruit MiniMQTT at least [7.9.0](https://github.com/adafruit/Adafruit_CircuitPython_MiniMQTT/releases/tag/7.9.0).
 * If you're using an ESP32 SPI board (ie: Metro M4/M7), use at least Adafruit ESP32SPI at least [8.4.0](https://github.com/adafruit/Adafruit_CircuitPython_ESP32SPI/releases/tag/8.4.0).
+* Set up the Web Workflow, instructions [here](https://learn.adafruit.com/circuitpython-with-esp32-quick-start/setting-up-web-workflow).
 
 #### Install Process
 1. Download the package from github.
@@ -148,6 +149,7 @@ libraries are directories and need to use the directory upload option.
    * adafruit_logging.mpy
    * **adafruit_minimqtt**
    * **adafruit_register**
+   * adafruit_ticks.mpy
 5. Create a config file. You can do this from scratch or copy a file from `brickmaster2-main/hwconfigs/`, which has 
 starting configs for [BrickMaster Hardware](hardware.md). Place the config file in the board's root directory.
 6. Create a `settings.toml` file. You can start with `brickmaster2-main/examples/settings.toml`.

@@ -45,6 +45,14 @@ class EnhancedDigitalInOut:
     # Properties to get and set the pin/pins.
 
     @property
+    def on_pin(self):
+        return self._on_pin
+
+    @property
+    def off_pin(self):
+        return self._off_pin
+
+    @property
     def value(self):
         """
         Get the value of the pin(s)
@@ -60,15 +68,15 @@ class EnhancedDigitalInOut:
                     return False
                 else:
                     raise ValueError("Split GPIO in disallowed state, On is '{}', Off is '{}'".
-                                     format(self._on_pin.value, self._off_pin.value))
+                                     format(self._on_pin._pin, self._on_pin.value, self._off_pin._pin, self._off_pin.value))
             else:
                 if self._on_pin.value and not self._off_pin.value:
                     return True
                 elif not self._on_pin.value and self._off_pin.value:
                     return False
                 else:
-                    raise ValueError("Split GPIO in disallowed state, On is '{}', Off is '{}'".
-                                     format(self._on_pin.value, self._off_pin.value))
+                    raise ValueError("Split GPIO in disallowed state, On ({}) is '{}', Off ({}) is '{}'".
+                                     format(self._on_pin._pin, self._on_pin.value, self._off_pin._pin, self._off_pin.value))
         else:
             # Single pin logic.
             if self._active_low:
@@ -130,7 +138,7 @@ class EnhancedDigitalInOut:
             except AttributeError as ae:
                 raise ae
         elif self._extio_obj is not None:
-            the_pin = self._extio_obj.get_pin(pin)
+            the_pin = self._extio_obj.get_pin(int(pin))
         else:
             raise ValueError("Could not get pin.")
         # Common setup now that we have a pin.
@@ -158,14 +166,12 @@ class EnhancedDigitalInOut:
             except AttributeError as ae:
                 raise ae
         elif self._extio_obj is not None:
-            self._on_pin = self._extio_obj.get_pin(on_pin)
-            self._off_pin = self._extio_obj.get_pin(off_pin)
+            self._on_pin = self._extio_obj.get_pin(int(on_pin))
+            self._off_pin = self._extio_obj.get_pin(int(off_pin))
         else:
             raise ValueError("Could not get pins.")
-        # Common setup now that we have a pin.
-        if self._active_low:
-            self._on_pin.switch_to_output()
-            self._off_pin.switch_to_output(value=True)
-        else:
-            self._on_pin.switch_to_output(value=True)
-            self._off_pin.switch_to_output()
+        # Set both pins to the correct mode.
+        self._on_pin.switch_to_output()
+        self._off_pin.switch_to_output()
+        # Force self to off.
+        self.value = False

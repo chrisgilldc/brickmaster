@@ -2,7 +2,7 @@
 Brickmaster Control - Latching
 """
 import adafruit_logging
-import brickmaster2.controls.BaseControl as BaseControl
+from .BaseControl import BaseControl
 import board
 import digitalio
 
