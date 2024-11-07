@@ -87,10 +87,10 @@ class BrickMaster2:
                                                                             self._bm2config.system['indicators'][id],15)
                 else:
                     self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
+                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
             except (KeyError, TypeError):
                  self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
+                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
             except AttributeError:
                  self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
                      self._bm2config.system['indicators'][id], id))
