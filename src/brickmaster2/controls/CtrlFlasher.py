@@ -12,7 +12,7 @@ class CtrlFlasher(BaseControl):
     """
     Control to handle flashing across multiple pins.
     """
-    def __init__(self, id, name, core, pinlist, publish_time, loiter_time=1, switch_time=0, active_low=False,
+    def __init__(self, id, name, core, pinlist, publish_time, loiter_time=1000, switch_time=1, active_low=False,
                  extio_obj=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
 
         """
@@ -38,14 +38,12 @@ class CtrlFlasher(BaseControl):
         @type log_level: int
 
         """
-        super().__init__(id, name, core, icon, publish_time, adafruit_logging.DEBUG)
-                         #log_level)
+        super().__init__(id, name, core, icon, publish_time, log_level)
 
         self._active_low = active_low # Save the active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.
-        # Convert these times to nanoseconds for easy comparison with monotonic_ns
-        self._loiter_time = loiter_time * 1000000
-        self._switch_time = switch_time * 1000000
+        self._loiter_time = loiter_time
+        self._switch_time = switch_time
         self._position = 0
         self._running = False
         self._updatets = 0
@@ -107,6 +105,8 @@ class CtrlFlasher(BaseControl):
         else:
             self._logger.warning(f"Control: ID '{self.name}' received unknown set value '{value}'")
 
+
+
     def update(self):
         """
         Called by the Core run loop to update status.
@@ -115,10 +115,10 @@ class CtrlFlasher(BaseControl):
         if self._running:
             self._logger.debug("Control {}: Updating...".format(self._id))
             # If we've loitered too long, time to turn this off.
-            if monotonic_ns() - self._updatets > self._loiter_time:
+            if monotonic_ns() - self._updatets > (self._loiter_time * 1000000):
                 self._gpio_objects[self._position].value = False
             # If we've both loitered and used the switch time, move on to the next.
-            if monotonic_ns() - self._updatets > (self._loiter_time + self._switch_time):
+            if monotonic_ns() - self._updatets > (self._loiter_time + self._switch_time) * 1000000:
                 self._position += 1
                 # Reset if we're at the end.
                 if self._position >= len(self._gpio_objects):
@@ -143,8 +143,8 @@ class CtrlFlasher(BaseControl):
             # Paho MQTT (linux) delivers a message object from which we need to extract the payload.
             # Convert the message payload (which is binary) to a string.
             message_text = str(message.payload, 'utf-8').lower()
-        self._logger.debug("Control: Control '{}' ({}) received message '{}'".format(self.name, self.id,
-                                                                                     message_text))
+        self._logger.debug("Control: Control '{}' ({}) received message '{}' on topic '{}'".format(self.name, self.id,
+                                                                                     message_text, topic))
         valid_values = ['on', 'off']
         # If it's not a valid option, just ignore it.
         if message_text not in valid_values:
@@ -152,3 +152,31 @@ class CtrlFlasher(BaseControl):
                               format(self.name, self.id, message_text))
         else:
             self.set(message_text)
+
+    # Properties for reporting.
+    @property
+    def loiter_time(self):
+        """
+        Time to stay on each flasher element, in ms.
+        """
+        return self._loiter_time
+
+    @loiter_time.setter
+    def loiter_time(self, the_input):
+        self._loiter_time = the_input
+
+    @property
+    def switch_time(self):
+        """
+        Time between flasher elements, in ms.
+        """
+        return self._switch_time
+
+    @switch_time.setter
+    def switch_time(self, the_input):
+        if the_input > 10000: # No more than 10s.
+            self._switch_time = 10000
+        elif the_input < 0: # No less than 0s.
+            self._switch_time = 0
+        else:
+            self._switch_time = the_input
