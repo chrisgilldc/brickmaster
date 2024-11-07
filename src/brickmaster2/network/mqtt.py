@@ -62,11 +62,21 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
             {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
              'message': control_object.status, 'force_repeat': force_repeat, 'retain': True}
         )
-        # For flashers, report where we are in the list.
+        # Additional information for flashers
         if isinstance(control_object, brickmaster2.controls.CtrlFlasher):
+            # Sequence position.
             outbound_messages.append(
                 {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/seq_pos',
                  'message': control_object.seq_pos, 'force_repeat': force_repeat, 'retain': False}
+            )
+            # Running Configuration.
+            outbound_messages.append(
+                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/loiter_time',
+                 'message': control_object.loiter_time, 'force_repeat': force_repeat, 'retain': False}
+            )
+            outbound_messages.append(
+                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/switch_time',
+                 'message': control_object.switch_time, 'force_repeat': force_repeat, 'retain': False}
             )
 
     # Displays aren't yet supported. Maybe some day.
