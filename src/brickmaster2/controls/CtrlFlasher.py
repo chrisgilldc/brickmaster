@@ -1,6 +1,8 @@
 """
 Brickmaster Control - Flasher
 """
+import time
+
 import adafruit_logging
 from .BaseControl import BaseControl
 from brickmaster2.gpio import EnhancedDigitalInOut
@@ -53,6 +55,9 @@ class CtrlFlasher(BaseControl):
 
         # Define a list to keep the pin objects in.
         self._gpio_objects = []
+        # If the pin list is only a single element, make it a list.
+        if not isinstance(pinlist, list):
+            pinlist = [pinlist]
         # Iterate the pin list, create objects for them all.
         for pin_item in pinlist:
             self._logger.debug("Control: Evaluating pin item '{}'".format(pin_item))
@@ -115,16 +120,19 @@ class CtrlFlasher(BaseControl):
         if self._running:
             self._logger.debug("Control {}: Updating...".format(self._id))
             # If we've loitered too long, time to turn this off.
-            if monotonic_ns() - self._updatets > (self._loiter_time * 1000000):
+            if time.monotonic_ns() - self._updatets > (self._loiter_time * 1000000):
+                self._logger.debug("Control {}: Setting {} off.".format(self._id, self._position))
                 self._gpio_objects[self._position].value = False
             # If we've both loitered and used the switch time, move on to the next.
-            if monotonic_ns() - self._updatets > (self._loiter_time + self._switch_time) * 1000000:
+            if time.monotonic_ns() - self._updatets > (self._loiter_time + self._switch_time) * 1000000:
                 self._position += 1
                 # Reset if we're at the end.
+                self._logger.debug("Control {}: At end of pins, resetting.".format(self._id))
                 if self._position >= len(self._gpio_objects):
                     self._position = 0
                 # Turn on the next item.
                 self._gpio_objects[self._position].value=True
+                self._updatets = time.monotonic_ns()
 
     def callback(self, client, topic, message):
         """

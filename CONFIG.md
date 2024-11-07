@@ -124,6 +124,11 @@ There is no support for mixing pins from different boards.
 
 #### Flashing Control
 
+Times in Seconds!
+loiter_time - Amount of time each item is kept on. Default is 1.
+switch_time - Amount of time between each element. During this time, nothing is on. Default is 0.
+
+
 ### Displays
 
 Displays attached to the system. Main displays list must be defined, but may be empty if none are present. Each display
