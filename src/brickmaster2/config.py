@@ -248,7 +248,7 @@ class BM2Config:
                 'icon': 'mdi:toy-brick',
                 'active_low': False,
                 'extio': None,
-                'loiter_time': 1,
+                'loiter_time': 1000,
                 'switch_time': 0
             }
             for param in optional_params:
