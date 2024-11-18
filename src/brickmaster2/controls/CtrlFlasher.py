@@ -80,7 +80,10 @@ class CtrlFlasher(BaseControl):
         """
         Report the control status.
         """
-        return self._running
+        if self._running:
+            return "ON"
+        else:
+            return "OFF"
 
     @property
     def seq_pos(self):

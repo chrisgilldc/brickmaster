@@ -14,7 +14,6 @@ import brickmaster2.controls.CtrlFlasher
 logger = adafruit_logging.getLogger('BrickMaster2')
 logger.setLevel(adafruit_logging.DEBUG)
 
-
 def initial_messages(short_name, topic_prefix='brickmaster2'):
     """
     Generate initial messages to send once on start-up that don't change dynamically.
@@ -128,6 +127,9 @@ def ha_availability(topic_prefix, short_name):
     )
     return return_data
 
+
+#TODO: Refactor discovery to support device-based discovery.
+# https://www.home-assistant.io/integrations/mqtt/#device-discovery-payload
 
 # HA Discovery
 def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, meminfo_mode, object_registry):
@@ -352,9 +354,11 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
         'availability': ha_availability(topic_prefix, short_name)
     }
 
+    # This try/except is arguably a legacy holdover...it may be possible to remove it in the future.
     try:
         discovery_dict['icon'] = control.icon
     except AttributeError:
+        logger.warning("Network (MQTT): Control '{}' does not have icon set. This should never happen. Defaulting to 'toy-brick'".format(control.id))
         discovery_dict['icon'] = 'mdi:toy-brick'
 
     return [{'topic': ha_base + '/switch/' + 'bm2_' + system_id + '/' + control.id + '/config',

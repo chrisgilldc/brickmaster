@@ -47,7 +47,7 @@ class BaseControl:
         # Create a logger with the specified logger.
         self._logger = adafruit_logging.getLogger('BrickMaster2')
         self._logger.setLevel(log_level)
-
+        self._logger.debug("Control {}: Set icon to '{}'".format(self._id, self._icon))
 
     @property
     def topics(self):
@@ -59,7 +59,7 @@ class BaseControl:
     @property
     def status(self):
         """
-        Current status of the control.
+        Current status of the control. Should return ON or OFF.
 
         return str
         """
@@ -77,6 +77,10 @@ class BaseControl:
         Long name of the control. Can be descriptive. Used naming entities in Home Assistant discovery.
         """
         return self._control_name
+
+    @property
+    def icon(self):
+        return self._icon
 
     @property
     def id(self):

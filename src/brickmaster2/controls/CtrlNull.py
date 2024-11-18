@@ -17,8 +17,7 @@ class CtrlNull(BaseControl):
     def set(self, value):
         self._logger.debug(f"Null control set to '{value}'")
 
-    def icon(self):
-        return self._icon
+
 
     def status(self):
         return 'Unavailable'

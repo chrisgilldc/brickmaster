@@ -62,7 +62,11 @@ class CtrlSingle(BaseControl):
         """
         Current state of the control.
         """
-        return self._gpio_obj.value
+
+        if self._gpio_obj.value:
+            return "ON"
+        else:
+            return "OFF"
 
     def callback(self, client, topic, message):
         """
