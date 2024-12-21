@@ -4,11 +4,11 @@ BrickMaster2 Linux Networking
 
 import adafruit_logging
 from brickmaster2.network.base import BM2Network
+import brickmaster2.const as const
 import brickmaster2.util
 import brickmaster2.network.mqtt
 import psutil
 from paho.mqtt.client import Client
-import time
 
 class BM2NetworkLinux(BM2Network):
 
@@ -67,6 +67,7 @@ class BM2NetworkLinux(BM2Network):
         self._paho_client.loop_stop()
         # Disconnect.
         self._paho_client.disconnect()
+        return const.NET_STATUS_DISCONNECTED
 
     def _mc_loop(self):
         """

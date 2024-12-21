@@ -51,13 +51,13 @@ could also be used.
 
 Settings for MQTT.
 
-| Name     | Type   | Default | Since  | Description                             |
-|----------|--------|---------|--------|-----------------------------------------|
-| `broker` | string | None    | v0.6   | IP or Hostname of the broker to use.    |
-| `port` | int | 1883 | v0.6 | Port to connect to. Defaults to the MQTT default. |
-| `user`   | string | None    | v0.6 | Username to authenticate to the broker. | 
-| `key`    | string | None | v0.6   | Key to authenticate to the broker.      |
-| `log` | bool | False | v0.6 | Enable MQTT client debugging. Probably don't need this! |
+| Name     | Type   | Default | Since | Description                                                                     |
+|----------|--------|---------|-------|---------------------------------------------------------------------------------|
+| `broker` | string | None    | v0.6  | IP or Hostname of the broker to use.                                            |
+| `port`   | int    | 1883    | v0.6  | Port to connect to. Defaults to the MQTT default.                               |
+| `user`   | string | None    | v0.6  | Username to authenticate to the broker.                                         | 
+| `key`    | string | None    | v0.6  | Key to authenticate to the broker.                                              |
+| `log`    | bool   | False   | v0.6  | Enable MQTT client debugging. Probably don't need this!                         |
 
 #### Home Assistant (ha)
 

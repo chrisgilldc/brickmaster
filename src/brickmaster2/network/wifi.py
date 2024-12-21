@@ -5,7 +5,9 @@ import adafruit_logging
 import adafruit_connection_manager
 import supervisor
 import time
-import brickmaster2
+import brickmaster2.const
+import brickmaster2.util
+
 
 
 class BM2WiFi:
@@ -54,10 +56,13 @@ class BM2WiFi:
 
     # Public Methods
     def connect(self):
+        """
+        Connect to the wireless network.
+        """
         tries = 0
         if self.is_connected:
             self._logger.debug("WIFI: Already connected, nothing more to do.")
-            return True
+            return brickmaster2.const.NET_STATUS_CONNECTED
         else:
             if self._wifihw == 'esp32spi':
                 while tries < self._retry_limit:
@@ -85,14 +90,17 @@ class BM2WiFi:
                     else:
                         self._ip = self._wifi.pretty_ip(self._wifi.ip_address)
                         self._logger.info(f"WiFi: Connected to '{self._ssid}', received IP '{self._ip}'")
-                        return True
-                return False
+                        return brickmaster2.const.NET_STATUS_CONNECTED
+                return brickmaster2.const.NET_STATUS_DISCONNECTED
             else:
                 self._wifi.connect(ssid=self._ssid, password=self._password)
                 self._ip = self._wifi.ipv4_address
-                return True
+                return brickmaster2.const.NET_STATUS_CONNECTED
 
     def disconnect(self):
+        """
+        Disconnect from the wireless network.
+        """
         if self._wifihw == 'esp32spi':
             try:
                 self._logger.debug("WiFi: Attempting disconnect.")
@@ -100,8 +108,10 @@ class BM2WiFi:
             except OSError:
                 self._logger.critical("WiFi: Could not disconnect from WiFi Network.")
                 raise brickmaster2.exceptions.BM2RecoverableError("WiFi could not disconnect")
+            else:
+                return brickmaster2.const.NET_STATUS_DISCONNECTED
         else:
-            pass
+            return brickmaster2.const.NET_STATUS_NOACTION
 
     @property
     def is_connected(self):
@@ -115,6 +125,9 @@ class BM2WiFi:
             return self._wifi.connected
 
     def set_loglevel(self, log_level):
+        """
+        Set the level to log at.
+        """
         self._logger.setLevel(log_level)
 
     # Public Properties
@@ -157,6 +170,9 @@ class BM2WiFi:
 
     # Private Methods
     def _setup_wifi(self):
+        """
+        Configure the wireless hardware.
+        """
         self._logger.info("WIFI: Beginning hardware initialization.")
         if self._wifihw == 'esp32':
             # Import Wifi

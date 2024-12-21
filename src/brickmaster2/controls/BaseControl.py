@@ -2,21 +2,21 @@
 Brickmaster Base Control
 """
 import adafruit_logging
-import board
-import digitalio
-from brickmaster2.gpio import EnhancedDigitalInOut
+# import board
+# import digitalio
+# from brickmaster2.gpio import EnhancedDigitalInOut
 
 
 class BaseControl:
     """
     Base control object.
     """
-    def __init__(self, id, name, core, icon="mdi:toy-brick", publish_time=15, log_level=adafruit_logging.WARNING):
+    def __init__(self, ctrl_id, name, core, icon="mdi:toy-brick", publish_time=15, log_level=adafruit_logging.WARNING):
         """
         Base control initialization.
 
-        @param id: Short ID for the control. No spaces!
-        @type id: str
+        @param ctrl_id: Short ID for the control. No spaces!
+        @type ctrl_id: str
         @param name: Long name for the control
         @type name: str
         @param core: Reference to the Brickmaster core object.
@@ -32,7 +32,7 @@ class BaseControl:
         """
         # Save inputs.
         # Set the ID.
-        self._id = id
+        self._ctrl_id = ctrl_id
         # Set the Name.
         self._control_name = name
         # Save the reference back to the core.
@@ -47,7 +47,7 @@ class BaseControl:
         # Create a logger with the specified logger.
         self._logger = adafruit_logging.getLogger('BrickMaster2')
         self._logger.setLevel(log_level)
-        self._logger.debug("Control {}: Set icon to '{}'".format(self._id, self._icon))
+        self._logger.debug("Control {}: Set icon to '{}'".format(self._ctrl_id, self._icon))
 
     @property
     def topics(self):
@@ -80,6 +80,9 @@ class BaseControl:
 
     @property
     def icon(self):
+        """
+        The defined icon for the control.
+        """
         return self._icon
 
     @property
@@ -87,7 +90,7 @@ class BaseControl:
         """
         ID of the control. Used internally and to create entity IDs in Home Assistant discovery.
         """
-        return self._id
+        return self._ctrl_id
 
     def callback(self, client, topic, message):
         """

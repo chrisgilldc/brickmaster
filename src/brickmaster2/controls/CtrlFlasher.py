@@ -6,15 +6,15 @@ import time
 import adafruit_logging
 from .BaseControl import BaseControl
 from brickmaster2.gpio import EnhancedDigitalInOut
-#import board
-#import digitalio
+# import board
+# import digitalio
 from time import monotonic_ns
 
 class CtrlFlasher(BaseControl):
     """
     Control to handle flashing across multiple pins.
     """
-    def __init__(self, id, name, core, pinlist, publish_time, loiter_time=1000, switch_time=1, active_low=False,
+    def __init__(self, ctrl_id, name, core, pinlist, publish_time, loiter_time=1000, switch_time=1, active_low=False,
                  extio_obj=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
 
         """
@@ -40,7 +40,7 @@ class CtrlFlasher(BaseControl):
         @type log_level: int
 
         """
-        super().__init__(id, name, core, icon, publish_time, log_level)
+        super().__init__(ctrl_id, name, core, icon, publish_time, log_level)
 
         self._active_low = active_low # Save the active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.
@@ -70,10 +70,10 @@ class CtrlFlasher(BaseControl):
                     self._gpio_obj = EnhancedDigitalInOut(on_pin=pin_item['on'], off_pin=pin_item['off'],
                                                           extio_obj=self._extio_obj)
                 except KeyError as ke:
-                    self._logger.critial("Control {}: Could not configure due to missing key.".format(self._id))
+                    self._logger.critial("Control {}: Could not configure due to missing key.".format(self._ctrl_id))
                     raise ke
             else:
-                raise TypeError("Control {}: Pin list contains invalid definition.".format(self._id))
+                raise TypeError("Control {}: Pin list contains invalid definition.".format(self._ctrl_id))
 
     @property
     def status(self):
@@ -121,16 +121,16 @@ class CtrlFlasher(BaseControl):
         """
 
         if self._running:
-            self._logger.debug("Control {}: Updating...".format(self._id))
+            self._logger.debug("Control {}: Updating...".format(self._ctrl_id))
             # If we've loitered too long, time to turn this off.
             if time.monotonic_ns() - self._updatets > (self._loiter_time * 1000000):
-                self._logger.debug("Control {}: Setting {} off.".format(self._id, self._position))
+                self._logger.debug("Control {}: Setting {} off.".format(self._ctrl_id, self._position))
                 self._gpio_objects[self._position].value = False
             # If we've both loitered and used the switch time, move on to the next.
             if time.monotonic_ns() - self._updatets > (self._loiter_time + self._switch_time) * 1000000:
                 self._position += 1
                 # Reset if we're at the end.
-                self._logger.debug("Control {}: At end of pins, resetting.".format(self._id))
+                self._logger.debug("Control {}: At end of pins, resetting.".format(self._ctrl_id))
                 if self._position >= len(self._gpio_objects):
                     self._position = 0
                 # Turn on the next item.

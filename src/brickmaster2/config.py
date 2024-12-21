@@ -313,7 +313,7 @@ class BM2Config:
         """
         Iteratively process pin definitions.
 
-        @param input_pindef: Pin definition. May be a string to indicate a single pin (ex: D25), a dict specifying
+        @param input_pindef: Pin definition. Can be a string to indicate a single pin (ex: D25), a dict specifying
         on and off, (ex: {"on": "D26", "off": "D27"}) or a list of dicts or strings (ex: ["D25", {"on": "D26", "off": "D27"}])
         :type input_pindef: str, list or dict
 

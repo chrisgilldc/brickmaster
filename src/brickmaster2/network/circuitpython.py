@@ -126,16 +126,19 @@ class BM2NetworkCircuitPython(BM2Network):
         :return: None
         """
         try:
+            self._logger.debug("Network (MiniMQTT): Publishing to '{}'\n\t"
+                               "Payload - '{}'.".format(topic, message))
             self._mini_client.publish(topic, message, retain, qos)
+            self._logger.debug("Network (MiniMQTT): Publish complete.")
         except BrokenPipeError as e:
-            self._logger.error("Network: Disconnection while publishing! Marking broker as not connected, will retry.")
+            self._logger.error("Network (MiniMQTT): Disconnection while publishing! Marking broker as not connected, will retry.")
             self._mqtt_connected = False
         except ConnectionError as e:
-            self._logger.error("Network: Connection failed, raised error '{}'".format(e.args[0]))
+            self._logger.error("Network (MiniMQTT): Connection failed, raised error '{}'".format(e.args[0]))
             self._mqtt_connected = False
         except OSError as e:
             if e.args[0] == 104:
-                self._logger.error("Network: Tried to publish while not connected! Marking broker as not connected, "
+                self._logger.error("Network (MiniMQTT): Tried to publish while not connected! Marking broker as not connected, "
                                    "will retry.")
                 self._mqtt_connected = False
             else:
@@ -179,6 +182,7 @@ class BM2NetworkCircuitPython(BM2Network):
         self._logger.debug("Network: Sending online status.")
         self._mini_client.publish(topic="brickmaster2/" + self._short_name + "/connectivity",
                                   msg="online", retain=True)
+
     def _send_offline(self):
         """
         Publish an MQTT Offline message.

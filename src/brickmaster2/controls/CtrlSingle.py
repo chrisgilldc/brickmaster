@@ -23,7 +23,7 @@ class CtrlSingle(BaseControl):
             try:
                 self._gpio_obj = EnhancedDigitalInOut(on_pin=pins['on'], off_pin=pins['off'], extio_obj=self._extio_obj)
             except KeyError as ke:
-                self._logger.critial("Control {}: Could not configure due to missing key.".format(self._id))
+                self._logger.critial("Control {}: Could not configure due to missing key.".format(self._ctrl_id))
                 raise ke
         else:
             self._gpio_obj = EnhancedDigitalInOut(pins, extio_obj=self._extio_obj)
