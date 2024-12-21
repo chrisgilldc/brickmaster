@@ -12,9 +12,9 @@ class CtrlSingle(BaseControl):
     """
     Control class for a single GPIO pin.
     """
-    def __init__(self, id, name, core, pins, publish_time, active_low=False,
+    def __init__(self, ctrl_id, name, core, pins, publish_time, active_low=False,
                  extio_obj=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
-        super().__init__(id, name, core, icon, publish_time, log_level)
+        super().__init__(ctrl_id, name, core, icon, publish_time, log_level)
 
         self._active_low = active_low # Save our active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.

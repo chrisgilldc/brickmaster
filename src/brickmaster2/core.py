@@ -278,7 +278,7 @@ class BrickMaster2:
                 print("Will pass argments:")
                 print(dict(**control_cfg))
                 self._controls[control_cfg['id']] = brickmaster2.controls.CtrlSingle(
-                    id = control_cfg['id'],
+                    ctrl_id = control_cfg['id'],
                     name = control_cfg['name'],
                     core = self,
                     pins = control_cfg['pins'],
@@ -293,7 +293,7 @@ class BrickMaster2:
             #         publish_time=publish_time, extio_obj=extio_obj, log_level=self._bm2config.system['log_level']))
             elif control_cfg['type'].lower() == 'flasher':
                 self._controls[control_cfg['id']] = (brickmaster2.controls.CtrlFlasher(
-                    id = control_cfg['id'],
+                    ctrl_id = control_cfg['id'],
                     name = control_cfg['name'],
                     core = self,
                     pinlist = control_cfg['pins'],
