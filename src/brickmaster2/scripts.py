@@ -1,4 +1,6 @@
-""" Brickmaster2 Script Handling """
+"""
+Brickmaster Scripts
+"""
 
 import adafruit_logging as logger
 import time
@@ -7,6 +9,9 @@ from brickmaster2.segment_format import time_7s, number_7s
 
 
 class BM2Script:
+    """
+    Brickmaster script class
+    """
     def __init__(self, script, controls):
         # Create a logger.
         self._logger = logger.getLogger('BrickMaster2')
@@ -60,6 +65,9 @@ class BM2Script:
 
     @property
     def id(self):
+        """
+        The ID of the script.
+        """
         return self._id
 
     @property
@@ -67,31 +75,43 @@ class BM2Script:
         """ Is the script running? Will be 'ON' or 'OFF'"""
         return self._status
 
-    # How long does the script take to run?
     @property
     def run_time(self):
+        """
+        Total planned run time of the script.
+        """
         return self._run_time
 
-    # How long has the script been running for? If the script hasn't started, it's obviously zero.
     @property
     def time_elapsed(self):
+        """
+        How long has the script been running for?
+        Returns zero if the script hasn't started.
+        """
         if self._start_time is None:
             return 0
         else:
             return time.monotonic() - self._start_time
 
-    # How much time is left? If the script hasn't started, it's all the time.
     @property
     def time_remaining(self):
+        """
+        Remaining time in execution.
+        """
         return self._run_time - (time.monotonic() - self._start_time)
 
-    # Topics property.
     @property
     def topics(self):
+        """
+        Topics to send on.
+        """
         return self._topics
 
     # Set the running state. This is how the script gets started and stopped.
     def set(self, value):
+        """
+        Start and stop the script. Accepts "ON" and "OFF"
+        """
         self._logger.info("Setting script '{}' to '{}'".format(self.name, value))
         # Starting...
         if value == 'ON':
@@ -117,8 +137,10 @@ class BM2Script:
                 for control in self._controls:
                     control.set('off')
 
-    # Executor. Called to take actions based on the internal time index.
     def execute(self, implicit_start=False):
+        """
+        Script executor. Takes actions based on the internal time index of the script.
+        """
         # What to do if called when idle.
         if self._status == 'OFF':
             if implicit_start:
@@ -297,6 +319,9 @@ class BM2Script:
 
 
 class BM2FlightScript(BM2Script):
+    """
+    Script which includes flight information.
+    """
     def __init__(self, script, controls, displays):
         # Call the superclass init
         super().__init__(script, controls)
@@ -309,6 +334,10 @@ class BM2FlightScript(BM2Script):
         self._map_displays(script, displays)
 
     def execute(self, implicit_start=False):
+        """
+        Script executor. Takes actions based on the internal time index of the script.
+        Updates flight values based on the precalculated statistics.
+        """
         # Call the parent class execute. This will handle all the controls.
         super().execute(implicit_start=implicit_start)
         # IF the parent class decided to set the script idle, exit immediately.
@@ -326,8 +355,10 @@ class BM2FlightScript(BM2Script):
         for item in ('vel', 'alt'):
             self._display_map[item].show(number_7s(flight_data[item]))
 
-    # Create the flight plan. This is second-by-second data pre-calculated.
     def _build_flight_plan(self, script):
+        """
+        Precalculate second-by-second altitude and velocity based on benchmarks in the script.
+        """
         # Wipe the flight plan, make sure we don't have competing data.
         self._flight_plan = []
 

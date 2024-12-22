@@ -4,11 +4,10 @@ BrickMaster2 CircuitPython Networking
 
 import adafruit_logging
 from brickmaster2.network.base import BM2Network
-import brickmaster2.util
-import brickmaster2.network.mqtt
+# import brickmaster2.util
+# import brickmaster2.network.mqtt
 import gc
 import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
-import time
 
 class BM2NetworkCircuitPython(BM2Network):
     def connect(self):
@@ -40,7 +39,7 @@ class BM2NetworkCircuitPython(BM2Network):
             self._logger.debug("Network: WiFi not connected! Will attempt connection.")
             try:
                 self.connect()
-            except Exception as e:
+            except BaseException:
                 raise
 
         # System's interface is up, run the base poll.
@@ -130,7 +129,7 @@ class BM2NetworkCircuitPython(BM2Network):
                                "Payload - '{}'.".format(topic, message))
             self._mini_client.publish(topic, message, retain, qos)
             self._logger.debug("Network (MiniMQTT): Publish complete.")
-        except BrokenPipeError as e:
+        except BrokenPipeError:
             self._logger.error("Network (MiniMQTT): Disconnection while publishing! Marking broker as not connected, will retry.")
             self._mqtt_connected = False
         except ConnectionError as e:

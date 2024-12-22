@@ -36,22 +36,22 @@ def determine_wifi_hw():
     """
     if os.uname().sysname.lower() == 'linux':
         return 'linux'
-    elif os.uname().sysname.lower() in ('samd51'):
+    elif os.uname().sysname.lower() == 'samd51':
         return 'esp32spi'
-    elif os.uname().sysname.lower() in ('esp32'):
+    elif os.uname().sysname.lower() == 'esp32':
         return 'esp32'
     else:
         raise OSError("OS Sysname '{}' does not have a known wifi type! Cannot continue!")
 
-def fetch_config(base_url):
-    """
-    Fetch a configuration json from a remote URL.
-
-    :param base_url: Base URL to fetch from.
-    :type base_url: str
-    :return: str
-    """
-    raise NotImplemented("Some day...")
+# def fetch_config(base_url):
+#     """
+#     Fetch a configuration json from a remote URL.
+#
+#     :param base_url: Base URL to fetch from.
+#     :type base_url: str
+#     :return: str
+#     """
+#     raise NotImplemented("Some day...")
 
 def interface_status(interface):
     """
@@ -72,7 +72,7 @@ def load_config(config_path):
     :type config_path: Path
     :return: str
     """
-    with open(config_path, 'r') as config_file_handle:
+    with open(config_path) as config_file_handle:
         the_json = json.load(config_file_handle)
     return the_json
 

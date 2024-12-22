@@ -46,10 +46,16 @@ class EnhancedDigitalInOut:
 
     @property
     def on_pin(self):
+        """
+        The underlying pin to turn this EDIO on.
+        """
         return self._on_pin
 
     @property
     def off_pin(self):
+        """
+        The underlying pin to turn this EDIO off.
+        """
         return self._off_pin
 
     @property
@@ -68,7 +74,7 @@ class EnhancedDigitalInOut:
                     return False
                 else:
                     raise ValueError("Split GPIO in disallowed state, On is '{}', Off is '{}'".
-                                     format(self._on_pin._pin, self._on_pin.value, self._off_pin._pin, self._off_pin.value))
+                                     format(self._on_pin.value, self._off_pin.value))
             else:
                 if self._on_pin.value and not self._off_pin.value:
                     return True

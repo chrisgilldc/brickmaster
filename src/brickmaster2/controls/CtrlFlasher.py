@@ -18,8 +18,8 @@ class CtrlFlasher(BaseControl):
                  extio_obj=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
 
         """
-        @param id: Short ID for the control. No spaces!
-        @type id: str
+        @param ctrl_id: Short ID for the control. No spaces!
+        @type ctrl_id: str
         @param name: Long name for the control
         @type name: str
         @param core: Reference to the Brickmaster core object.
@@ -48,7 +48,7 @@ class CtrlFlasher(BaseControl):
         self._switch_time = switch_time
         self._position = 0
         self._running = False
-        self._updatets = 0
+        self._update_ts = 0
         self._pinlist = pinlist # Save the pinlist config
 
         self._logger.debug("Control: Processing flasher pinlist '{}'".format(self._pinlist))
@@ -123,11 +123,11 @@ class CtrlFlasher(BaseControl):
         if self._running:
             self._logger.debug("Control {}: Updating...".format(self._ctrl_id))
             # If we've loitered too long, time to turn this off.
-            if time.monotonic_ns() - self._updatets > (self._loiter_time * 1000000):
+            if time.monotonic_ns() - self._update_ts > (self._loiter_time * 1000000):
                 self._logger.debug("Control {}: Setting {} off.".format(self._ctrl_id, self._position))
                 self._gpio_objects[self._position].value = False
             # If we've both loitered and used the switch time, move on to the next.
-            if time.monotonic_ns() - self._updatets > (self._loiter_time + self._switch_time) * 1000000:
+            if time.monotonic_ns() - self._update_ts > (self._loiter_time + self._switch_time) * 1000000:
                 self._position += 1
                 # Reset if we're at the end.
                 self._logger.debug("Control {}: At end of pins, resetting.".format(self._ctrl_id))
@@ -135,7 +135,7 @@ class CtrlFlasher(BaseControl):
                     self._position = 0
                 # Turn on the next item.
                 self._gpio_objects[self._position].value=True
-                self._updatets = time.monotonic_ns()
+                self._update_ts = time.monotonic_ns()
 
     def callback(self, client, topic, message):
         """

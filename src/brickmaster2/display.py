@@ -1,10 +1,16 @@
-# BrickMaster2 Display Control
+"""
+Brickmaster Display System
+"""
 
 import adafruit_logging as logger
 # from .segment_format import number_7s, time_7s
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
 import time
 class Display:
+    """
+    Brickmaster Display Class
+    Create once per display.
+    """
     def __init__(self, config, i2c_bus):
         # Create a logger
         self._logger = logger.getLogger('BrickMaster2')
@@ -22,12 +28,23 @@ class Display:
         self._test()
 
     def show(self, the_input):
+        """
+        Send text to the display.
+        """
         try:
             self._display_obj.print(the_input)
         except ValueError:
             self._logger.warning("Could not send input to display. Not a valid type.")
 
     def show_dt(self, dtelement='time', clkhr=12):
+        """
+        Send date or time to the display.
+
+        :param dtelement: Should date or time be sent? 'time' or 'date', defaults to time.
+        :type dtelement: str
+        :param clkhr: Use either 12 or 24 hour time.
+        :type clkhr: int
+        """
         if dtelement == 'date':
             self._display_obj.print(self._format_dt(field='date'))
             # Make sure AM/PM is off, if we're a big segment.
@@ -47,9 +64,12 @@ class Display:
 
     # Method to show whatever the displays idle state is.
     def show_idle(self):
+        """
+        Show the display's idle state. Idle will be whatever is defined in the configuration.
+        """
         # Known idle states!
         if self._config['idle']['show'] == 'time':
-            self.show_dt(dtelement='time')
+            self.show_dt()
             self._display_obj.brightness = self._config['idle']['brightness']
         elif self._config['idle']['show'] == 'date':
             self.show_dt(dtelement='date')
@@ -58,8 +78,10 @@ class Display:
             # There's probably a more elegant way to do this that's faster. Look to optimize later.
             self.off()
 
-    # Method to turn the display off. Clears all values and indicators.
     def off(self):
+        """
+        Turn off the display. Clears all elements.
+        """
         self._display_obj.fill(False)
         if isinstance(self._display_obj, Seg7x4):
             # self._logger.debug("Display: Setting colon off.")
@@ -99,13 +121,13 @@ class Display:
 
         # Return date in format "mm.dd"
         if field == 'date':
-            date_val = str(time.localtime().tm_mon).rjust(2, ' ') + "." + str(time.localtime().tm_mday).rjust(2, ' ')
+            date_val = str(time.localtime().tm_mon).rjust(2) + "." + str(time.localtime().tm_mday).rjust(2)
             return date_val
         if field == 'time':
             hour = time.localtime().tm_hour
             if clkhr == 12 and hour > 12:
-                hour = hour - 12
-            time_val = str(hour).rjust(2, ' ') + ":" + str(time.localtime().tm_min).rjust(2, '0')
+                hour -= 12
+            time_val = str(hour).rjust(2) + ":" + str(time.localtime().tm_min).rjust(2, '0')
             return time_val
         if field == 'pm':
             if time.localtime().tm_hour >= 12:

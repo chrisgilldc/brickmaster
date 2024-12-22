@@ -1,12 +1,13 @@
-#!/usr/bin/python3
-# BrickMaster2 Executor for CircuitPython Boards
+"""
+Brickmaster Startup for Circuitpython boards
+"""
 
 import brickmaster2
 import microcontroller
 import os
 import time
 import traceback
-import sys
+# import sys
 
 print("Brickmaster2 - {}".format(brickmaster2.__version__))
 
@@ -24,6 +25,8 @@ if sysrun_pin is not None:
         sysrun_ctrl = brickmaster2.controls.CtrlNull('sysrun_null', 'System Status Null', None)
     # Turn it on.
     sysrun_ctrl.set('on')
+else:
+    sysrun_ctrl = None
 
 # Check for the WIFI HW environment setting.
 try:

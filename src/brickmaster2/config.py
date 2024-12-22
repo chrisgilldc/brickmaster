@@ -561,26 +561,44 @@ class BM2Config:
     # Controls config. No merging of data required here.
     @property
     def controls(self):
+        """
+        List of configured controls
+        """
         return self._config['controls']
 
     # Displays were already validated, return them when asked.
     @property
     def displays(self):
+        """
+        List of configured displays
+        """
         return self._config['displays']
 
     @property
     def scripts(self):
+        """
+        List of configured scripts
+        """
         return self._config['scripts']
 
     # Allow progressive deletion of the config to free memory.
     def del_controls(self):
+        """
+        Delete controls and garbage collect
+        """
         del self._config['controls']
         gc.collect()
 
     def del_displays(self):
+        """
+        Delete displays and garbage collect
+        """
         del self._config['displays']
         gc.collect()
 
     def del_scripts(self):
+        """
+        Delete scripts and garbage collect
+        """
         del self._config['scripts']
         gc.collect()

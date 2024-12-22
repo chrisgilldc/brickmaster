@@ -1,5 +1,5 @@
 """
-BrickMaster2 Wifi Handling
+BrickMaster Wifi Handling
 """
 import adafruit_logging
 import adafruit_connection_manager
@@ -10,14 +10,14 @@ import brickmaster2.util
 
 
 
-class BM2WiFi:
+class BMWiFi:
     """
-    BrickMaster2 WiFi Handling for CircuitPython Boards
+    BrickMaster WiFi Handling for CircuitPython Boards
     """
     def __init__(self, ssid, password, wifihw=None, retry_limit = 5, retry_time = 30, hostname = None, 
                  log_level=adafruit_logging.DEBUG):
         """
-        Set up the BrickMaster2 WiFi handler. Works for ESP32s, direct or SPI connected.
+        Set up the BrickMaster WiFi handler. Works for ESP32s, direct or SPI connected.
 
         :param ssid: Network to connect to.
         :type ssid: str
@@ -38,6 +38,7 @@ class BM2WiFi:
         self._logger.setLevel(log_level)
 
         self._hostname = hostname
+        self._ip = None
         self._mac_string = None
         self._password = password
         self._retry_limit = retry_limit

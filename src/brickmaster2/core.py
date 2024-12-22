@@ -1,4 +1,6 @@
-# BrickMaster2 Core
+"""
+Brickmaster System Core
+"""
 
 import adafruit_logging as logging
 import board
@@ -72,32 +74,13 @@ class BrickMaster2:
         self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
         self._logger.setLevel(self._bm2config.system['log_level'])
 
-        # Set up the status indicator, if available.
+        # Debug output of the config.
         self._logger.debug("Core: System config is: {}".format(self._bm2config.system))
-        # Create status indicators.
-        self._logger.info("Core: Creating status indicator controls.")
 
-        for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
-            id = target[0]
-            name = target[1]
-            self._logger.debug("Core: Creating indicator for '{}'".format(id))
-            try:
-                if self._bm2config.system['indicators'][id] is not None:
-                    self._indicators[id] = brickmaster2.controls.CtrlSingle(id, name, self,
-                                                                            self._bm2config.system['indicators'][id],15)
-                else:
-                    self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
-            except (KeyError, TypeError):
-                 self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
-            except AttributeError:
-                 self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
-                     self._bm2config.system['indicators'][id], id))
-                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name, self)
+        # Set up the indicators
+        self._indicators.update(self._setup_indicators())
+        self._logger.debug("Core: Have indicators '{}'".format(self._indicators))
 
-        # All indicators should be configured.
-        self._logger.info("Core: Configured indicators - {}".format(self._indicators))
         # Set the system indicator on.
         # This should have been done earlier, but in case it wasn't, we do it again here.
         self._indicators['sysrun'].set('on')
@@ -214,7 +197,8 @@ class BrickMaster2:
         # Convert the message payload (which is binary) to a string.
         message_text = str(message.payload, 'utf-8')
         # Message text *should* be the name of the script to execute, or Inactive/Abort.
-        self._logger.debug("Core: Received script callback message '{}'".format(message_text))
+        self._logger.debug("Core: Received script callback message '{}', client '{}', topic '{}'".
+        format(message_text, client, topic))
         if message_text in ('Inactive','Abort'):
             # Make the currently active script off. This will reset internal counters.
             self._scripts[self._active_script].set('OFF')
@@ -233,18 +217,6 @@ class BrickMaster2:
                     return
             # If we get here, something has gone wrong.
             self._logger.warning("Core: Could not match script '{}' against configured scripts.".format(message_text))
-
-    def _setup_aw9523(self, addr):
-        # Condition
-        try:
-            import adafruit_aw9523
-        except ImportError:
-            self._logger.critical("Sys: Cannot import modules for GPIO AW9523 control. Exiting!")
-            sys.exit(1)
-        if isinstance(addr, str):
-            addr = int(addr)
-        aw = adafruit_aw9523.AW9523(self._i2c_bus, addr)
-        return aw
 
     # Methods to create our objects. Called during setup, or when we're asked to reload.
     def _create_controls(self, publish_time=15):
@@ -275,8 +247,6 @@ class BrickMaster2:
             # Check the type to create the correct object type.
             # try:
             if control_cfg['type'].lower() == 'single':
-                print("Will pass argments:")
-                print(dict(**control_cfg))
                 self._controls[control_cfg['id']] = brickmaster2.controls.CtrlSingle(
                     ctrl_id = control_cfg['id'],
                     name = control_cfg['name'],
@@ -287,7 +257,7 @@ class BrickMaster2:
                     icon = control_cfg['icon'],
                     log_level=self._bm2config.system['log_level'])
             # elif control_cfg['type'].lower() == 'latching':
-            #     print("Will pass argments:")
+            #     print("Will pass arguments:")
             #     print(dict(**control_cfg))
             #     self._controls[control_cfg['id']] = (brickmaster2.controls.CtrlLatching(**control_cfg, core=self,
             #         publish_time=publish_time, extio_obj=extio_obj, log_level=self._bm2config.system['log_level']))
@@ -372,7 +342,7 @@ class BrickMaster2:
         for script_file in script_list:
             self._logger.info("Setting up script: {}".format(script_file))
             try:
-                f = io.open(script_file, mode="r", encoding="utf-8")
+                f = io.open(script_file, encoding="utf-8")
                 with f as source:
                     script_data = json.load(source)
             except FileNotFoundError:
@@ -448,6 +418,35 @@ class BrickMaster2:
             self._logger.info("Core: No I2C bus defined. Skipping setup.")
             self._i2c_bus = None
 
+    def _setup_indicators(self):
+        """
+        Create status indicators for neton and netoff based on config.
+
+        :return: dict
+        """
+        self._logger.info("Core: Creating status indicator controls.")
+
+        indicators = {}
+        for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
+            target_id = target[0]
+            name = target[1]
+            self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
+            try:
+                if self._bm2config.system['indicators'][target_id] is not None:
+                    indicators[target_id] = brickmaster2.controls.CtrlSingle(target_id, name, self,
+                                                                            self._bm2config.system['indicators'][target_id],15)
+                else:
+                    self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
+                    indicators[target_id] = brickmaster2.controls.CtrlNull(target_id, name, self)
+            except (KeyError, TypeError):
+                 self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
+                 indicators[target_id] = brickmaster2.controls.CtrlNull(target_id, name, self)
+            except AttributeError:
+                 self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
+                     self._bm2config.system['indicators'][target_id], target_id))
+                 indicators[target_id] = brickmaster2.controls.CtrlNull(target_id, name, self)
+
+        return indicators
 
     # Active script. Returns friendly name of the Active Script. Used to send to MQTT.
     @property
@@ -499,6 +498,7 @@ class BrickMaster2:
         Shut off controls and displays, then exit.
 
         :param signalNumber: Signal called for exit.
+        :param message: Message for exit
         :return: None
         """
         if isinstance(signalNumber, int) and 'signal' in sys.modules:
@@ -537,7 +537,7 @@ class BrickMaster2:
         self._print_or_log("critical", "Core: Setting system run light off.")
         # Set the system light off.
         try:
-            self._led_sysrun.value = False
+            self._indicators['sysrun'].value = False
         except AttributeError:
             pass
         self._print_or_log("critical", "Core: Cleanup complete.")

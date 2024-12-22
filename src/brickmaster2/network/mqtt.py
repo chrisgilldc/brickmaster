@@ -20,8 +20,8 @@ def initial_messages(short_name, topic_prefix='brickmaster2'):
     """
 
     outbound_messages = [
-        {'topic': 'brickmaster2/' + short_name + '/system/board_id', 'message': board.board_id},
-        {'topic': 'brickmaster2/' + short_name + '/system/pins', 'message': brickmaster2.util.board_pins()}
+        {'topic': topic_prefix + '/' + short_name + '/system/board_id', 'message': board.board_id},
+        {'topic': topic_prefix + '/' + short_name + '/system/pins', 'message': brickmaster2.util.board_pins()}
     ]
     return outbound_messages
 
@@ -40,6 +40,8 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
     :type logger: adafruit_logger
     :param force_repeat: Should we send messages that haven't changed since previous send?
     :type force_repeat: bool
+    :param topic_prefix: Base topic to send messages to. Defaults to 'brickmaster2'.
+    :type topic_prefix: str
     :return: dict
     """
     outbound_messages = [
@@ -97,7 +99,9 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
 
 # HA Device Info
 def ha_device_info(system_id, long_name, ha_area, version):
-    # Device info to include in all Home Assistant discovery messages.
+    """
+    Device information to include in Home Assistant discovery messages.
+    """
     return_data = dict(
         name=long_name,
         identifiers=[system_id],
@@ -189,7 +193,6 @@ def ha_discovery_activescript(short_name, system_id, device_info, topic_prefix, 
     :param device_info: Device info block.
     :param topic_prefix: Topic prefix
     :param ha_base: Home Assistant topic base
-    :param mode: Memory mode.
     :return: list
     """
     discovery_dict = {
@@ -289,7 +292,6 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
         'availability': ha_availability(topic_prefix, short_name)
     }
 
-    return_list = []
     if mode == 'unified':
         # Unified just sets up Memory, Percent Free. Add in the other memory info as JSON attributes.
         memfreepct_dict['json_attributes_topic'] = topic_prefix + short_name + '/meminfo'

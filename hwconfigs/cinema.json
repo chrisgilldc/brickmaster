@@ -6,12 +6,12 @@
     "log_level": "warning",
     "i2c": "True",
     "ha": {
-      "area": ### Area name here is recommended but not required. ###
+      "area": "### Area name here. Not required, but recommended. ###"
     },
     "mqtt": {
-      "broker": ### Broker hostname or IP ###
-      "user": ### MQTT Username ###,
-      "key": ### MQTT Password ###
+      "broker": "### Broker Hostname or IP ###",
+      "user": "### MQTT Username ###",
+      "key": "### MQTT Password ###"
     }
   },
   "controls": [
@@ -19,30 +19,26 @@
       "id": "streetlight",
       "name": "Street Light",
       "icon": "mdi:floor-lamp",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 1
+      "extio": "0x58",
+      "pins": 1
     },
     {
       "id": "marquee",
       "name": "Marquee",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 5
+      "extio": "0x58",
+      "pins": 5
     },
     {
       "id": "posters",
       "name": "Movie Posters",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 6
+      "extio": "0x58",
+      "pins": 6
     },
     {
       "id": "accent",
       "name": "Accent Lights",
-      "type": "aw9523",
-      "addr": "0x58",
-      "pin": 0
+      "extio": "0x58",
+      "pins": 0
     }
   ],
   "displays": [
