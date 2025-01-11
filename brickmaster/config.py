@@ -15,7 +15,7 @@ class BM2Config:
     """
     def __init__(self, config_json):
         self._config = config_json
-        self._logger = logging.getLogger("BrickMaster2")
+        self._logger = logging.getLogger("Brickmaster")
         self._logger.setLevel(logging.INFO)
 
         if not self._validate():

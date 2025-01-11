@@ -2,18 +2,18 @@
 # Aimed for Linux/cpython by default, on the theory you'll set up circuitpython by hand anyway.
 
 # Common requirements
-adafruit-circuitpython-ht16k33 >= 4.6.9
-adafruit-circuitpython-logging ~= 5.5.2
+#adafruit-circuitpython-ht16k33 >= 4.6.9
+#adafruit-circuitpython-logging ~= 5.5.2
 # adafruit-circuitpython-logging ~= 5.3.1 # Oddly, 5.4 seems to break things.
-adafruit-circuitpython-aw9523 ~= 1.1.10
+#adafruit-circuitpython-aw9523 ~= 1.1.10
 
 # Linux/cpython only.
-Adafruit-Blinka >= 8.45.0
-netifaces2 >= 0.0.22
-paho-mqtt >= 2.1.0
-psutil >= 6.0.0
-pid >= 3.0.4
-rpi.gpio >= 0.7.1
+#Adafruit-Blinka >= 8.45.0
+#netifaces2 >= 0.0.22
+#paho-mqtt >= 2.1.0
+#psutil >= 6.0.0
+#pid >= 3.0.4
+#rpi.gpio >= 0.7.1
 
 # adafruit-circuitpython-datetime >= 1.2.7 # May no longer be needed.
 

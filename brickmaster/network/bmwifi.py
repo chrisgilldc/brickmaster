@@ -1,23 +1,23 @@
 """
-BrickMaster Wifi Handling
+Brickmaster Wifi Handling
 """
 import adafruit_logging
 import adafruit_connection_manager
 import supervisor
 import time
-import brickmaster2.const
-import brickmaster2.util
+import brickmaster.const
+import brickmaster.util
 
 
 
 class BMWiFi:
     """
-    BrickMaster WiFi Handling for CircuitPython Boards
+    Brickmaster WiFi Handling for CircuitPython Boards
     """
     def __init__(self, ssid, password, wifihw=None, retry_limit = 5, retry_time = 30, hostname = None, 
                  log_level=adafruit_logging.DEBUG):
         """
-        Set up the BrickMaster WiFi handler. Works for ESP32s, direct or SPI connected.
+        Set up the Brickmaster WiFi handler. Works for ESP32s, direct or SPI connected.
 
         :param ssid: Network to connect to.
         :type ssid: str
@@ -34,7 +34,7 @@ class BMWiFi:
         :param log_level:
         """
         # Create the logger and set the level to debug. This will get reset later.
-        self._logger = adafruit_logging.getLogger("BrickMaster2")
+        self._logger = adafruit_logging.getLogger("Brickmaster")
         self._logger.setLevel(log_level)
 
         self._hostname = hostname
@@ -47,7 +47,7 @@ class BMWiFi:
         self._ssid = ssid
         if wifihw is None:
             self._logger.warning("WIFI: Hardware not defined. Trying to determine automatically.")
-            self._wifihw = brickmaster2.util.determine_wifi_hw()
+            self._wifihw = brickmaster.util.determine_wifi_hw()
             self._logger.warning("WIFI: Auto-determined hardware to be '{}'".format(self._wifihw))
         else:
             self._wifihw = wifihw
@@ -63,7 +63,7 @@ class BMWiFi:
         tries = 0
         if self.is_connected:
             self._logger.debug("WIFI: Already connected, nothing more to do.")
-            return brickmaster2.const.NET_STATUS_CONNECTED
+            return brickmaster.const.NET_STATUS_CONNECTED
         else:
             if self._wifihw == 'esp32spi':
                 while tries < self._retry_limit:
@@ -91,12 +91,12 @@ class BMWiFi:
                     else:
                         self._ip = self._wifi.pretty_ip(self._wifi.ip_address)
                         self._logger.info(f"WiFi: Connected to '{self._ssid}', received IP '{self._ip}'")
-                        return brickmaster2.const.NET_STATUS_CONNECTED
-                return brickmaster2.const.NET_STATUS_DISCONNECTED
+                        return brickmaster.const.NET_STATUS_CONNECTED
+                return brickmaster.const.NET_STATUS_DISCONNECTED
             else:
                 self._wifi.connect(ssid=self._ssid, password=self._password)
                 self._ip = self._wifi.ipv4_address
-                return brickmaster2.const.NET_STATUS_CONNECTED
+                return brickmaster.const.NET_STATUS_CONNECTED
 
     def disconnect(self):
         """
@@ -108,11 +108,11 @@ class BMWiFi:
                 self._wifi.disconnect()
             except OSError:
                 self._logger.critical("WiFi: Could not disconnect from WiFi Network.")
-                raise brickmaster2.exceptions.BM2RecoverableError("WiFi could not disconnect")
+                raise brickmaster.exceptions.BMRecoverableError("WiFi could not disconnect")
             else:
-                return brickmaster2.const.NET_STATUS_DISCONNECTED
+                return brickmaster.const.NET_STATUS_DISCONNECTED
         else:
-            return brickmaster2.const.NET_STATUS_NOACTION
+            return brickmaster.const.NET_STATUS_NOACTION
 
     @property
     def is_connected(self):
@@ -187,8 +187,12 @@ class BMWiFi:
                        self._wifi.mac_address[3], self._wifi.mac_address[4], self._wifi.mac_address[5])
             # Set the hostname
             if self._hostname is not None:
-                self._wifi.hostname = self._hostname
-                self._logger.info(f"Wifi: Set hostname to '{self._wifi.hostname}'")
+                try:
+                    self._wifi.hostname = self._hostname
+                except ValueError:
+                    self._logger.error("WiFi: Hostname '{}' is not valid. Using default of '{}'".format(self._hostname, self._wifi.hostname))
+                else:
+                    self._logger.info(f"Wifi: Set hostname to '{self._wifi.hostname}'")
         elif self._wifihw == 'esp32spi':
             # Conditional imports for ESP32SPI boards.
             ## Board

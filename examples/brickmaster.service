@@ -5,8 +5,8 @@ After=sys-subsystem-net-devices-wlan0.device
 
 [Service]
 Type=simple
-Environment="PYTHONPATH=/home/pi/brickmaster2-main/src"
-ExecStart=/home/pi/.env_bm2/bin/python3 /home/pi/brickmaster2-main/cli/bm2cli.py -c /home/pi/config.json
+Environment="PYTHONPATH=/home/pi/brickmaster-main/src"
+ExecStart=/home/pi/.env_bm2/bin/python3 /home/pi/brickmaster-main/cli/bm2cli.py -c /home/pi/config.json
 
 [Install]
 WantedBy=default.target

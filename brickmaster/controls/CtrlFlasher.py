@@ -5,7 +5,7 @@ import time
 
 import adafruit_logging
 from .BaseControl import BaseControl
-from brickmaster2.gpio import EnhancedDigitalInOut
+from brickmaster.gpio import EnhancedDigitalInOut
 # import board
 # import digitalio
 from time import monotonic_ns

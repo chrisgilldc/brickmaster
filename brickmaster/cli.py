@@ -2,7 +2,7 @@
 """
 Brickmaster2 Command Executor.
 """
-import brickmaster2
+import brickmaster
 import pid
 import argparse
 from pathlib import Path
@@ -12,7 +12,7 @@ import os
 import sys
 from pprint import pprint
 
-import brickmaster2.util
+import brickmaster.util
 
 # Do some argument parsing here.
 cmd_opts = None
@@ -21,9 +21,9 @@ def main():
     """
     Main CLI Setup
     """
-    print("Brickmaster2 - {}".format(brickmaster2.__version__))
+    print("Brickmaster2 - {}".format(brickmaster.__version__))
     print("Running as '{}'".format(pwd.getpwuid(os.getuid()).pw_name))
-    sys_mac_id = brickmaster2.util.mac_id()
+    sys_mac_id = brickmaster.util.mac_id()
     print("This systems' MAC id is: {}".format(sys_mac_id))
     # Parse command line options.
     parser = argparse.ArgumentParser(
@@ -46,7 +46,7 @@ def main():
 
             # if args.netconfig:
             #     print("Loading network config from: {}".format(args.netconfig))
-            #     config_json = brickmaster2.util.fetch_config(args.netconfig)
+            #     config_json = brickmaster.util.fetch_config(args.netconfig)
             # else:
             if args.config is None:
                 print("No config path given. Trying './config.json'")
@@ -60,7 +60,7 @@ def main():
                 print("Config file '{}' does not exist! Cannot continue!".format(config_path))
                 sys.exit(1)
             else:
-                config_json = brickmaster2.util.load_config(config_path)
+                config_json = brickmaster.util.load_config(config_path)
 
             if args.dumpconfig:
                 print("Config read. Dump requested. Here it comes!")
@@ -73,7 +73,7 @@ def main():
 
             # Initialize the system
             print("CLI - Initializing...")
-            bm2 = brickmaster2.BrickMaster2(config_json, sys_mac_id)
+            bm2 = brickmaster.Brickmaster(config_json, sys_mac_id)
 
             # Exit if in test mode, otherwise start the run loop.
             if args.test:

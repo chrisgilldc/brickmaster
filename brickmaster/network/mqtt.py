@@ -7,26 +7,26 @@ classes to handle the actual publication!
 
 import adafruit_logging
 import json
-import brickmaster2.util
+import brickmaster.util
 import board
-import brickmaster2.controls.CtrlFlasher
+import brickmaster.controls.CtrlFlasher
 
-logger = adafruit_logging.getLogger('BrickMaster2')
+logger = adafruit_logging.getLogger('Brickmaster')
 logger.setLevel(adafruit_logging.DEBUG)
 
-def initial_messages(short_name, topic_prefix='brickmaster2'):
+def initial_messages(short_name, topic_prefix='brickmaster'):
     """
     Generate initial messages to send once on start-up that don't change dynamically.
     """
 
     outbound_messages = [
         {'topic': topic_prefix + '/' + short_name + '/system/board_id', 'message': board.board_id},
-        {'topic': topic_prefix + '/' + short_name + '/system/pins', 'message': brickmaster2.util.board_pins()}
+        {'topic': topic_prefix + '/' + short_name + '/system/pins', 'message': brickmaster.util.board_pins()}
     ]
     return outbound_messages
 
 
-def messages(core, object_register, short_name, logger, force_repeat=False, topic_prefix='brickmaster2'):
+def messages(core, object_register, short_name, logger, force_repeat=False, topic_prefix='brickmaster'):
     """
     Generate mqtt messages to send out.
 
@@ -40,12 +40,12 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
     :type logger: adafruit_logger
     :param force_repeat: Should we send messages that haven't changed since previous send?
     :type force_repeat: bool
-    :param topic_prefix: Base topic to send messages to. Defaults to 'brickmaster2'.
+    :param topic_prefix: Base topic to send messages to. Defaults to 'brickmaster'.
     :type topic_prefix: str
     :return: dict
     """
     outbound_messages = [
-        {'topic': 'brickmaster2/' + short_name + '/connectivity',
+        {'topic': 'brickmaster/' + short_name + '/connectivity',
          'message': 'online'}
     ]
 
@@ -60,23 +60,23 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
         #              format(control_object.id, type(control_object)))
         # Control statuses should be retained. This allows state to be preserved over HA restarts.
         outbound_messages.append(
-            {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
+            {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/status',
              'message': control_object.status, 'force_repeat': force_repeat, 'retain': True}
         )
         # Additional information for flashers
-        if isinstance(control_object, brickmaster2.controls.CtrlFlasher):
+        if isinstance(control_object, brickmaster.controls.CtrlFlasher):
             # Sequence position.
             outbound_messages.append(
-                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/seq_pos',
+                {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/seq_pos',
                  'message': control_object.seq_pos, 'force_repeat': force_repeat, 'retain': False}
             )
             # Running Configuration.
             outbound_messages.append(
-                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/loiter_time',
+                {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/loiter_time',
                  'message': control_object.loiter_time, 'force_repeat': force_repeat, 'retain': False}
             )
             outbound_messages.append(
-                {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/switch_time',
+                {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/switch_time',
                  'message': control_object.switch_time, 'force_repeat': force_repeat, 'retain': False}
             )
 
@@ -106,7 +106,7 @@ def ha_device_info(system_id, long_name, ha_area, version):
         name=long_name,
         identifiers=[system_id],
         manufacturer='ConHugeCo',
-        model='BrickMaster2 Lego Control',
+        model='Brickmaster Lego Control',
         suggested_area=ha_area,
         sw_version=str(version)
     )
@@ -177,7 +177,7 @@ def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, memi
     #TODO: Add discovery for scripts and send script data, ie: elapsed time.
     # The outbound topics dict includes references to the objects, so we can get the objects from there.
     # for item in self._topics_outbound:
-    #     if isinstance(self._topics_outbound[item]['obj'], brickmaster2.controls.CtrlGPIO):
+    #     if isinstance(self._topics_outbound[item]['obj'], brickmaster.controls.CtrlGPIO):
     #         discovered = False
     #         while not discovered:
     #             discovered = self.ha_discovery_gpio(self._topics_outbound[item]['obj'])
@@ -342,7 +342,7 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
     :param topic_prefix: Our own topic prefix
     :param ha_base: Prefix for Home Assistant
     :param control: GPIO control object
-    :type control: brickmaster2.controls.Control
+    :type control: brickmaster.controls.Control
     :return: list
     """
 
@@ -429,7 +429,7 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
 #     :param topic_prefix: Our own topic prefix
 #     :param ha_base: Prefix for Home Assistant
 #     :param display_obj: Display object
-#     :type display_obj: brickmaster2.BM2Display
+#     :type display_obj: brickmaster.BM2Display
 #     :return: list
 #     """
 #     raise NotImplemented("Nope, not yet!")

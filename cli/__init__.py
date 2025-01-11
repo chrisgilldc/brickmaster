@@ -1,3 +1,0 @@
-"""
-Brickmaster Command Line
-"""

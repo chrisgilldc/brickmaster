@@ -5,7 +5,7 @@ Brickmaster Scripts
 import adafruit_logging as logger
 import time
 import math
-from brickmaster2.segment_format import time_7s, number_7s
+from brickmaster.segment_format import time_7s, number_7s
 
 
 class BM2Script:
@@ -14,7 +14,7 @@ class BM2Script:
     """
     def __init__(self, script, controls):
         # Create a logger.
-        self._logger = logger.getLogger('BrickMaster2')
+        self._logger = logger.getLogger('Brickmaster')
         # Initialize variables
         self._run_count = 0  # Which run of the script are we on. Starts at zero!
         self._status = 'OFF'  # Status, start as idle.

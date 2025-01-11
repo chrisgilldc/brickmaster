@@ -4,7 +4,7 @@ Brickmaster Control - Single
 
 import adafruit_logging
 from .BaseControl import BaseControl
-from brickmaster2.gpio import EnhancedDigitalInOut
+from brickmaster.gpio import EnhancedDigitalInOut
 # import board
 # import digitalio
 
@@ -77,7 +77,7 @@ class CtrlSingle(BaseControl):
         :param message: Message.
         :return: None
         """
-        print("Control: Incoming message is '{}' ({})".format(message, type(message)))
+        # print("Control: Incoming message is '{}' ({})".format(message, type(message)))
         if isinstance(message, str):
             # MiniMQTT (Circuitpython) outputs a straight string.
             message_text = message.lower()

@@ -11,23 +11,23 @@ import io
 import json
 import os
 import sys
-import brickmaster2
+import brickmaster
 
 
-class BrickMaster2:
+class Brickmaster:
     """
-    Core BrickMaster2 class. Create one of these, then run it.
+    Core Brickmaster class. Create one of these, then run it.
     """
     def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None):
         """
-        BrickMaster2 Core Module
+        Brickmaster Core Module
 
         :param config_json: A JSON config
         :type config_json: str
         :param mac_id: Interface MAC being used as the system ID.
         :type mac_id: str
         :param wifi_obj: Wifi Object. ONLY used for CircuitPython
-        :type wifi_obj: brickmaster2.network.BM2WiFi
+        :type wifi_obj: brickmaster.network.BMWiFi
         """
         # Force a garbage collection
         gc.collect()
@@ -39,7 +39,7 @@ class BrickMaster2:
         self._i2c_bus = None
         # If system running indicator was passed, use it, otherwise set up a null indicator.
         if self._indicators['sysrun'] is None:
-            self._indicators['sysrun'] = brickmaster2.controls.CtrlNull('sysrun', 'System Status Null', self)
+            self._indicators['sysrun'] = brickmaster.controls.CtrlNull('sysrun', 'System Status Null', self)
 
         self._scripts = {} # Scripts
         self._extgpio = {} # GPIO Expanders (ie: AW9523 boards)
@@ -62,13 +62,13 @@ class BrickMaster2:
 
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
-        self._logger = logging.getLogger('BrickMaster2')
+        self._logger = logging.getLogger('Brickmaster')
         # Start out at the DEBUG level. The Config module will load the log level
         # From the config file and adjust appropriately.
         self._logger.setLevel(logging.DEBUG)
 
         # Validate the config and process it.
-        self._bm2config = brickmaster2.BM2Config(config_json)
+        self._bm2config = brickmaster.BM2Config(config_json)
 
         # Reset the log level based on the config.
         self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
@@ -168,7 +168,7 @@ class BrickMaster2:
 
             # Update controls which have timers.
             for control in self._controls:
-                if isinstance(self._controls[control], brickmaster2.controls.CtrlFlasher):
+                if isinstance(self._controls[control], brickmaster.controls.CtrlFlasher):
                     self._controls[control].update()
 
             # If there's an active script, do it.
@@ -247,7 +247,7 @@ class BrickMaster2:
             # Check the type to create the correct object type.
             # try:
             if control_cfg['type'].lower() == 'single':
-                self._controls[control_cfg['id']] = brickmaster2.controls.CtrlSingle(
+                self._controls[control_cfg['id']] = brickmaster.controls.CtrlSingle(
                     ctrl_id = control_cfg['id'],
                     name = control_cfg['name'],
                     core = self,
@@ -259,10 +259,10 @@ class BrickMaster2:
             # elif control_cfg['type'].lower() == 'latching':
             #     print("Will pass arguments:")
             #     print(dict(**control_cfg))
-            #     self._controls[control_cfg['id']] = (brickmaster2.controls.CtrlLatching(**control_cfg, core=self,
+            #     self._controls[control_cfg['id']] = (brickmaster.controls.CtrlLatching(**control_cfg, core=self,
             #         publish_time=publish_time, extio_obj=extio_obj, log_level=self._bm2config.system['log_level']))
             elif control_cfg['type'].lower() == 'flasher':
-                self._controls[control_cfg['id']] = (brickmaster2.controls.CtrlFlasher(
+                self._controls[control_cfg['id']] = (brickmaster.controls.CtrlFlasher(
                     ctrl_id = control_cfg['id'],
                     name = control_cfg['name'],
                     core = self,
@@ -290,7 +290,7 @@ class BrickMaster2:
             #     awboard=self._extgpio[control_cfg['addr']]
             # try:
             #     self._controls[control_cfg['id']] = (
-            #         brickmaster2.controls.CtrlSingle(**control_cfg, core=self, publish_time=publish_time, awboard=awboard,
+            #         brickmaster.controls.CtrlSingle(**control_cfg, core=self, publish_time=publish_time, awboard=awboard,
             #                                          log_level=self._bm2config.system['log_level']))
             # except (AssertionError, AttributeError, ValueError):
             #     self._logger.warning("Could not create control.")
@@ -310,7 +310,7 @@ class BrickMaster2:
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
-            self._displays[display_cfg['name']] = brickmaster2.Display(display_cfg, self._i2c_bus, )
+            self._displays[display_cfg['name']] = brickmaster.Display(display_cfg, self._i2c_bus, )
             if display_cfg['idle']['show'] == 'time':
                 self._clocks.append(display_cfg['name'])
             elif display_cfg['idle']['show'] == 'date':
@@ -361,13 +361,13 @@ class BrickMaster2:
                 try:
                     if script_data['type'] == 'flight':
                         self._logger.debug("Core: Creating flight script object '{}'".format(script_data['script']))
-                        script_obj = brickmaster2.scripts.BM2FlightScript(script_data, self._controls, self._displays)
+                        script_obj = brickmaster.scripts.BM2FlightScript(script_data, self._controls, self._displays)
                     else:
                         self._logger.debug("Creating basic script object '{}'".format(script_data['script']))
-                        script_obj = brickmaster2.scripts.BM2Script(script_data, self._controls)
+                        script_obj = brickmaster.scripts.BM2Script(script_data, self._controls)
                 except KeyError:
                     self._logger.debug("Creating basic script object...")
-                    script_obj = brickmaster2.scripts.BM2Script(script_data, self._controls)
+                    script_obj = brickmaster.scripts.BM2Script(script_data, self._controls)
                 # Pass the script object the script data along with the controls that exist.
 
                 self._scripts[script_obj.name] = script_obj
@@ -403,7 +403,8 @@ class BrickMaster2:
         return aw
 
     def _setup_i2c_bus(self):
-        if self._bm2config.system['i2c'] is not None:
+        self._logger.debug("Core: I2C value is {}".format(self._bm2config.system['i2c']))
+        if self._bm2config.system['i2c']:
             try:
                 self._i2c_bus = busio.I2C(board.SCL, board.SDA)
             except RuntimeError as e:
@@ -433,18 +434,18 @@ class BrickMaster2:
             self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
             try:
                 if self._bm2config.system['indicators'][target_id] is not None:
-                    indicators[target_id] = brickmaster2.controls.CtrlSingle(target_id, name, self,
+                    indicators[target_id] = brickmaster.controls.CtrlSingle(target_id, name, self,
                                                                             self._bm2config.system['indicators'][target_id],15)
                 else:
                     self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-                    indicators[target_id] = brickmaster2.controls.CtrlNull(target_id, name, self)
+                    indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
             except (KeyError, TypeError):
                  self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-                 indicators[target_id] = brickmaster2.controls.CtrlNull(target_id, name, self)
+                 indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
             except AttributeError:
                  self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
                      self._bm2config.system['indicators'][target_id], target_id))
-                 indicators[target_id] = brickmaster2.controls.CtrlNull(target_id, name, self)
+                 indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
 
         return indicators
 

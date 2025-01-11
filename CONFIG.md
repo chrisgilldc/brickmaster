@@ -1,4 +1,4 @@
-# BrickMaster2
+# Brickmaster
 ## Configuration file
 
 The configuration file is a JSON text file, which unfortunately means it can't be commented.

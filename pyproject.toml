@@ -1,13 +1,14 @@
 [project]
-name = "BrickMaster2"
+name = "Brickmaster"
 dynamic = ["version"]
 authors = [
   { name="Christopher Gill", email="chris@chrisgill.net" },
 ]
-description = "CobraBay Parking Guidance System"
+description = "Brickmaster Lego Control"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = [
+    "adafruit-circuitpython-logging",
     "adafruit-circuitpython-ht16k33",
     "adafruit-circuitpython-logging",
     "Adafruit-Blinka",
@@ -25,8 +26,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/chrisgilldc/cobrabay"
-Issues = "https://github.com/chrisgilldc/cobrabay/issues"
+Homepage = "https://github.com/chrisgilldc/brickmaster"
+Issues = "https://github.com/chrisgilldc/brickmaster/issues"
 
 [build-system]
 requires = ["hatchling"]

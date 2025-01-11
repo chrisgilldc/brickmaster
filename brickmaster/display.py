@@ -13,7 +13,7 @@ class Display:
     """
     def __init__(self, config, i2c_bus):
         # Create a logger
-        self._logger = logger.getLogger('BrickMaster2')
+        self._logger = logger.getLogger('Brickmaster')
         # Save the config.
         self._config = config
 

@@ -4,7 +4,7 @@ Brickmaster Base Control
 import adafruit_logging
 # import board
 # import digitalio
-# from brickmaster2.gpio import EnhancedDigitalInOut
+# from brickmaster.gpio import EnhancedDigitalInOut
 
 
 class BaseControl:
@@ -45,7 +45,7 @@ class BaseControl:
         self._status = None
 
         # Create a logger with the specified logger.
-        self._logger = adafruit_logging.getLogger('BrickMaster2')
+        self._logger = adafruit_logging.getLogger('Brickmaster')
         self._logger.setLevel(log_level)
         self._logger.debug("Control {}: Set icon to '{}'".format(self._ctrl_id, self._icon))
 

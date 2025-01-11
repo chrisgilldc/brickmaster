@@ -1,6 +1,6 @@
 ####
 #
-# BRICKMASTER2
+# BRICKMASTER
 #
 ####
 
@@ -64,8 +64,8 @@ _Probably works for other Linux versions, but not tested, adapt as appropriate._
 1. Download the code from github: 
 
 
-     `wget https://github.com/chrisgilldc/brickmaster2/archive/refs/heads/main.zip`
-2. Extract the file. This will put code into `~/brickmaster2-main`:
+     `wget https://github.com/chrisgilldc/brickmaster/archive/refs/heads/main.zip`
+2. Extract the file. This will put code into `~/brickmaster-main`:
 
 
      `unzip main.zip`
@@ -80,16 +80,16 @@ _Probably works for other Linux versions, but not tested, adapt as appropriate._
 5. Install all the python requirements.
 
 
-     `pip3 install -r ~/brickmaster2-main/requirements.txt`
-6. Create a config file. You can do this from scratch or copy a file from `~/brickmaster2-main/hwconfigs/`, which has 
-starting configs for [BrickMaster Hardware](hardware.md). By default, the systemd unit will try to load `~/config.json`.
+     `pip3 install -r ~/brickmaster-main/requirements.txt`
+6. Create a config file. You can do this from scratch or copy a file from `~/brickmaster-main/hwconfigs/`, which has 
+starting configs for [Brickmaster Hardware](hardware.md). By default, the systemd unit will try to load `~/config.json`.
 6. Create a scripts directory separate from the distribution. This will make sure any custom scripts don't get 
 overwritten in future updates.
 
 
      `mkdir ~/scripts`
 
-     `cp -R ~/brickmaster2-main/scripts/* ~/scripts`
+     `cp -R ~/brickmaster-main/scripts/* ~/scripts`
 7. Make a user systemd directory. This isn't created by default on a freshly installed system.
 
 
@@ -97,28 +97,28 @@ overwritten in future updates.
 8. Copy the example systemd unit to ~/.config/systemd/user.
 
 
-     `cp ~/brickmaster2-main/examples/brickmaster2.service ~/.config/systemd/user`
+     `cp ~/brickmaster-main/examples/brickmaster.service ~/.config/systemd/user`
 9. If your config file is somewhere other than `~/config.json`, update the unit file to point to that file. Edit the 
 `ExecStart` line with the full path of the config file.
-10. Have systemd reload the user units so brickmaster2 is available.
+10. Have systemd reload the user units so brickmaster is available.
 
 
      `systemctl --user daemon-reload`
 11. Start brickmaster.
 
 
-     `systemctl --user start brickmaster2.service`
+     `systemctl --user start brickmaster.service`
 12. Check the status of the unit. Be sure the active line says `active (running)`.
 
 
-     `systemctl --user status brickmaster2.service`
+     `systemctl --user status brickmaster.service`
 
 13. If it started successfully, enable the unit.
 
 
-     `systemctl --user enable brickmaster2.service`
+     `systemctl --user enable brickmaster.service`
 14. Enable linger for the user. This will start the user's systemd instance on system boot and in turn start
-brickmaster2.
+brickmaster.
 
     
      `sudo loginctl enable-linger pi`
@@ -137,9 +137,9 @@ brickmaster2.
 1. Download the package from github.
 
 
-     `wget https://github.com/chrisgilldc/brickmaster2/archive/refs/heads/main.zip`
-2. Extract the package. The package location will be referred to here as "brickmaster2-main" (wherever you have it).
-3. Copy "brickmaster2-main/src/brickmaster2" to your circuitpython board's `lib` directory.
+     `wget https://github.com/chrisgilldc/brickmaster/archive/refs/heads/main.zip`
+2. Extract the package. The package location will be referred to here as "brickmaster-main" (wherever you have it).
+3. Copy "brickmaster-main/src/brickmaster" to your circuitpython board's `lib` directory.
 4. Copy the following libraries from the bundle into the board's `lib` directory. If using the web workflow, the bolded 
 libraries are directories and need to use the directory upload option. 
    * adafruit_aw9523.mpy
@@ -150,11 +150,11 @@ libraries are directories and need to use the directory upload option.
    * **adafruit_minimqtt**
    * **adafruit_register**
    * adafruit_ticks.mpy
-5. Create a config file. You can do this from scratch or copy a file from `brickmaster2-main/hwconfigs/`, which has 
-starting configs for [BrickMaster Hardware](hardware.md). Place the config file in the board's root directory.
-6. Create a `settings.toml` file. You can start with `brickmaster2-main/examples/settings.toml`.
+5. Create a config file. You can do this from scratch or copy a file from `brickmaster-main/hwconfigs/`, which has 
+starting configs for [Brickmaster Hardware](hardware.md). Place the config file in the board's root directory.
+6. Create a `settings.toml` file. You can start with `brickmaster-main/examples/settings.toml`.
    * Fill in all the required parameters with your SSID and Password.
    * An increased, 4Mb PYSTACK size is set by default in the example. This is tested as good on the Metro M4 Airlift.
-7. Copy "brickmaster2-main/circuitpy-code.py" to your circuitpython board's root directory as `code.py`.
+7. Copy "brickmaster-main/circuitpy-code.py" to your circuitpython board's root directory as `code.py`.
 8. Connect to the serial console (via USB or Web Workflow, depending) and monitor startup.
 
