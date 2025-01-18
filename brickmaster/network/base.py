@@ -157,7 +157,7 @@ class BM2Network:
 
         :return:
         """
-        self._logger.debug("Network: Attempting MQTT connection.")
+        self._logger.debug("Network: Starting MQTT connection...")
         try:
             # Call the connection method. This gets overridden by a subclass if needed.
             self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
@@ -180,11 +180,48 @@ class BM2Network:
             # Reset the trackers
             self._total_failures = 0
             self._retry_time = 5
-            # Set our status to connecting. This will make the run loop check for connection acknowledgements from the
-            # broker.
-            self.status = const.NET_STATUS_CONNECTING
-            self._logger.info("Network: MQTT connection attempt completed. Awaiting acknowledgement...")
+            if self.status[0] == const.NET_STATUS_CONNECTED:
+                # If we already got a CONNACK from the broker during the connect call, don't set us back.
+                self._logger.info("Network: MQTT connection completed.")
+            else:
+                # Otherwise, set us to CONNECTING and await CONNACK.
+                self.status = const.NET_STATUS_CONNECTING
+                self._logger.info("Network: MQTT connection attempt completed. Awaiting acknowledgement...")
             return True
+
+
+        # Old connect code....
+        # self._logger.debug("Network: Attempting MQTT connection.")
+        # try:
+        #     # Call the connection method. This gets overridden by a subclass if needed.
+        #     self._mc_connect(host=self._mqtt_broker, port=self._mqtt_port)
+        # except brickmaster.exceptions.BMRecoverableError as e:
+        #     # Update our failure tracker.
+        #     self._total_failures += 1
+        #     if self._retry_time < 120:
+        #         self._retry_time += 5
+        #     self._logger.warning("Network: Could not connect to MQTT broker. Received exception '{}'".format(e.__cause__))
+        #     self._logger.warning("Network: {} failures. Will retry in {}s.".
+        #                          format(self._total_failures, self._retry_time))
+        #     self._logger.debug("Network: Exception is type '{}', args is '{}'".format(type(e.__cause__), e.__cause__))
+        #     return False
+        # except brickmaster.exceptions.BMFatalError as e:
+        #     self._logger.critical("Network: Fatal exception while attempting to connect to MQTT Broker ''".
+        #                           format(e.__cause__))
+        #     self._logger.critical("Network: Made {} attempts before fatal error.".format(self._total_failures))
+        #     raise
+        # else:
+        #     # Reset the trackers
+        #     self._total_failures = 0
+        #     self._retry_time = 5
+        #     if self.status == const.NET_STATUS_CONNECTED:
+        #         # If we already got a CONNACK from the broker during the connect call, don't set us back.
+        #         self._logger.info("Network: MQTT connection completed.")
+        #     else:
+        #         # Otherwise, set us to CONNECTING and await CONNACK.
+        #         self.status = const.NET_STATUS_CONNECTING
+        #         self._logger.info("Network: MQTT connection attempt completed. Awaiting acknowledgement...")
+        #     return True
 
     def disconnect(self):
         """
@@ -257,32 +294,41 @@ class BM2Network:
             # that the broker acknowledged it.
             self._mc_loop()
         elif self.status[0] == const.NET_STATUS_DISCONNECTED:
-            self._logger.debug("Network: Not connected. Will attempt connection if retry time has expired.")
-            try_reconnect = False # Flag to trigger the connection attempt.
-            # Has the retry time expired?
-            try:
-                if time.monotonic() - self._reconnect_timestamp > self._retry_time:
-                    self._logger.info(f"Network: {self._retry_time}s since previous MQTT connection attempt. Retrying...")
-                    try_reconnect = True
-                    self._reconnect_timestamp = time.monotonic()
-            except TypeError:
-                try_reconnect = True
-                self._reconnect_timestamp = time.monotonic()
+            if self._total_failures == 0:
+                # If we're disconnected and haven't failed before, try to connect immediately.
+                self._logger.debug("Network: Disconnected, trying to connect to MQTT broker.")
+                self.connect()
+            elif self._total_failures > 0 and time.monotonic() - self._reconnect_timestamp > self._retry_time:
+                # If retry time has expired, try to connect.
+                self._logger.info("Network: Retry time of {}s has expired. Retrying MQTT connection...".
+                                  format(self._retry_time))
+                self.connect()
 
-            if try_reconnect:
-                reconnect = self.connect()
-                self._logger.debug("Network: MQTT connect call returned '{}'".format(reconnect))
-                # If we failed to reconnect, mark it as failure and return.
-                if reconnect:
-                    self._logger.debug("Network: Pre-existing connection status was '{}'".format(self.status[0]))
-                    # If the status isn't already connected, set us to connecting. Doing this check prevents setting us
-                    # back to connected if we received an acknowledgement from the broker during the connect call.
-                    if self.status[0] != const.NET_STATUS_CONNECTED:
-                        self.status = const.NET_STATUS_CONNECTING
-                else:
-                    self._logger.warning(f"Network: Could not connect to MQTT broker. Will retry in {self._retry_time}s.")
-                    return return_data
-
+            # self._logger.debug("Network: Not connected. Will attempt connection if retry time has expired.")
+            # try_reconnect = False # Flag to trigger the connection attempt.
+            # # Has the retry time expired?
+            # try:
+            #     if time.monotonic() - self._reconnect_timestamp > self._retry_time:
+            #         self._logger.info(f"Network: {self._retry_time}s since previous MQTT connection attempt. Retrying...")
+            #         try_reconnect = True
+            #         self._reconnect_timestamp = time.monotonic()
+            # except TypeError:
+            #     try_reconnect = True
+            #     self._reconnect_timestamp = time.monotonic()
+            #
+            # if try_reconnect:
+            #     reconnect = self.connect()
+            #     self._logger.debug("Network: MQTT connect call returned '{}'".format(reconnect))
+            #     # If we failed to reconnect, mark it as failure and return.
+            #     if reconnect:
+            #         self._logger.debug("Network: Pre-existing connection status was '{}'".format(self.status[0]))
+            #         # If the status isn't already connected, set us to connecting. Doing this check prevents setting us
+            #         # back to connected if we received an acknowledgement from the broker during the connect call.
+            #         if self.status[0] != const.NET_STATUS_CONNECTED:
+            #             self.status = const.NET_STATUS_CONNECTING
+            #     else:
+            #         self._logger.warning(f"Network: Could not connect to MQTT broker. Will retry in {self._retry_time}s.")
+            #         return return_data
         elif self.status[0] == const.NET_STATUS_DISCONNECT_PLANNED:
             self._logger.debug("Network: Disconnected by request. Will not attempt connection.")
         else:
@@ -397,7 +443,7 @@ class BM2Network:
             self._logger.debug(f"Network: Subscribing to control topic for '{self._object_register['controls'][control_id].id}'")
             self._mc_subscribe('brickmaster/' + self._short_name + '/controls/' +
                                self._object_register['controls'][control_id].id + '/set')
-            # Connect the callback.
+            # Connect the callback.f
             self._mc_callback_add(
                 'brickmaster/' + self._short_name + '/controls/' +
                 self._object_register['controls'][control_id].id + '/set',
@@ -405,7 +451,6 @@ class BM2Network:
 
         # Send the online message.
         self._send_online()
-
 
         # Do Home Assistant Discovery.
         self._logger.debug("Network: On Connect invoking HA Discovery.")

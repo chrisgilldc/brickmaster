@@ -55,7 +55,6 @@ class CtrlSingle(BaseControl):
             self._gpio_obj.value = False
         else:
             self._logger.warning(f"Control: ID '{self.name}' received unknown set value '{value}'")
-            print(f"Control: ID '{self.name}' received unknown set value '{value}'")
 
     @property
     def status(self):

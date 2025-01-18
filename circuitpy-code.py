@@ -71,6 +71,10 @@ except KeyboardInterrupt:
     print("Received keyboard interrupt. Cleaning up.")
     sysrun_ctrl.set('off')
     bm2.cleanup_and_exit(message="User requested exit from keyboard.")
+except ReloadException:
+    print("File updated on board. Restarting...")
+    sysrun_ctrl.set('off')
+    bm2.cleanup_and_exit(message="File updated on board.")
 except brickmaster.exceptions.BMFatalError as fe:
     traceback.print_exception(fe)
     sysrun_ctrl.set('off')
@@ -82,6 +86,6 @@ except BaseException as e:
     print("Received unhandled exception - ")
     traceback.print_exception(e)
     print("Exception type: {}".format(type(e)))
-    print("Waiting for 30s before.")
+    print("Waiting for 30s before resetting.")
     time.sleep(30)
     microcontroller.reset()
