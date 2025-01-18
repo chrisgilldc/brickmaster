@@ -26,7 +26,10 @@ class BM2NetworkCircuitPython(BM2Network):
             raise
         else:
             self._logger.debug("Network: Calling base class connect method for MQTT.")
-            super().connect()
+            try:
+                return super().connect()
+            except BaseException:
+                raise
 
     def poll(self):
         """
@@ -77,6 +80,8 @@ class BM2NetworkCircuitPython(BM2Network):
             self._logger.warning("MiniMQTT: Generated exception '{}' from cause '{}".
                                  format(e.args[0],e.__cause__))
             raise brickmaster.exceptions.BMRecoverableError from e
+        else:
+            return True
 
     def _mc_loop(self):
         try:
