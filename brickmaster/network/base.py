@@ -12,6 +12,8 @@ import brickmaster.const as const
 import brickmaster.util
 import brickmaster.version
 import brickmaster.exceptions
+from ..exceptions import BMRecoverableError
+
 
 class BM2Network:
     """
@@ -125,7 +127,7 @@ class BM2Network:
         self._netoff.set('on')
 
         # Initialize variables
-        self._reconnect_timestamp = None
+        self._reconnect_timestamp = time.monotonic()
         self._total_failures = 0
         self._retry_time = 0
 
@@ -281,12 +283,17 @@ class BM2Network:
                 self._pub_message(**message)
             # Poll the MQTT broker.
             self._logger.debug("Network: Polling MQTT")
-            self._mc_loop()
-            self._logger.debug("Network: Poll complete.")
-            # Add the upward commands to the return data.
-            return_data['commands'] = self._upward_commands
-            # Remove the upward commands that are being forwarded.
-            self._upward_commands = []
+            try:
+                self._mc_loop()
+            except brickmaster.exceptions.BMRecoverableError:
+                self._logger.warning("Network (MQTT): Received exception while polling MQTT. Marking as disconnected.")
+                self.status = const.NET_STATUS_DISCONNECTED
+            else:
+                self._logger.debug("Network: Poll complete.")
+                # Add the upward commands to the return data.
+                return_data['commands'] = self._upward_commands
+                # Remove the upward commands that are being forwarded.
+                self._upward_commands = []
         elif self.status[0] == const.NET_STATUS_CONNECTING:
             self._logger.debug("Network: Awaiting broker acknowledgement.")
             # Make sure we still poll the broker to try to get its acknowledgement of our connection. We can't *assume*
@@ -571,7 +578,17 @@ class BM2Network:
             else:
                 outbound_message = message
             # Make the client-specific call!
-            self._mc_publish(topic, outbound_message, retain=retain)
+            if self.status[0] == const.NET_STATUS_CONNECTED:
+                try:
+                    self._mc_publish(topic, outbound_message, retain=retain)
+                except BMRecoverableError:
+                    self._logger.warning("Network: Received recoverable error while publishing. Marking MQTT disconnected for retry.")
+                    self.status = const.NET_STATUS_DISCONNECTED
+                except BaseException:
+                    self._logger.error("Network: Unhandled exception received while publishing!")
+                    raise
+            else:
+                self._logger.debug("Network: Won't publish because MQTT isn't connected.")
 
     # Method studs to be overridden.
     def _mc_callback_add(self, topic, callback):

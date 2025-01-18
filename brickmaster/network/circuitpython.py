@@ -86,10 +86,9 @@ class BM2NetworkCircuitPython(BM2Network):
     def _mc_loop(self):
         try:
             self._mini_client.loop(self._mqtt_timeout)
-        except ConnectionError:
-            # If the broker has gone away ping will fail and in turn MiniMQTT will throw a ConnectionError.
-            # We'll catch that and set ourselves as disconnected. This should let us recover gracefully.
-            self._mqtt_connected = False
+        except ConnectionError as e:
+            # Pass the exception upward and let the invoker handle it.
+            raise brickmaster.exceptions.BMRecoverableError from e
 
     def _mc_platform_messages(self):
         """
@@ -137,17 +136,17 @@ class BM2NetworkCircuitPython(BM2Network):
                                "Payload - '{}'.".format(topic, message))
             self._mini_client.publish(topic, message, retain, qos)
             self._logger.debug("Network (MiniMQTT): Publish complete.")
-        except BrokenPipeError:
-            self._logger.error("Network (MiniMQTT): Disconnection while publishing! Marking broker as not connected, will retry.")
-            self._mqtt_connected = False
+        except BrokenPipeError as e:
+            self._logger.error("Network (MiniMQTT): Disconnection while publishing!")
+            raise brickmaster.exceptions.BMRecoverableError from e
         except ConnectionError as e:
             self._logger.error("Network (MiniMQTT): Connection failed, raised error '{}'".format(e.args[0]))
-            self._mqtt_connected = False
+            raise brickmaster.exceptions.BMRecoverableError from e
         except OSError as e:
             if e.args[0] == 104:
                 self._logger.error("Network (MiniMQTT): Tried to publish while not connected! Marking broker as not connected, "
                                    "will retry.")
-                self._mqtt_connected = False
+                raise brickmaster.exceptions.BMRecoverableError from e
             else:
                 raise e
 
