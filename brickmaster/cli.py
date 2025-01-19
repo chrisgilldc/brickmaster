@@ -14,10 +14,7 @@ from pprint import pprint
 
 import brickmaster.util
 
-# Do some argument parsing here.
-cmd_opts = None
-
-def main():
+def bmcli():
     """
     Main CLI Setup
     """
@@ -87,4 +84,4 @@ def main():
         print("Cannot start, already running!")
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(bmcli())

@@ -34,4 +34,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "pkg/__about__.py"
+path = "brickmaster/version.py"
+
+[project.scripts]
+brickmaster = "brickmaster.cli:bmcli"
