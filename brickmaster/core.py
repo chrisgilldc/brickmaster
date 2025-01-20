@@ -256,11 +256,6 @@ class Brickmaster:
                     extio_obj = extio_obj,
                     icon = control_cfg['icon'],
                     log_level=self._bm2config.system['log_level'])
-            # elif control_cfg['type'].lower() == 'latching':
-            #     print("Will pass arguments:")
-            #     print(dict(**control_cfg))
-            #     self._controls[control_cfg['id']] = (brickmaster.controls.CtrlLatching(**control_cfg, core=self,
-            #         publish_time=publish_time, extio_obj=extio_obj, log_level=self._bm2config.system['log_level']))
             elif control_cfg['type'].lower() == 'flasher':
                 self._controls[control_cfg['id']] = (brickmaster.controls.CtrlFlasher(
                     ctrl_id = control_cfg['id'],

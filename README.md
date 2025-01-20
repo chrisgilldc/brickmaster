@@ -13,13 +13,12 @@ A (Circuit)Python application for controlling relays and devices. The most impor
 * Be able to do cool automations with connected devices (ie: Saturn 5 launch simulation)
 * Teach myself some more python (and hardware, and MQTT)
 
-## V0.6.0 Target Features
+## V0.6 Target Features
 - Option to load config from a remote site (ie: web directory)
 - Control options
-  - Multi-pin controls.
+  - ~~Multi-pin controls.~~ Done!
   - Groups to wrap multiple controls together.
-  - Multicast option, to let multiple Brickmaster systems work together.
-  - Flasher option.
+  - ~~Flasher option.~~ Done!
   - Multiple AW9523 expanders
 
 ## Latest Updates - V0.5.1
