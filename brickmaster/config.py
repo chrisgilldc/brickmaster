@@ -291,8 +291,11 @@ class BM2Config:
                     i += 1
                     continue
             elif isinstance(self._config['controls'][i]['pins'], list):
-                # List of pins is okay for a flasher...
-                pass
+                if self._config['controls'][i]['type'] != 'flasher':
+                    self._logger.error("Config: Control '{}' has a pin list defined, but is not set as a flasher.")
+                    to_delete.append(i)
+                    i += 1
+                    continue
             else:
                 self._logger.error("Config: Control '{}' has unsupported data for pin definition.".
                                 format(self._config['controls'][i]['name']))

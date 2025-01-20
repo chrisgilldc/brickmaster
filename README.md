@@ -11,15 +11,20 @@ A (Circuit)Python application for controlling relays and devices. The most impor
 ### Project Goals
 * Provide a common interface for a variety of devices
 * Be able to do cool automations with connected devices (ie: Saturn 5 launch simulation)
-* Teach myself some more python (and hardware, and MQTT)
+* Teach myself some more Python (and hardware, and MQTT)
+
+## v0.7 Target Features
+- Load config from a remote site.
+- Remote reload command to reset (and load new config!)
 
 ## V0.6 Target Features
-- Option to load config from a remote site (ie: web directory)
+- Option to load config from a remote site (ie: web directory) - Nope, moving to v0.7
+- Package for PyPi and Circup.
 - Control options
   - ~~Multi-pin controls.~~ Done!
-  - Groups to wrap multiple controls together.
+  - ~~Groups to wrap multiple controls together.~~ - Dropped. Probably better to group through Home Assistant.
   - ~~Flasher option.~~ Done!
-  - Multiple AW9523 expanders
+  - ~~Multiple AW9523 expanders~~ Tested, works! Note, still can't mix pins across sources for a single control.
 
 ## Latest Updates - V0.5.1
 - Debugged issues with client reconnection when the broker goes away (ie: restarts)
