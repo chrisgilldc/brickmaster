@@ -1,12 +1,11 @@
 [Unit]
-Description=Brickmaster2 Control System
+Description=Brickmaster Control System
 Requires=sys-subsystem-net-devices-wlan0.device
 After=sys-subsystem-net-devices-wlan0.device
 
 [Service]
 Type=simple
-Environment="PYTHONPATH=/home/pi/brickmaster-main/src"
-ExecStart=/home/pi/.env_bm2/bin/python3 /home/pi/brickmaster-main/cli/bm2cli.py -c /home/pi/config.json
+ExecStart=/home/pi/venv-brickmaster/bin/brickmaster -c /home/pi/config.json
 
 [Install]
 WantedBy=default.target
