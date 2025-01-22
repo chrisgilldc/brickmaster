@@ -31,11 +31,11 @@ def number_7s(data, length=4):
         return "E-TL"
     # If it's not a float, just return the value back.
     elif len(data) == 1:
-        return str(data[0]).rjust(length, ' ')
+        return str(data[0]).rjust(length)
     else:
         # Have we gotten to >= 1000? Then just return that.
         if int(data[0]) >= 1000:
-            return str(data[0]).rjust(length, ' ')
+            return str(data[0]).rjust(length)
         else:
             # Otherwise, include as many decimals as we can.
             # Allowable float length.
@@ -46,4 +46,4 @@ def number_7s(data, length=4):
             # float part didn't actually fill the entire allocated float length. This usually
             # happens with fractional values.
             int_part = str(data[0]).zfill(4-len(float_part))
-            return (int_part + '.' + float_part).rjust(4, ' ')
+            return (int_part + '.' + float_part).rjust(4)

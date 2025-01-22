@@ -1,0 +1,9 @@
+# Brickmaster2 Requirements
+# Only for Circuitpython! Pip installs on Linux should use the requirements in pyproject.toml.
+
+# Common requirements
+adafruit-circuitpython-ht16k33 >= 4.6.11
+adafruit-circuitpython-logging ~= 5.5.2
+adafruit-circuitpython-aw9523 ~= 1.1.11
+adafruit-circuitpython-esp32spi ~= 8.4.3
+adafruit-circuitpython-minimqtt ~= 7.11.3

@@ -1,0 +1,11 @@
+[Unit]
+Description=Brickmaster Control System
+Requires=sys-subsystem-net-devices-wlan0.device
+After=sys-subsystem-net-devices-wlan0.device
+
+[Service]
+Type=simple
+ExecStart=/home/pi/venv-brickmaster/bin/brickmaster -c /home/pi/config.json
+
+[Install]
+WantedBy=default.target

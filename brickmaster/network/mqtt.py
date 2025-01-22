@@ -7,41 +7,85 @@ classes to handle the actual publication!
 
 import adafruit_logging
 import json
+import brickmaster.util
+import board
+import brickmaster.controls.CtrlFlasher
 
-logger = adafruit_logging.getLogger('BrickMaster2')
+logger = adafruit_logging.getLogger('Brickmaster')
 logger.setLevel(adafruit_logging.DEBUG)
 
+def initial_messages(short_name, topic_prefix='brickmaster'):
+    """
+    Generate initial messages to send once on start-up that don't change dynamically.
+    """
 
-def messages(core, object_register, short_name, force_repeat=False, topic_prefix='brickmaster2'):
+    outbound_messages = [
+        {'topic': topic_prefix + '/' + short_name + '/system/board_id', 'message': board.board_id},
+        {'topic': topic_prefix + '/' + short_name + '/system/pins', 'message': brickmaster.util.board_pins()}
+    ]
+    return outbound_messages
+
+
+def messages(core, object_register, short_name, logger, force_repeat=False, topic_prefix='brickmaster'):
     """
     Generate mqtt messages to send out.
 
+    :param core: Reference to the Brickmaster Core.
+    :type core: Object
+    :param object_register: The control objects to generate messages for.
+    :type object_register: dict
+    :param short_name: Short name of the system. No spaces!
+    :type short_name: str
+    :param logger: The Network Module's logger.
+    :type logger: adafruit_logger
     :param force_repeat: Should we send messages that haven't changed since previous send?
     :type force_repeat: bool
+    :param topic_prefix: Base topic to send messages to. Defaults to 'brickmaster'.
+    :type topic_prefix: str
     :return: dict
     """
     outbound_messages = [
-        {'topic': 'brickmaster2/' + short_name + '/connectivity',
+        {'topic': 'brickmaster/' + short_name + '/connectivity',
          'message': 'online'}
     ]
 
     # Controls
+    # print("Network (MQTT): Processing Control object list '{}'.".format(object_register['controls']))
     for item in object_register['controls']:
+        # print("Network (MQTT): Processing Control '{}' ({})".format(item, type(object_register['controls'][item])))
         control_object = object_register['controls'][item]
+        logger.debug("Network (MQTT): Generating control message for control '{}' ({})".
+                     format(control_object.id, type(control_object)))
         # logger.debug("Generating messages for object '{}' (type: {})".
         #              format(control_object.id, type(control_object)))
         # Control statuses should be retained. This allows state to be preserved over HA restarts.
         outbound_messages.append(
-            {'topic': 'brickmaster2/' + short_name + '/controls/' + control_object.id + '/status',
+            {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/status',
              'message': control_object.status, 'force_repeat': force_repeat, 'retain': True}
         )
+        # Additional information for flashers
+        if isinstance(control_object, brickmaster.controls.CtrlFlasher):
+            # Sequence position.
+            outbound_messages.append(
+                {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/seq_pos',
+                 'message': control_object.seq_pos, 'force_repeat': force_repeat, 'retain': False}
+            )
+            # Running Configuration.
+            outbound_messages.append(
+                {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/loiter_time',
+                 'message': control_object.loiter_time, 'force_repeat': force_repeat, 'retain': False}
+            )
+            outbound_messages.append(
+                {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/switch_time',
+                 'message': control_object.switch_time, 'force_repeat': force_repeat, 'retain': False}
+            )
 
     # Displays aren't yet supported. Maybe some day.
     # for item in object_register['displays']:
-        # display_object = object_register['displays'][item]
-        # logger.debug("Generating messages for object '{}' (type: {})".format(
-        #     display_object.id, type(display_object)))
-        # outbound_messages
+    # display_object = object_register['displays'][item]
+    # logger.debug("Generating messages for object '{}' (type: {})".format(
+    #     display_object.id, type(display_object)))
+    # outbound_messages
 
     ## Active script.
     # logger.debug("Generating active script message...")
@@ -50,18 +94,19 @@ def messages(core, object_register, short_name, force_repeat=False, topic_prefix
         'message': core.active_script,
         'force_repeat': force_repeat})
 
-
     return outbound_messages
 
 
 # HA Device Info
 def ha_device_info(system_id, long_name, ha_area, version):
-    # Device info to include in all Home Assistant discovery messages.
+    """
+    Device information to include in Home Assistant discovery messages.
+    """
     return_data = dict(
         name=long_name,
         identifiers=[system_id],
         manufacturer='ConHugeCo',
-        model='BrickMaster2 Lego Control',
+        model='Brickmaster Lego Control',
         suggested_area=ha_area,
         sw_version=str(version)
     )
@@ -86,6 +131,9 @@ def ha_availability(topic_prefix, short_name):
     )
     return return_data
 
+
+#TODO: Refactor discovery to support device-based discovery.
+# https://www.home-assistant.io/integrations/mqtt/#device-discovery-payload
 
 # HA Discovery
 def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, meminfo_mode, object_registry):
@@ -129,7 +177,7 @@ def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, memi
     #TODO: Add discovery for scripts and send script data, ie: elapsed time.
     # The outbound topics dict includes references to the objects, so we can get the objects from there.
     # for item in self._topics_outbound:
-    #     if isinstance(self._topics_outbound[item]['obj'], brickmaster2.controls.CtrlGPIO):
+    #     if isinstance(self._topics_outbound[item]['obj'], brickmaster.controls.CtrlGPIO):
     #         discovered = False
     #         while not discovered:
     #             discovered = self.ha_discovery_gpio(self._topics_outbound[item]['obj'])
@@ -145,7 +193,6 @@ def ha_discovery_activescript(short_name, system_id, device_info, topic_prefix, 
     :param device_info: Device info block.
     :param topic_prefix: Topic prefix
     :param ha_base: Home Assistant topic base
-    :param mode: Memory mode.
     :return: list
     """
     discovery_dict = {
@@ -245,7 +292,6 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
         'availability': ha_availability(topic_prefix, short_name)
     }
 
-    return_list = []
     if mode == 'unified':
         # Unified just sets up Memory, Percent Free. Add in the other memory info as JSON attributes.
         memfreepct_dict['json_attributes_topic'] = topic_prefix + short_name + '/meminfo'
@@ -296,7 +342,7 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
     :param topic_prefix: Our own topic prefix
     :param ha_base: Prefix for Home Assistant
     :param control: GPIO control object
-    :type control: brickmaster2.controls.Control
+    :type control: brickmaster.controls.Control
     :return: list
     """
 
@@ -310,9 +356,11 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
         'availability': ha_availability(topic_prefix, short_name)
     }
 
+    # This try/except is arguably a legacy holdover...it may be possible to remove it in the future.
     try:
         discovery_dict['icon'] = control.icon
     except AttributeError:
+        logger.warning("Network (MQTT): Control '{}' does not have icon set. This should never happen. Defaulting to 'toy-brick'".format(control.id))
         discovery_dict['icon'] = 'mdi:toy-brick'
 
     return [{'topic': ha_base + '/switch/' + 'bm2_' + system_id + '/' + control.id + '/config',
@@ -368,7 +416,6 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
 
     return return_data
 
-
 # def ha_discovery_display(short_name, system_id, device_info, topic_prefix, ha_base, display_obj):
 #     """
 #     Discovery message for a GPIO control.
@@ -382,7 +429,7 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
 #     :param topic_prefix: Our own topic prefix
 #     :param ha_base: Prefix for Home Assistant
 #     :param display_obj: Display object
-#     :type display_obj: brickmaster2.BM2Display
+#     :type display_obj: brickmaster.BM2Display
 #     :return: list
 #     """
 #     raise NotImplemented("Nope, not yet!")

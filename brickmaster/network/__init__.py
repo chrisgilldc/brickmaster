@@ -1,3 +1,6 @@
+"""
+Brickmaster Network System
+"""
 import sys
 
 # Import common MQTT methods.
@@ -11,5 +14,5 @@ from . import mqtt
 if sys.implementation.name == 'cpython':
     from .linux import BM2NetworkLinux
 elif sys.implementation.name == 'circuitpython':
-    from .wifi import BM2WiFi
+    from .bmwifi import BMWiFi
     from .circuitpython import BM2NetworkCircuitPython

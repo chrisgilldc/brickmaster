@@ -4,7 +4,7 @@
     "name": "BrickmasterXL",
     "log_level": "warning",
     "ha":{
-      "area": ### Area name here is recommended but not required. ###
+      "area": "### Area name here. Not required, but recommended. ###"
     },
     "indicators": {
       "system": "D0",
@@ -12,9 +12,9 @@
       "netoff": "D2"
     },
     "mqtt": {
-      "broker": ### Broker hostname or IP ###
-      "user": ### MQTT Username ###,
-      "key": ### MQTT Password ###
+      "broker": "### Broker Hostname or IP ###",
+      "user": "### MQTT Username ###",
+      "key": "### MQTT Password ###"
     }
   },
   "controls": [

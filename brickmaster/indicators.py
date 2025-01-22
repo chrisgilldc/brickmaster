@@ -1,0 +1,3 @@
+"""
+Brickmaster Local Indicators Manager
+"""

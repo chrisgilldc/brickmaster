@@ -1,0 +1,48 @@
+{
+  "system": {
+    "id": "bm_palacecinema",
+    "name": "Palace Cinema",
+    "wifihw": "esp32",
+    "log_level": "warning",
+    "i2c": "True",
+    "ha": {
+      "area": "### Area name here. Not required, but recommended. ###"
+    },
+    "mqtt": {
+      "broker": "### Broker Hostname or IP ###",
+      "user": "### MQTT Username ###",
+      "key": "### MQTT Password ###"
+    }
+  },
+  "controls": [
+    {
+      "id": "streetlight",
+      "name": "Street Light",
+      "icon": "mdi:floor-lamp",
+      "extio": "0x58",
+      "pins": 1
+    },
+    {
+      "id": "marquee",
+      "name": "Marquee",
+      "extio": "0x58",
+      "pins": 5
+    },
+    {
+      "id": "posters",
+      "name": "Movie Posters",
+      "extio": "0x58",
+      "pins": 6
+    },
+    {
+      "id": "accent",
+      "name": "Accent Lights",
+      "extio": "0x58",
+      "pins": 0
+    }
+  ],
+  "displays": [
+  ],
+  "scripts": {
+  }
+}

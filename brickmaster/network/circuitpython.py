@@ -1,14 +1,15 @@
 """
-BrickMaster2 CircuitPython Networking
+Brickmaster CircuitPython Networking
 """
 
 import adafruit_logging
-from brickmaster2.network.base import BM2Network
-import brickmaster2.util
-import brickmaster2.network.mqtt
+
+import brickmaster.exceptions
+from brickmaster.network.base import BM2Network
+# import brickmaster.util
+# import brickmaster.network.mqtt
 import gc
 import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
-import time
 
 class BM2NetworkCircuitPython(BM2Network):
     def connect(self):
@@ -25,7 +26,10 @@ class BM2NetworkCircuitPython(BM2Network):
             raise
         else:
             self._logger.debug("Network: Calling base class connect method for MQTT.")
-            super().connect()
+            try:
+                return super().connect()
+            except BaseException:
+                raise
 
     def poll(self):
         """
@@ -40,7 +44,7 @@ class BM2NetworkCircuitPython(BM2Network):
             self._logger.debug("Network: WiFi not connected! Will attempt connection.")
             try:
                 self.connect()
-            except Exception as e:
+            except BaseException:
                 raise
 
         # System's interface is up, run the base poll.
@@ -70,19 +74,21 @@ class BM2NetworkCircuitPython(BM2Network):
         :type port: int
         :return: None
         """
-        # try:
-        self._mini_client.connect(host=host, port=port)
-        # except
-        # raise BM2RecoverableError as e
-
+        try:
+            self._mini_client.connect(host=host, port=port)
+        except af_mqtt.MMQTTException as e:
+            self._logger.warning("MiniMQTT: Generated exception '{}' from cause '{}".
+                                 format(e.args[0],e.__cause__))
+            raise brickmaster.exceptions.BMRecoverableError from e
+        else:
+            return True
 
     def _mc_loop(self):
         try:
             self._mini_client.loop(self._mqtt_timeout)
-        except ConnectionError:
-            # If the broker has gone away ping will fail and in turn MiniMQTT will throw a ConnectionError.
-            # We'll catch that and set ourselves as disconnected. This should let us recover gracefully.
-            self._mqtt_connected = False
+        except ConnectionError as e:
+            # Pass the exception upward and let the invoker handle it.
+            raise brickmaster.exceptions.BMRecoverableError from e
 
     def _mc_platform_messages(self):
         """
@@ -92,7 +98,7 @@ class BM2NetworkCircuitPython(BM2Network):
         # On Linux we use PSUtil for this. Here we use the CircuitPython garbage collector (gc), which doesn't have
         # all the same convenience methods psutil does, so we have to do some math.
         return_dict = {
-            'topic': 'brickmaster2/' + self._short_name + '/meminfo',
+            'topic': 'brickmaster/' + self._short_name + '/meminfo',
             'message': { 'mem_avail': 'Unknown', 'mem_total': 'Unknown', 'pct_used': 'Unknown',
                     'pct_avail': 'Unknown'  }
         }
@@ -126,18 +132,21 @@ class BM2NetworkCircuitPython(BM2Network):
         :return: None
         """
         try:
+            self._logger.debug("Network (MiniMQTT): Publishing to '{}'\n\t"
+                               "Payload - '{}'.".format(topic, message))
             self._mini_client.publish(topic, message, retain, qos)
+            self._logger.debug("Network (MiniMQTT): Publish complete.")
         except BrokenPipeError as e:
-            self._logger.error("Network: Disconnection while publishing! Marking broker as not connected, will retry.")
-            self._mqtt_connected = False
+            self._logger.error("Network (MiniMQTT): Disconnection while publishing!")
+            raise brickmaster.exceptions.BMRecoverableError from e
         except ConnectionError as e:
-            self._logger.error("Network: Connection failed, raised error '{}'".format(e.args[0]))
-            self._mqtt_connected = False
+            self._logger.error("Network (MiniMQTT): Connection failed, raised error '{}'".format(e.args[0]))
+            raise brickmaster.exceptions.BMRecoverableError from e
         except OSError as e:
             if e.args[0] == 104:
-                self._logger.error("Network: Tried to publish while not connected! Marking broker as not connected, "
+                self._logger.error("Network (MiniMQTT): Tried to publish while not connected! Marking broker as not connected, "
                                    "will retry.")
-                self._mqtt_connected = False
+                raise brickmaster.exceptions.BMRecoverableError from e
             else:
                 raise e
 
@@ -167,7 +176,7 @@ class BM2NetworkCircuitPython(BM2Network):
         """
         self._mini_client.will_set(
             topic=topic,
-            payload=payload,
+            msg=payload,
             qos=qos,
             retain=retain)
 
@@ -176,14 +185,17 @@ class BM2NetworkCircuitPython(BM2Network):
         Publish an MQTT Online message.
         :return:
         """
-        self._mini_client.publish(topic="brickmaster2/" + self._short_name + "/connectivity",
+        self._logger.debug("Network: Sending online status.")
+        self._mini_client.publish(topic="brickmaster/" + self._short_name + "/connectivity",
                                   msg="online", retain=True)
+
     def _send_offline(self):
         """
         Publish an MQTT Offline message.
         :return:
         """
-        self._mini_client.publish(topic="brickmaster2/" + self._short_name + "/connectivity", msg="offline",
+        self._logger.debug("Network: Sending offline status.")
+        self._mini_client.publish(topic="brickmaster/" + self._short_name + "/connectivity", msg="offline",
                                   retain=True)
 
     def _setup_mqtt(self):
@@ -210,7 +222,7 @@ class BM2NetworkCircuitPython(BM2Network):
         # If MQTT Logging is requested and the logger's effective level is debug, log the client.
         if self._mqtt_log and self._logger.getEffectiveLevel() == adafruit_logging.DEBUG:
             self._logger.debug("Network: Debug enabled, enabling logging on MQTT client as well.")
-            self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'BrickMaster2')
+            self._mini_client.enable_logger(adafruit_logging, adafruit_logging.DEBUG, 'Brickmaster')
 
         # Connect callback.
         self._mini_client.on_connect = self._on_connect

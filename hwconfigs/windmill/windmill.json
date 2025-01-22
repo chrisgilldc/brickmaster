@@ -1,0 +1,44 @@
+
+{
+  "system": {
+    "id": "bm_windmill",
+    "name": "Vestas Windmill",
+    "log_level": "warning",
+    "ha":{
+      "area": "### Area name here. Not required, but recommended. ###"
+    },
+    "I2C": "False",
+    "mqtt": {
+      "broker": "### Broker Hostname or IP ###",
+      "user": "### MQTT Username ###",
+      "key": "### MQTT Password ###"
+    }
+  },
+  "controls": [    {
+      "id": "windmill",
+      "name": "Windmill",
+      "icon": "mdi:wind-turbine",
+      "pins": "A0"
+    },
+    {
+      "id": "house_lights",
+      "name": "House Lights",
+      "icon": "mdi:home-lightbulb",
+      "pins": "A1"
+    },
+    {
+      "id": "beacon",
+      "name": "Beacon",
+      "type": "flasher",
+      "icon": "mdi:alarm-light",
+      "pins": "D13",
+      "switch_time": 1800,
+      "loiter_time": 200
+    }
+  ],
+  "displays":[
+  ],
+  "scripts": {
+    "dir": "scripts"
+  }
+}

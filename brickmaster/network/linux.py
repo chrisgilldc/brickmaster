@@ -1,14 +1,14 @@
 """
-BrickMaster2 Linux Networking
+Brickmaster Linux Networking
 """
 
 import adafruit_logging
-from brickmaster2.network.base import BM2Network
-import brickmaster2.util
-import brickmaster2.network.mqtt
+from brickmaster.network.base import BM2Network
+import brickmaster.const as const
+import brickmaster.util
+import brickmaster.network.mqtt
 import psutil
 from paho.mqtt.client import Client
-import time
 
 class BM2NetworkLinux(BM2Network):
 
@@ -19,7 +19,7 @@ class BM2NetworkLinux(BM2Network):
         """
 
         # Is the system's interface up? If not, we can't do anything else.
-        if not brickmaster2.util.interface_status(self._net_interface):
+        if not brickmaster.util.interface_status(self._net_interface):
             return { 'online': False, 'mqtt_status': False, 'commands': {} }
 
         # System's interface is up, run the base poll.
@@ -50,9 +50,9 @@ class BM2NetworkLinux(BM2Network):
         # Connect
         try:
             self._paho_client.connect(host=host, port=port)
-        except ConnectionRefusedError as e:
-            # These are the exceptions can happen. Wrap this as BM2RecoverableError.
-            raise brickmaster2.exceptions.BM2RecoverableError from e
+        except (ConnectionRefusedError, TimeoutError, OSError) as e:
+            # These are exceptions that we should be able to recover from with retries, ie: the broker is rebooting.
+            raise brickmaster.exceptions.BMRecoverableError from e
         else:
             # Start the background thread.
             self._paho_client.loop_start()
@@ -67,6 +67,7 @@ class BM2NetworkLinux(BM2Network):
         self._paho_client.loop_stop()
         # Disconnect.
         self._paho_client.disconnect()
+        return const.NET_STATUS_DISCONNECTED
 
     def _mc_loop(self):
         """
@@ -96,7 +97,7 @@ class BM2NetworkLinux(BM2Network):
         # Pull the virtual memory with PSUtil.
         m = psutil.virtual_memory()
         messages_ps.append({
-            'topic': 'brickmaster2/' + self._short_name + '/meminfo',
+            'topic': 'brickmaster/' + self._short_name + '/meminfo',
             'message':
                 {
                     'mem_avail': m.available,
@@ -120,7 +121,12 @@ class BM2NetworkLinux(BM2Network):
         :return: None
         """
 
-        self._paho_client.publish(topic, message, qos, retain)
+        try:
+            self._paho_client.publish(topic, message, qos, retain)
+        except TypeError as te:
+            self._logger.error("Network: Could not publish message, wrong type. '{}' ({})".
+                               format(message, type(message)))
+            raise te
 
     def _mc_subscribe(self, topic):
         """
@@ -158,14 +164,16 @@ class BM2NetworkLinux(BM2Network):
         Publish an MQTT Online message.
         :return:
         """
-        self._paho_client.publish("brickmaster2/" + self._short_name + "/connectivity",
+        self._logger.debug("Network: Sending online status.")
+        self._paho_client.publish("brickmaster/" + self._short_name + "/connectivity",
                                   payload="online", retain=True)
     def _send_offline(self):
         """
         Publish an MQTT Offline message.
         :return:
         """
-        self._paho_client.publish("brickmaster2/" + self._short_name + "/connectivity",
+        self._logger.debug("Network: Sending offline status.")
+        self._paho_client.publish("brickmaster/" + self._short_name + "/connectivity",
                                   payload="offline", retain=True)
 
     def _setup_mqtt(self):

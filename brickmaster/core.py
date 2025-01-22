@@ -1,31 +1,33 @@
-# BrickMaster2 Core
+"""
+Brickmaster System Core
+"""
 
 import adafruit_logging as logging
 import board
 import busio
-import digitalio
+# import digitalio # May no longer need this.
 import gc
 import io
 import json
 import os
 import sys
-import brickmaster2
+import brickmaster
 
 
-class BrickMaster2:
+class Brickmaster:
     """
-    Core BrickMaster2 class. Create one of these, then run it.
+    Core Brickmaster class. Create one of these, then run it.
     """
     def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None):
         """
-        BrickMaster2 Core Module
+        Brickmaster Core Module
 
         :param config_json: A JSON config
         :type config_json: str
         :param mac_id: Interface MAC being used as the system ID.
         :type mac_id: str
         :param wifi_obj: Wifi Object. ONLY used for CircuitPython
-        :type wifi_obj: brickmaster2.network.BM2WiFi
+        :type wifi_obj: brickmaster.network.BMWiFi
         """
         # Force a garbage collection
         gc.collect()
@@ -34,9 +36,10 @@ class BrickMaster2:
         self._controls = {} # Controls
         self._displays = {} # I2C displays
         self._indicators = { 'sysrun': sysrun } # LED indicators, if any.
+        self._i2c_bus = None
         # If system running indicator was passed, use it, otherwise set up a null indicator.
         if self._indicators['sysrun'] is None:
-            self._indicators['sysrun'] = brickmaster2.controls.CtrlNull('sysrun', 'System Status Null')
+            self._indicators['sysrun'] = brickmaster.controls.CtrlNull('sysrun', 'System Status Null', self)
 
         self._scripts = {} # Scripts
         self._extgpio = {} # GPIO Expanders (ie: AW9523 boards)
@@ -59,44 +62,25 @@ class BrickMaster2:
 
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
-        self._logger = logging.getLogger('BrickMaster2')
+        self._logger = logging.getLogger('Brickmaster')
         # Start out at the DEBUG level. The Config module will load the log level
         # From the config file and adjust appropriately.
         self._logger.setLevel(logging.DEBUG)
 
         # Validate the config and process it.
-        self._bm2config = brickmaster2.BM2Config(config_json)
+        self._bm2config = brickmaster.BM2Config(config_json)
 
         # Reset the log level based on the config.
         self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
         self._logger.setLevel(self._bm2config.system['log_level'])
 
-        # Set up the status indicator, if available.
+        # Debug output of the config.
         self._logger.debug("Core: System config is: {}".format(self._bm2config.system))
-        # Create status indicators.
-        self._logger.info("Core: Creating status indicator controls.")
 
-        for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
-            id = target[0]
-            name = target[1]
-            self._logger.debug("Core: Creating indicator for '{}'".format(id))
-            try:
-                if self._bm2config.system['indicators'][id] is not None:
-                    self._indicators[id] = brickmaster2.controls.CtrlGPIO(id, name,
-                                                                          self._bm2config.system['indicators'][id], 15)
-                else:
-                    self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                    self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
-            except (KeyError, TypeError):
-                 self._logger.warning(f"Core: No pin defined for status LED '{id}'. Cannot configure.")
-                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
-            except AttributeError:
-                 self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
-                     self._bm2config.system['indicators'][id], id))
-                 self._indicators[id] = brickmaster2.controls.CtrlNull(id, name)
+        # Set up the indicators
+        self._indicators.update(self._setup_indicators())
+        self._logger.debug("Core: Have indicators '{}'".format(self._indicators))
 
-        # All indicators should be configured.
-        self._logger.info("Core: Configured indicators - {}".format(self._indicators))
         # Set the system indicator on.
         # This should have been done earlier, but in case it wasn't, we do it again here.
         self._indicators['sysrun'].set('on')
@@ -106,9 +90,8 @@ class BrickMaster2:
 
         gc.collect()
 
-        # Create the controls
-        publish_time = self._bm2config.system['publish_time']
-        self._create_controls(publish_time=publish_time)
+        # Create the controls. Set the publish time to the system-wide publish time.
+        self._create_controls(publish_time=self._bm2config.system['publish_time'])
         self._bm2config.del_controls()
         # Create the displays.
         self._create_displays()
@@ -175,10 +158,18 @@ class BrickMaster2:
             self._logger.critical("Running with PID: {}".format(os.getpid()))
 
     def run(self):
+        """
+        Main run loop.
+        """
         self._logger.debug("Core: Entering run loop.")
         while True:
             # Poll the network.
             self._network.poll()
+
+            # Update controls which have timers.
+            for control in self._controls:
+                if isinstance(self._controls[control], brickmaster.controls.CtrlFlasher):
+                    self._controls[control].update()
 
             # If there's an active script, do it.
             if self._active_script is not None:
@@ -206,7 +197,8 @@ class BrickMaster2:
         # Convert the message payload (which is binary) to a string.
         message_text = str(message.payload, 'utf-8')
         # Message text *should* be the name of the script to execute, or Inactive/Abort.
-        self._logger.debug("Core: Received script callback message '{}'".format(message_text))
+        self._logger.debug("Core: Received script callback message '{}', client '{}', topic '{}'".
+        format(message_text, client, topic))
         if message_text in ('Inactive','Abort'):
             # Make the currently active script off. This will reset internal counters.
             self._scripts[self._active_script].set('OFF')
@@ -226,18 +218,6 @@ class BrickMaster2:
             # If we get here, something has gone wrong.
             self._logger.warning("Core: Could not match script '{}' against configured scripts.".format(message_text))
 
-    def _setup_aw9523(self, addr):
-        # Condition
-        try:
-            import adafruit_aw9523
-        except ImportError:
-            self._logger.critical("Sys: Cannot import modules for GPIO AW9523 control. Exiting!")
-            sys.exit(1)
-        if isinstance(addr, str):
-            addr = int(addr)
-        aw = adafruit_aw9523.AW9523(self._i2c_bus, addr)
-        return aw
-
     # Methods to create our objects. Called during setup, or when we're asked to reload.
     def _create_controls(self, publish_time=15):
         """
@@ -253,39 +233,79 @@ class BrickMaster2:
                                format(control_cfg['id'], control_cfg['type']))
             self._logger.debug("Complete control config: {}".format(control_cfg))
 
-            awboard=None
-            if control_cfg['type'].lower() == 'gpio':
-                # Nothing special to do for on-board GPIO.
-                pass
-            elif control_cfg['type'].lower() == 'aw9523':
-                if control_cfg['addr'] not in self._extgpio.keys():
-                    self._logger.debug("No AW9523 exists at address '{}'. Creating.".format(control_cfg['addr']))
-                    self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
+            # Check for extio boards (AW9523s)
+            if control_cfg['extio'] is not None:
+                if control_cfg['extio'] not in self._extgpio.keys():
+                    self._logger.debug(f"Core: No AW9523 exists at address '{control_cfg['extio']}'. Creating.")
+                    self._extgpio[control_cfg['extio']] = self._setup_aw9523(control_cfg['extio'])
                 else:
-                    self._logger.debug("AW9523 already initialized at address '{}'".format(control_cfg['addr']))
-                awboard=self._extgpio[control_cfg['addr']]
-            try:
-                self._controls[control_cfg['id']] = (
-                    brickmaster2.controls.CtrlGPIO(**control_cfg, publish_time=publish_time, awboard=awboard,
-                                                   log_level=self._bm2config.system['log_level']))
-            except (AssertionError, AttributeError, ValueError):
-                self._logger.warning("Could not create control.")
+                    self._logger.debug(f"Core: AW9523 already initialized at address '{control_cfg['extio']}'")
+                extio_obj = self._extgpio[control_cfg['extio']]
+            else:
+                extio_obj = None
+
+            # Check the type to create the correct object type.
+            # try:
+            if control_cfg['type'].lower() == 'single':
+                self._controls[control_cfg['id']] = brickmaster.controls.CtrlSingle(
+                    ctrl_id = control_cfg['id'],
+                    name = control_cfg['name'],
+                    core = self,
+                    pins = control_cfg['pins'],
+                    publish_time = publish_time,
+                    extio_obj = extio_obj,
+                    icon = control_cfg['icon'],
+                    log_level=self._bm2config.system['log_level'])
+            elif control_cfg['type'].lower() == 'flasher':
+                self._controls[control_cfg['id']] = (brickmaster.controls.CtrlFlasher(
+                    ctrl_id = control_cfg['id'],
+                    name = control_cfg['name'],
+                    core = self,
+                    pinlist = control_cfg['pins'],
+                    loiter_time = control_cfg['loiter_time'],
+                    switch_time = control_cfg['switch_time'],
+                    publish_time = publish_time,
+                    extio_obj = extio_obj,
+                    icon = control_cfg['icon'],
+                    log_level=self._bm2config.system['log_level']))
+            # except (AssertionError, AttributeError, ValueError, KeyError) as e:
+            #      self._logger.warning(f"Core: Could not create control '{control_cfg['id']} - '{e}'")
+
+            # This is all the old setup logic.
+            # awboard=None
+            # if control_cfg['type'].lower() == 'gpio':
+            #     # Nothing special to do for on-board GPIO.
+            #     pass
+            # elif control_cfg['type'].lower() == 'aw9523':
+            #     if control_cfg['addr'] not in self._extgpio.keys():
+            #         self._logger.debug("No AW9523 exists at address '{}'. Creating.".format(control_cfg['addr']))
+            #         self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
+            #     else:
+            #         self._logger.debug("AW9523 already initialized at address '{}'".format(control_cfg['addr']))
+            #     awboard=self._extgpio[control_cfg['addr']]
+            # try:
+            #     self._controls[control_cfg['id']] = (
+            #         brickmaster.controls.CtrlSingle(**control_cfg, core=self, publish_time=publish_time, awboard=awboard,
+            #                                          log_level=self._bm2config.system['log_level']))
+            # except (AssertionError, AttributeError, ValueError):
+            #     self._logger.warning("Could not create control.")
             # gc.collect()
             # self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['control_name'],
             #                                                                            gc.mem_free()))
 
     def _create_displays(self):
         if len(self._bm2config.displays) == 0:
-            self._logger.debug("Core: No displays configured, nothing to do.")
+            self._logger.debug("Core: No displays configured, nothing to initialize.")
             return
 
         if self._i2c_bus is None:
-            self._logger.error("Core: Cannot set up I2C displays without working I2C bus!")
-            return
+                self._logger.error("Core: Cannot set up I2C displays without working I2C bus!")
+                return
+
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
-            self._displays[display_cfg['name']] = brickmaster2.Display(display_cfg, self._i2c_bus, )
+            self._displays[display_cfg['name']] = brickmaster.Display(display_cfg, self._i2c_bus, )
             if display_cfg['idle']['show'] == 'time':
                 self._clocks.append(display_cfg['name'])
             elif display_cfg['idle']['show'] == 'date':
@@ -299,7 +319,7 @@ class BrickMaster2:
             from pathlib import Path
             script_dir = Path(self._bm2config.scripts['dir'])
             self._logger.debug("Core: Script path is '{}'".format(script_dir))
-            # Absoluteize the path
+            # Make the path absolute.
             if not script_dir.is_absolute():
                 self._logger.debug("Core: Making script path absolute.")
                 script_dir = Path.cwd() / script_dir
@@ -317,7 +337,7 @@ class BrickMaster2:
         for script_file in script_list:
             self._logger.info("Setting up script: {}".format(script_file))
             try:
-                f = io.open(script_file, mode="r", encoding="utf-8")
+                f = io.open(script_file, encoding="utf-8")
                 with f as source:
                     script_data = json.load(source)
             except FileNotFoundError:
@@ -336,13 +356,13 @@ class BrickMaster2:
                 try:
                     if script_data['type'] == 'flight':
                         self._logger.debug("Core: Creating flight script object '{}'".format(script_data['script']))
-                        script_obj = brickmaster2.scripts.BM2FlightScript(script_data, self._controls, self._displays)
+                        script_obj = brickmaster.scripts.BM2FlightScript(script_data, self._controls, self._displays)
                     else:
                         self._logger.debug("Creating basic script object '{}'".format(script_data['script']))
-                        script_obj = brickmaster2.scripts.BM2Script(script_data, self._controls)
+                        script_obj = brickmaster.scripts.BM2Script(script_data, self._controls)
                 except KeyError:
                     self._logger.debug("Creating basic script object...")
-                    script_obj = brickmaster2.scripts.BM2Script(script_data, self._controls)
+                    script_obj = brickmaster.scripts.BM2Script(script_data, self._controls)
                 # Pass the script object the script data along with the controls that exist.
 
                 self._scripts[script_obj.name] = script_obj
@@ -362,7 +382,11 @@ class BrickMaster2:
             print(message)
 
     def _setup_aw9523(self, addr):
-        # Condition
+        """
+        Set up an AW9523 I/O Expander on the given address. Uses the system-wide I2C bus.
+        """
+
+        # Conditionally import the libraries.
         try:
             import adafruit_aw9523
         except ImportError:
@@ -374,7 +398,8 @@ class BrickMaster2:
         return aw
 
     def _setup_i2c_bus(self):
-        if self._bm2config.system['i2c'] is not None:
+        self._logger.debug("Core: I2C value is {}".format(self._bm2config.system['i2c']))
+        if self._bm2config.system['i2c']:
             try:
                 self._i2c_bus = busio.I2C(board.SCL, board.SDA)
             except RuntimeError as e:
@@ -387,7 +412,37 @@ class BrickMaster2:
                 self._i2c_bus = None
         else:
             self._logger.info("Core: No I2C bus defined. Skipping setup.")
+            self._i2c_bus = None
 
+    def _setup_indicators(self):
+        """
+        Create status indicators for neton and netoff based on config.
+
+        :return: dict
+        """
+        self._logger.info("Core: Creating status indicator controls.")
+
+        indicators = {}
+        for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
+            target_id = target[0]
+            name = target[1]
+            self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
+            try:
+                if self._bm2config.system['indicators'][target_id] is not None:
+                    indicators[target_id] = brickmaster.controls.CtrlSingle(target_id, name, self,
+                                                                            self._bm2config.system['indicators'][target_id],15)
+                else:
+                    self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
+                    indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+            except (KeyError, TypeError):
+                 self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
+                 indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+            except AttributeError:
+                 self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
+                     self._bm2config.system['indicators'][target_id], target_id))
+                 indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+
+        return indicators
 
     # Active script. Returns friendly name of the Active Script. Used to send to MQTT.
     @property
@@ -439,6 +494,7 @@ class BrickMaster2:
         Shut off controls and displays, then exit.
 
         :param signalNumber: Signal called for exit.
+        :param message: Message for exit
         :return: None
         """
         if isinstance(signalNumber, int) and 'signal' in sys.modules:
@@ -477,7 +533,7 @@ class BrickMaster2:
         self._print_or_log("critical", "Core: Setting system run light off.")
         # Set the system light off.
         try:
-            self._led_sysrun.value = False
+            self._indicators['sysrun'].value = False
         except AttributeError:
             pass
         self._print_or_log("critical", "Core: Cleanup complete.")
