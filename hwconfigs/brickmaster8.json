@@ -1,0 +1,70 @@
+
+{
+  "system": {
+    "id": "bm_8",
+    "name": "Brickmaster 8",
+    "log_level": "warning",
+    "ha":{
+      "area": "### Area name here. Not required, but recommended. ###"
+    },
+    "i2c": "True",
+    "mqtt": {
+      "broker": "### Broker Hostname or IP ###",
+      "user": "### MQTT Username ###",
+      "key": "### MQTT Password ###"
+    },
+    "indicators": {
+      "system": "32",
+      "neton": "14"
+    }
+  },
+  "controls": [    {
+      "id": "port_1",
+      "name": "Port 1",
+      "extio": "0x58",
+      "pins": "1"
+    },
+    {
+      "id": "port_2",
+      "name": "Port 2",
+      "extio": "0x58",
+      "pins": "2"
+    },
+    {
+      "id": "port_3",
+      "name": "Port 3",
+      "extio": "0x58",
+      "pins": "3"
+    },{
+      "id": "port_4",
+      "name": "Port 4",
+      "extio": "0x58",
+      "pins": "4"
+    },{
+      "id": "port_5",
+      "name": "Port 5",
+      "extio": "0x58",
+      "pins": "5"
+    },{
+      "id": "port_6",
+      "name": "Port 6",
+      "extio": "0x58",
+      "pins": "6"
+    },{
+      "id": "port_7",
+      "name": "Port 7",
+      "extio": "0x58",
+      "pins": "7"
+    },{
+      "id": "port_8",
+      "name": "Port 8",
+      "extio": "0x58",
+      "pins": "8"
+    }
+  ],
+  "displays":[
+  ],
+  "scripts": {
+    "dir": "scripts"
+  }
+}
