@@ -97,14 +97,15 @@ class BM2Config:
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:
-            # Make sure 'sysrun' is defined, even if not in the config.
-            if 'sysrun' not in self._config['system']['indicators']:
-                self._config['system']['indicators']['sysrun'] = None
+            # Make sure each item is defined, even if not present.
+            #
+            for indicator in ('sysrun','neton','netoff'):
+                if indicator not in self._config['system']['indicators']:
+                    self._config['system']['indicators'][indicator] = None
 
-            # Neton and netoff must be paired.
-            if not ('neton' in self._config['system']['indicators'] and 'netoff' in self._config['system']['indicators']):
-                self._logger.warning("Config: When network indicator provided, both 'neton' and 'netoff' "
-                                     "must be defined!")
+            # Netoff requires neton.
+            if 'netoff' in self._config['system']['indicators'] and not 'neton' in self._config['system']['indicators']:
+                self._logger.warning("Config: May not define a network off indicator without a network on indicator.")
                 self._config['system']['indicators']['neton'] = None
                 self._config['system']['indicators']['netoff'] = None
 
