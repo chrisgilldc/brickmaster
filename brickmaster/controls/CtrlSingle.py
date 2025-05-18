@@ -76,7 +76,6 @@ class CtrlSingle(BaseControl):
         :param message: Message.
         :return: None
         """
-        # print("Control: Incoming message is '{}' ({})".format(message, type(message)))
         if isinstance(message, str):
             # MiniMQTT (Circuitpython) outputs a straight string.
             message_text = message.lower()

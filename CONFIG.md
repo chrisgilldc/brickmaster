@@ -25,9 +25,9 @@ On non-Linux installs, the file must be "config.json" in the root of the board's
 | `name` | string | id | Long name of the system for display purposes. If not specified, will default to the ID.                                                                        |
 | `log_level`           | string | 'warning' | How verbose to be.                                                                                                                                             |
 | `wifihw`              | string | None      | Type of WiFi hardware. Ignored on Linux. May be 'esp32' or 'esp32spi'. Will attempt autodetection if not specified, which usually works but is not guaranteed. | 
-| `i2c`                 | bool   | None      | Defines I2C pins to use. Required if using I2C displays.                                                                                                       |
+| `i2c`                 | bool   | None      | Defines I2C pins to use. Required if using I2C displays or external GPIO boards.                                                                               |
 | `indicators`          | dict   | None      | Defines GPIO pins for indicators lights.                                                                                                                       |
-| `mqtt` | dict | None | MQTT settings. |
+| `mqtt` | dict | None | MQTT settings.                                                                                                                                                 |
 | `ha`                  | dict   | None      | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                                                                  |
 
 #### I2C
@@ -41,7 +41,7 @@ System status indicators. These must be GPIO pins on the main board, as they are
 | Name     | Type   | Default | Description                                                                                |
 |----------|--------|---------|--------------------------------------------------------------------------------------------|
 | `sysrun` | string | None    | GPIO pin to indicate system is running.                                                    |
-| `neton` | string | None    | Set active when both Wifi and MQTT are connected. If defined, netoff must also be defined. |
+| `neton` | string | None    | Set active when both Wifi and MQTT are connected. |
 | `netoff` | string | None | Set active when either MQTT or Wifi are disconnected. If defined, neton must also be defined. |
 
 Note in my hardware configuration, the neton and netoff pins run to different legs of a bi-color LED. Separate LEDs

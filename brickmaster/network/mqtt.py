@@ -98,7 +98,7 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
 
 
 # HA Device Info
-def ha_device_info(system_id, long_name, ha_area, version):
+def ha_device_info(system_id, long_name, version, ha_area=None, ip=None):
     """
     Device information to include in Home Assistant discovery messages.
     """
@@ -110,6 +110,12 @@ def ha_device_info(system_id, long_name, ha_area, version):
         suggested_area=ha_area,
         sw_version=str(version)
     )
+    print("MQTT: IP is '{}'".format(ip))
+    if ip is not None:
+        # Send the configuration URL if an IP is provided. This is just a string, so could technically be a hostname.
+        # Intended only for CircuitPython boards.
+        print("Got ip {} ({})".format(ip, type(ip)))
+        return_data['configuration_url'] = "http://" + ip + "/"
     # Only add suggested_area if it's set to not None, otherwise discovery will reject this.
     if ha_area is not None:
         return_data['suggested_area'] = ha_area

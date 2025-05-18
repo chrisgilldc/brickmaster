@@ -114,8 +114,7 @@ class Brickmaster:
                                             mqtt_username=self._bm2config.system['mqtt']['user'],
                                             mqtt_password=self._bm2config.system['mqtt']['key'],
                                             mqtt_log=self._bm2config.system['mqtt']['log'],
-                                            neton=self._indicators['neton'],
-                                            netoff=self._indicators['netoff'],
+                                            net_indicator=self._indicators['net'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             ha_area=self._bm2config.system['ha_area'],
                                             log_level=self._bm2config.system['log_level']
@@ -132,8 +131,7 @@ class Brickmaster:
                                             mqtt_username=self._bm2config.system['mqtt']['user'],
                                             mqtt_password=self._bm2config.system['mqtt']['key'],
                                             mqtt_log=self._bm2config.system['mqtt']['log'],
-                                            neton=self._indicators['neton'],
-                                            netoff=self._indicators['netoff'],
+                                            net_indicator=self._indicators['net'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             ha_area=self._bm2config.system['ha_area'],
                                             log_level=self._bm2config.system['log_level']
@@ -411,7 +409,7 @@ class Brickmaster:
                 self._logger.error(str(e))
                 self._i2c_bus = None
         else:
-            self._logger.info("Core: No I2C bus defined. Skipping setup.")
+            self._logger.warning("Core: No I2C bus defined. Skipping setup.")
             self._i2c_bus = None
 
     def _setup_indicators(self):
@@ -421,26 +419,40 @@ class Brickmaster:
         :return: dict
         """
         self._logger.info("Core: Creating status indicator controls.")
-
         indicators = {}
-        for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
-            target_id = target[0]
-            name = target[1]
-            self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
-            try:
-                if self._bm2config.system['indicators'][target_id] is not None:
-                    indicators[target_id] = brickmaster.controls.CtrlSingle(target_id, name, self,
-                                                                            self._bm2config.system['indicators'][target_id],15)
-                else:
-                    self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-                    indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
-            except (KeyError, TypeError):
-                 self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-                 indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
-            except AttributeError:
-                 self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
-                     self._bm2config.system['indicators'][target_id], target_id))
-                 indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+        indicator_pins = None
+        if self._bm2config.system['indicators']['neton'] is None and self._bm2config.system['indicators']['netoff'] is None:
+            self._logger.info("Core: No network indicators defined. Skipping.")
+        elif self._bm2config.system['indicators']['neton'] is not None and self._bm2config.system['indicators']['netoff'] is None:
+            indicator_pins = self._bm2config.system['indicators']['neton']
+        elif self._bm2config.system['indicators']['neton'] is not None and self._bm2config.system['indicators']['netoff'] is not None:
+            indicator_pins = { 'on': self._bm2config.system['indicators']['neton'],
+                               'off': self._bm2config.system['indicators']['netoff'] }
+
+        if indicator_pins is not None:
+            indicators['net'] = brickmaster.controls.CtrlSingle('net', 'Network',self, indicator_pins, 10)
+        else:
+            indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self)
+
+        # indicators = {}
+        # for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
+        #     target_id = target[0]
+        #     name = target[1]
+        #     self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
+        #     try:
+        #         if self._bm2config.system['indicators'][target_id] is not None:
+        #             indicators[target_id] = brickmaster.controls.CtrlSingle(target_id, name, self,
+        #                                                                     self._bm2config.system['indicators'][target_id],15)
+        #         else:
+        #             self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
+        #             indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+        #     except (KeyError, TypeError):
+        #          self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
+        #          indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+        #     except AttributeError:
+        #          self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
+        #              self._bm2config.system['indicators'][target_id], target_id))
+        #          indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
 
         return indicators
 
