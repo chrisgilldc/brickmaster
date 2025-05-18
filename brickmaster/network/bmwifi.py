@@ -8,8 +8,6 @@ import time
 import brickmaster.const
 import brickmaster.util
 
-
-
 class BMWiFi:
     """
     Brickmaster WiFi Handling for CircuitPython Boards
@@ -89,13 +87,17 @@ class BMWiFi:
                         time.sleep(self._retry_time)
                         continue
                     else:
+                        self._logger.info("WiFi: Setting IP to: {}".format(self._wifi.ip_address))
                         self._ip = self._wifi.pretty_ip(self._wifi.ip_address)
+                        self._logger.info("WiFi: IP is now {}".format(self._ip))
                         self._logger.info(f"WiFi: Connected to '{self._ssid}', received IP '{self._ip}'")
                         return brickmaster.const.NET_STATUS_CONNECTED
                 return brickmaster.const.NET_STATUS_DISCONNECTED
             else:
                 self._wifi.connect(ssid=self._ssid, password=self._password)
+                self._logger.info("WiFi: Setting ip to '{}'".format(self._wifi.ipv4_address))
                 self._ip = self._wifi.ipv4_address
+                self._logger.info("WiFi: IP is set to '{}'".format(self._ip))
                 return brickmaster.const.NET_STATUS_CONNECTED
 
     def disconnect(self):
@@ -168,6 +170,18 @@ class BMWiFi:
         :return:
         """
         return self._mac_string
+
+    @property
+    def ip(self):
+        """
+        The IP of the interface. Returns None if not connected.
+
+        :return: str
+        """
+        if self.wifihw == 'esp32spi':
+            return self._wifi.pretty_ip(self._wifi.ip_address)
+        else:
+            return str(self._wifi.ipv4_address)
 
     # Private Methods
     def _setup_wifi(self):

@@ -31,6 +31,16 @@ class BM2NetworkCircuitPython(BM2Network):
             except BaseException:
                 raise
 
+    @property
+    def ip(self):
+        """
+        IP of the wireless interface.
+
+        :return: str
+        """
+
+        return self._wifi_obj.ip
+
     def poll(self):
         """
         Poll the MQTT broker, send outbound messages and receive inbound messages.

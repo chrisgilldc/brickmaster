@@ -200,3 +200,13 @@ class BM2NetworkLinux(BM2Network):
         self._paho_client.on_connect = self._on_connect
         # Disconnect callback
         self._paho_client.on_disconnect = self._on_disconnect
+
+    @property
+    def ip(self):
+        """
+        Current IP of the active interface.
+
+        :return: str
+        """
+
+        return brickmaster.util.interface_ip(self._net_interface)

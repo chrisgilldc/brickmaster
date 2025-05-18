@@ -2,9 +2,9 @@
 Brickmaster Network Base Class
 """
 
-
 import adafruit_logging
 from json import dumps as json_dumps
+import sys
 import time
 # Import only the parts of Brickmaster2 we need, to prevent circular imports.
 from . import mqtt
@@ -20,7 +20,7 @@ class BM2Network:
     Brickmaster Networking class for Linux
     """
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
-                 mqtt_log=False, net_interface='wlan0', neton=None, netoff=None, port=1883, ha_discover=True,
+                 mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
                  ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
         """
         Brickmaster Network Class
@@ -45,10 +45,8 @@ class BM2Network:
         :type mqtt_timeout: int
         :param net_interface: Linux network interface to use. Defaults to 'wlan0'.
         :type net_interface: str
-        :param neton: Control for the Network-Connected LED
-        :type neton: brickmaster.control.Control
-        :param netoff: Control for the Network Disconnected LED.
-        :type netoff: brickmaster.control.Control
+        :param net_indicator: Indicator for network status, if configured.
+        :type net_indicator: brickmaster.control.Control
         :param ha_discover: Should we send Home Assistant discovery messages?
         :type ha_discover: bool
         :param ha_base: When doing Home Assistant discovery, base topic name?
@@ -102,29 +100,18 @@ class BM2Network:
 
         # Set up the network status LEDs, if defined.
         # Net On
-        self._logger.debug("Network: Connection status LED object - {}".format(neton))
-        if neton is None:
+        self._logger.debug("Network: Connection status LED object - {}".format(net_indicator))
+        if net_indicator is None:
             self._logger.info("Network: Connection status LED not defined.")
-            self._neton = brickmaster.controls.CtrlNull("neton_null","Net On Null", self)
-        elif not isinstance(neton, brickmaster.controls.BaseControl):
+            self._net_indicator = brickmaster.controls.CtrlNull("netstatus_null","Net Indicator Null", self)
+        elif not isinstance(net_indicator, brickmaster.controls.BaseControl):
             self._logger.info("Network: Connection status LED is not a valid control.")
-            self._neton = brickmaster.controls.CtrlNull("neton_null", "Net On Null", self)
+            self._net_indicator = brickmaster.controls.CtrlNull("netstatus_null", "Net Indicator Null", self)
         else:
-            self._neton = neton
-        # Net Off
-        self._logger.debug("Network: Disconnection status LED object - {}".format(netoff))
-        if netoff is None:
-            self._logger.info("Network: Disconnection status LED not defined.")
-            self._netoff = brickmaster.controls.CtrlNull("netoff_null", "Net Off Null", self)
-        elif not isinstance(neton, brickmaster.controls.BaseControl):
-            self._logger.info("Network: Disconnection status LED is not a valid control.")
-            self._netoff = brickmaster.controls.CtrlNull("netoff_null", "Net Off Null", self)
-        else:
-            self._netoff = netoff
+            self._net_indicator = net_indicator
 
         # Set the status LEDs to initial state.
-        self._neton.set('off')
-        self._netoff.set('on')
+        self._net_indicator.set('off')
 
         # Initialize variables
         self._reconnect_timestamp = time.monotonic()
@@ -233,9 +220,8 @@ class BM2Network:
         self._send_offline()
         # Disconnect from broker
         self._mc_disconnect()
-        # Set Status Indicators
-        self._netoff.set('on')
-        self._neton.set('off')
+        # # Set network status indicator
+        # self._net_indicator.set('off')
         self.status = const.NET_STATUS_DISCONNECT_PLANNED
 
     def poll(self):
@@ -380,6 +366,11 @@ class BM2Network:
         Update the network status and wrap a timestamp in it.
         """
         self._status = (new_status, time.monotonic())
+        # Update the indicator. If connected, on. Anything else, off.
+        if new_status == const.NET_STATUS_CONNECTED:
+            self._net_indicator.set("on")
+        else:
+            self._net_indicator.set("off")
         self._logger.debug("Network: MQTT status now '{}' at timestamp '{}'".format(self._status[0],self._status[1]))
 
     # Private methods
@@ -390,6 +381,16 @@ class BM2Network:
         :return: None
         """
         raise NotImplemented("Network: WiFi Connection handling should be dealt with by a subclass!")
+
+    @property
+    def ip(self):
+        """
+        IP of the active interface
+
+        :return: str
+        """
+
+        raise NotImplemented("Network: IP should be handled by a subclass!")
 
     def _run_ha_discovery(self):
         """
@@ -403,8 +404,16 @@ class BM2Network:
         # connect now.
         if self._ha_discover:
             self._logger.info("Network: Running Home Assistant discovery...")
+
             # Create and stash device info for convenience.
-            device_info = mqtt.ha_device_info(self._system_id, self._long_name, self._ha_area, brickmaster.__version__)
+            # Don't send IP/ConfigURL if this is CPython.
+            # if sys.implementation.name == 'cpython':
+            #     ip = None
+            # else:
+            #     # Not CPython is presumably CircuitPython, which means (presumably) Web Workflow is in use.
+            #     ip = self.ip
+
+            device_info = mqtt.ha_device_info(self._system_id, self._long_name, brickmaster.__version__, ha_area=self._ha_area, ip=self.ip)
             discovery_messages = mqtt.ha_discovery(
                 self._short_name, self._system_id, device_info, 'brickmaster/', self._ha_base,
                 self._ha_meminfo, self._object_register)
