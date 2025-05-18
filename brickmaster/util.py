@@ -64,6 +64,13 @@ def interface_status(interface):
     addr = netifaces.ifaddresses(interface)
     return netifaces.AF_INET in addr
 
+def interface_ip(interface):
+    """
+    The IP of the interface.
+    :return: str
+    """
+    return netifaces.ifaddresses(interface)[netifaces.AF_INET][0]['addr']
+
 def load_config(config_path):
     """
     Load a configuration json from the local filesystem.
