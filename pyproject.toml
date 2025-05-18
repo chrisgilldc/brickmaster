@@ -10,7 +10,6 @@ requires-python = ">=3.11"
 dependencies = [
     "adafruit-circuitpython-logging",
     "adafruit-circuitpython-ht16k33",
-    "adafruit-circuitpython-logging",
     "Adafruit-Blinka",
     "netifaces2",
     "paho-mqtt",
