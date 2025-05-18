@@ -42,6 +42,7 @@ class Brickmaster:
             self._indicators['sysrun'] = brickmaster.controls.CtrlNull('sysrun', 'System Status Null', self)
 
         self._scripts = {} # Scripts
+        self._sensors = {} # Sensors
         self._extgpio = {} # GPIO Expanders (ie: AW9523 boards)
         self._active_script = None
         # Lists for displays that show the time or date.
@@ -87,7 +88,6 @@ class Brickmaster:
 
         # Set up the I2C Bus.
         self._setup_i2c_bus()
-
         gc.collect()
 
         # Create the controls. Set the publish time to the system-wide publish time.
@@ -99,6 +99,9 @@ class Brickmaster:
         # Create the scripts
         self._create_scripts()
         self._bm2config.del_scripts()
+        # Create the sensors.
+        self._logger.debug("Sensor config is: {}".format(self._bm2config.sensors))
+        self._create_sensors()
 
         # Set up the network.
         self._logger.debug("Setting up network with config options: {}".format(self._bm2config.system))
@@ -117,7 +120,8 @@ class Brickmaster:
                                             net_indicator=self._indicators['net'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             ha_area=self._bm2config.system['ha_area'],
-                                            log_level=self._bm2config.system['log_level']
+                                            log_level=self._bm2config.system['log_level'],
+                                            net_interface=self._bm2config.system['interface']
                                             )
         elif sys.implementation.name == 'circuitpython':
             self._logger.info("Core: Setting up network for CircuitPython board.")
@@ -141,14 +145,18 @@ class Brickmaster:
                                   format(sys.implementation.name))
             sys.exit(1)
 
-        # Now that the network is up, inform the network module about all the controls, scripts and displays!
+        # Now that the network is up, inform the network module about all the objects!
         self._logger.debug("Core: Registering controls with network module.")
         for control in self._controls:
             self._network.register_object(self._controls[control])
 
-        self._logger.debug("Core: Registering scripts with network module")
+        self._logger.debug("Core: Registering scripts with network module.")
         for script in self._scripts:
             self._network.register_object(self._scripts[script])
+
+        self._logger.debug("Core: Registering sensors with network module.")
+        for sensor in self._sensors:
+            self._network.register_object(self._sensors[sensor])
 
         gc.collect()
 
@@ -168,6 +176,8 @@ class Brickmaster:
             for control in self._controls:
                 if isinstance(self._controls[control], brickmaster.controls.CtrlFlasher):
                     self._controls[control].update()
+
+
 
             # If there's an active script, do it.
             if self._active_script is not None:
@@ -266,30 +276,6 @@ class Brickmaster:
                     extio_obj = extio_obj,
                     icon = control_cfg['icon'],
                     log_level=self._bm2config.system['log_level']))
-            # except (AssertionError, AttributeError, ValueError, KeyError) as e:
-            #      self._logger.warning(f"Core: Could not create control '{control_cfg['id']} - '{e}'")
-
-            # This is all the old setup logic.
-            # awboard=None
-            # if control_cfg['type'].lower() == 'gpio':
-            #     # Nothing special to do for on-board GPIO.
-            #     pass
-            # elif control_cfg['type'].lower() == 'aw9523':
-            #     if control_cfg['addr'] not in self._extgpio.keys():
-            #         self._logger.debug("No AW9523 exists at address '{}'. Creating.".format(control_cfg['addr']))
-            #         self._extgpio[control_cfg['addr']] = self._setup_aw9523(control_cfg['addr'])
-            #     else:
-            #         self._logger.debug("AW9523 already initialized at address '{}'".format(control_cfg['addr']))
-            #     awboard=self._extgpio[control_cfg['addr']]
-            # try:
-            #     self._controls[control_cfg['id']] = (
-            #         brickmaster.controls.CtrlSingle(**control_cfg, core=self, publish_time=publish_time, awboard=awboard,
-            #                                          log_level=self._bm2config.system['log_level']))
-            # except (AssertionError, AttributeError, ValueError):
-            #     self._logger.warning("Could not create control.")
-            # gc.collect()
-            # self._logger.debug("Memory free after creation of control '{}': {}".format(control_cfg['control_name'],
-            #                                                                            gc.mem_free()))
 
     def _create_displays(self):
         if len(self._bm2config.displays) == 0:
@@ -364,6 +350,36 @@ class Brickmaster:
                 # Pass the script object the script data along with the controls that exist.
 
                 self._scripts[script_obj.name] = script_obj
+
+    def _create_sensors(self):
+        """
+        Create defined sensors.
+        """
+
+        self._logger.debug("Sys: Sensors to create - {}".format(self._bm2config.sensors))
+        for sensor_cfg in self._bm2config.sensors:
+            self._logger.debug("Setting up sensor '{}' as type '{}'".
+                               format(sensor_cfg['id'], sensor_cfg['type']))
+            self._logger.debug("Complete sensor config: {}".format(sensor_cfg))
+
+            # Check the type to create the correct object type.
+            # try:
+            if sensor_cfg['type'].lower() == 'htu31d':
+                if self._i2c_bus is None:
+                    self._logger.error("Cannot configure HTU31D '{}' when I2C bus is not configured.".
+                                       format(sensor_cfg['id']))
+                else:
+                    self._sensors[sensor_cfg['id']] = brickmaster.sensors.SensorHTU31D(
+                        ctrl_id=sensor_cfg['id'],
+                        name=sensor_cfg['name'],
+                        address=sensor_cfg['address'],
+                        i2c_bus=self._i2c_bus,
+                        core=self,
+                        log_level=self._bm2config.system['log_level'])
+            else:
+                raise ValueError("Cannot configure sensor '{}', type '{}' does not have setup.".
+                                 format(sensor_cfg['id'], sensor_cfg['type']))
+
 
     def _reload_config(self):
         """

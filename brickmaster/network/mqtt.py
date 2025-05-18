@@ -50,14 +50,11 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
     ]
 
     # Controls
-    # print("Network (MQTT): Processing Control object list '{}'.".format(object_register['controls']))
     for item in object_register['controls']:
         # print("Network (MQTT): Processing Control '{}' ({})".format(item, type(object_register['controls'][item])))
         control_object = object_register['controls'][item]
         logger.debug("Network (MQTT): Generating control message for control '{}' ({})".
                      format(control_object.id, type(control_object)))
-        # logger.debug("Generating messages for object '{}' (type: {})".
-        #              format(control_object.id, type(control_object)))
         # Control statuses should be retained. This allows state to be preserved over HA restarts.
         outbound_messages.append(
             {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/status',
@@ -73,12 +70,20 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
             # Running Configuration.
             outbound_messages.append(
                 {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/loiter_time',
-                 'message': control_object.loiter_time, 'force_repeat': force_repeat, 'retain': False}
+                 'message': control_object.loiter_tunit_ime, 'force_repeat': force_repeat, 'retain': False}
             )
             outbound_messages.append(
                 {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/switch_time',
                  'message': control_object.switch_time, 'force_repeat': force_repeat, 'retain': False}
             )
+
+    # Sensors
+    for item in object_register['sensors']:
+        sensor_object = object_register['sensors'][item]
+        outbound_messages.append(
+            {'topic': 'brickmaster/' + short_name + '/sensors/' + sensor_object.id + '/status',
+             'message': sensor_object.status, 'force_repeat': force_repeat, 'retain': False}
+        )
 
     # Displays aren't yet supported. Maybe some day.
     # for item in object_register['displays']:
@@ -177,8 +182,16 @@ def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, memi
 
     # Discover controls.
     for control_id in object_registry['controls']:
-        outbound_messages.extend(ha_discovery_control(
-            short_name, system_id, device_info, topic_prefix, ha_base, object_registry['controls'][control_id]))
+            outbound_messages.extend(ha_discovery_control(
+                short_name, system_id, device_info, topic_prefix, ha_base, object_registry['controls'][control_id]))
+
+    # Discover Sensors
+    logger.debug("Sensors defined: {}".format(object_registry['sensors']))
+    for sensor_id in object_registry['sensors']:
+        if isinstance(object_registry['sensors'][sensor_id], brickmaster.sensors.SensorHTU31D):
+            logger.debug("Creating discovery messages for HTU31D '{}'".format(sensor_id))
+            outbound_messages.extend(ha_discovery_sensor_HTU31D(
+                short_name, system_id, device_info, topic_prefix, ha_base, object_registry['sensors'][sensor_id]))
 
     #TODO: Add discovery for scripts and send script data, ie: elapsed time.
     # The outbound topics dict includes references to the objects, so we can get the objects from there.
@@ -332,7 +345,58 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
             {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memusedbytes/config',
              'message': json.dumps(memusedbytes_dict)}
         ]
+    return None
     #self._topics_outbound['meminfo']['discovery_time'] = time.monotonic()
+
+def ha_discovery_sensor_HTU31D(short_name, system_id, device_info, topic_prefix, ha_base, sensor):
+    """
+    Discovery message for an HTU31D temp/humidity Sensor.
+
+    :param short_name: Short name of the system.
+    :type short_name: str
+    :param system_id: System ID
+    :type system_id: str
+    :param device_info: Device Info block
+    :type device_info:
+    :param topic_prefix: Our own topic prefix
+    :param ha_base: Prefix for Home Assistant
+    :param control: GPIO control object
+    :type control: brickmaster.controls.Control
+    :return: list
+    """
+
+    temp_dict = {
+        'name': sensor.name + " Temperature",
+        'object_id': short_name + "_" + sensor.id,
+        'device': device_info,
+        'unique_id': system_id + "_" + sensor.id + "_temperature",
+        'state_topic': topic_prefix + short_name + '/sensors/' + sensor.id + '/status',
+        'device_class': 'temperature',
+        'unit_of_measurement': sensor.uom,
+        'value_template': '{{ value_json.temperature }}',
+        'availability': ha_availability(topic_prefix, short_name)
+    }
+
+    humidity_dict = {
+        'name': sensor.name + " Humidity",
+        'object_id': short_name + "_" + sensor.id,
+        'device': device_info,
+        'unique_id': system_id + "_" + sensor.id + "_humidity",
+        'state_topic': topic_prefix + short_name + '/sensors/' + sensor.id + '/status',
+        'device_class': 'humidity',
+        'unit_of_measurement': '%',
+        'value_template': '{{ value_json.humidity }}',
+        'availability': ha_availability(topic_prefix, short_name),
+    }
+
+    discovery_array = [
+        {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/' + sensor.id + '_temperature/config',
+             'message': json.dumps(temp_dict)},
+        {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/' + sensor.id + '_humidity/config',
+         'message': json.dumps(humidity_dict)},
+    ]
+
+    return discovery_array
 
 
 def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_base, control):

@@ -14,6 +14,7 @@ On non-Linux installs, the file must be "config.json" in the root of the board's
 | :white_check_mark: `controls` | list | Devices to controls. May be empty if none present (but then what's the point!?) |
 | :white_check_mark: `displays` | list | 7-segment displays. May be empty if none present. |
 | :white_check_mark: `scripts` | dict | Pre-defined scripts that can be run |
+| 'sensors' | list | List of defined sensors. Currently on the HTU31D I2C sensor is supported. |
 
 ### System Options
 
@@ -29,6 +30,7 @@ On non-Linux installs, the file must be "config.json" in the root of the board's
 | `indicators`          | dict   | None      | Defines GPIO pins for indicators lights.                                                                                                                       |
 | `mqtt` | dict | None | MQTT settings.                                                                                                                                                 |
 | `ha`                  | dict   | None      | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                                                                  |
+| 'interface'   | string | 'wlan0' | On linux, which interface should be monitored for connectivity. |
 
 #### I2C
 I2C is required if using I2C displays (the only kind of supported displays) or Controls on an I2C board (AW9523).
@@ -177,3 +179,12 @@ is defined as a dict with the following definition.
 | :white_check_mark: `dir` | string | 'scripts'                             | Directory for scripts.                                                                                                |
 | `scan_dir`               | string | `False` on Circuitpython, else `True` | Should the script directory be scanned for script files? If so, any json file (*.json) will be processed as a script. |
 | `files`                  | list   | None                                  | **Required** for Circuitpython as it can't scan files. List of file names to include explicitly.                      |
+
+### Sensors
+:white_check_mark: **means required**
+
+| Name                             | Type   | Default | Description                                                                                                                                                      |
+|----------------------------------|--------|------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `name`        | string | None | Name of the sensor. This will be part of the topic name.                                                                                                         |
+| :white_check_mark: `type`        | string | None | Type of the control. Currently must be 'HTU31D', this is all that's supported.                                                                                   | 
+| :white_check_mark: `address` | string | None | Address of the sensor on the I2C bus. Note this must be on I2C bus 1, and must be written as a hex address in a string, ie: "0x40"                               |

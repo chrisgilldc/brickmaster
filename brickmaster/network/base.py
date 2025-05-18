@@ -84,8 +84,9 @@ class BM2Network:
         # Register to store objects.
         self._object_register = {
             'controls': {},
+            'displays': {},
             'scripts': {},
-            'displays': {}
+            'sensors': {}
         }
 
         # Default the logging level.
@@ -337,6 +338,7 @@ class BM2Network:
         :return: None
         """
 
+        # This shouldn't be true, since Sensors don't have topics to subscribe to. Revisit this later.
         try:
             obj_topics = action_object.topics
         except AttributeError:
@@ -350,6 +352,9 @@ class BM2Network:
             elif issubclass(type(action_object), brickmaster.scripts.BM2Script):
                 self._logger.debug("Registering script '{}' to topics '{}'".format(action_object.id, obj_topics))
                 self._object_register['scripts'][action_object.id] = action_object
+            elif issubclass(type(action_object), brickmaster.sensors.BaseSensor):
+                self._logger.debug("Registering sensor '{}' to topics '{}'".format(action_object.id, obj_topics))
+                self._object_register['sensors'][action_object.id] = action_object
             else:
                 self._logger.error("Cannot determine class of object '{}' (type: {}). Cannot register.".
                                    format(action_object.id, type(action_object)))

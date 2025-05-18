@@ -36,6 +36,7 @@ class BM2Config:
     def _validate(self):
         # Check for the required config sections.
         required_keys = ['system', 'controls', 'scripts']
+        optional_keys = ['sensors']
         print(self._config)
         for key in required_keys:
             self._logger.debug("Checking for section '{}'".format(key))
@@ -54,15 +55,51 @@ class BM2Config:
         self._validate_displays()
         # Validate the scripts.
         self._validate_scripts()
+        if 'sensors' in self._config:
+            self._logger.info("Sensors section defined. Checking...")
+            self._validate_sensors()
         return True
 
-    # Validate system settings
+    def _validate_sensors(self):
+        """
+        Validate sensor configuration if present.
+        """
+        if not isinstance(self._config['sensors'], list):
+            self._logger.critical('Config: Sensors not correctly defined. Must be a list of dictionaries.')
+
+        i = 0
+        to_delete = []
+        while i < len(self._config['sensors']):
+            self._logger.debug("Config: Validating sensor definition '{}'".format(self._config['sensors'][i]))
+            required_params = ['id','type','name','address']
+            for param in required_params:
+                if param not in self._config['sensors'][i]:
+                    self._logger.critical("Config: Required sensor config option '{}' missing in control definition {}. "
+                                          "Cannot configure!".format(param, i+1))
+                    to_delete.append(i)
+                    i += 1
+                    continue
+            # Sensor is validated. Convert the address to hex integer.
+            self._config['sensors'][i]['address'] = int(self._config['sensors'][i]['address'], 16)
+            i += 1
+
+        # Make the to_delete list unique.
+        to_delete = list(set(to_delete))
+        self._logger.debug("Sensors to remove: {}".format(to_delete))
+        # Delete any sensors that have been invalidated
+        for d in sorted(to_delete, reverse=True):
+            del self._config['sensors'][d]
+
     def _validate_system(self):
+        """
+        Validate system settings.
+        """
         self._logger.debug("Config: Validating system section")
         required_params = ['id', 'mqtt']
-        optional_params = ['name', 'i2c', 'log_level', 'wifihw']
+        optional_params = ['name', 'i2c', 'interface', 'log_level', 'wifihw']
         optional_defaults = {
             'i2c': None,
+            'interface': 'wlan0',
             'log_level': 'info',
             'wifihw': None
         }
@@ -71,7 +108,7 @@ class BM2Config:
             self._logger.debug("Config: Checking for required key '{}'".format(param))
             if param not in self._config['system']:
                 self._logger.critical("Config: Required config option '{}' missing. Cannot continue!".format(param))
-                sys.exit(0)
+                sys.exit(1)
 
         # Check for optional settings, assign the defaults if need be.
         for param in optional_params:
@@ -340,6 +377,7 @@ class BM2Config:
                 except ValueError:
                     raise
             return output_pindef
+        return None
 
     # def _validate_controls_old(self):
     #     if not isinstance(self._config['controls'], list):
@@ -584,6 +622,13 @@ class BM2Config:
         List of configured scripts
         """
         return self._config['scripts']
+
+    @property
+    def sensors(self):
+        """
+        List of configured sensors.
+        """
+        return self._config['sensors']
 
     # Allow progressive deletion of the config to free memory.
     def del_controls(self):
