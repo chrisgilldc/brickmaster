@@ -10,11 +10,13 @@ requires-python = ">=3.11"
 dependencies = [
     "adafruit-circuitpython-logging",
     "adafruit-circuitpython-ht16k33",
+    "adafruit-circuitpython-htu31d",
     "Adafruit-Blinka",
     "netifaces2",
     "paho-mqtt",
     "psutil",
-    "pid"
+    "pid",
+    "RPi.GPIO"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

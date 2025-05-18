@@ -11,16 +11,66 @@ import psutil
 from paho.mqtt.client import Client
 
 class BM2NetworkLinux(BM2Network):
+    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
+                 mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
+        """
+        Brickmaster Network Class
+
+        :param core: Reference to the main Brickmaster2 object.
+        :type core: Brickmaster
+        :param system_id: ID of the system. Cannot include spaces!
+        :type system_id: str
+        :param long_name: Long name of the system. Used for Home Assistant discovery.
+        :type long_name: str
+        :param broker: IP or hostname of the MQTT broker
+        :type  broker: str
+        :param port: MQTT port to connect to. Defaults to 1883. SSL is *NOT* supported.
+        :type port: int
+        :param mqtt_username: MQTT Username
+        :type mqtt_username: str
+        :param mqtt_password: MQTT Password
+        :type mqtt_password: str
+        :param mqtt_log: Enable logging of the base MQTT client. Disabled by default. Will only be logged at the Debug level.
+        :type mqtt_log: bool
+        :param mqtt_timeout: Timeout for MQTT polling in seconds.
+        :type mqtt_timeout: int
+        :param net_interface: Linux network interface to use. Defaults to 'wlan0'.
+        :type net_interface: str
+        :param net_indicator: Indicator for network status, if configured.
+        :type net_indicator: brickmaster.control.Control
+        :param ha_discover: Should we send Home Assistant discovery messages?
+        :type ha_discover: bool
+        :param ha_base: When doing Home Assistant discovery, base topic name?
+        :type ha_base: str
+        :param ha_area: Area to suggest for entities.
+        :type ha_area: str
+        :param ha_meminfo: Memory topic format. Must be one of 'unified', 'unified-used', 'split-pct', 'split-all'
+        :param wifi_obj: Wifi Object for CircuitPython systems.
+        :type wifi_obj: brickmaster.network.BMWiFi
+        :param log_level: Level to log at.
+        """
+        super().__init__(core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout,
+                         mqtt_log, net_interface, net_indicator, port, ha_discover, ha_base, ha_area, ha_meminfo,
+                         wifi_obj, log_level)
+
+        # Flag so that we only log interface being not up once.
+        self._flag_interface_logged = False
 
     def poll(self):
         """
-        Send
+        Poll the network, check the interface first and then do the super class poll method.
         :return:
         """
 
         # Is the system's interface up? If not, we can't do anything else.
         if not brickmaster.util.interface_status(self._net_interface):
+            if not self._flag_interface_logged:
+                self._logger.warning("Interface not up.")
+                self._flag_interface_logged = True
             return { 'online': False, 'mqtt_status': False, 'commands': {} }
+        else:
+            self._flag_interface_logged = False
 
         # System's interface is up, run the base poll.
         return super().poll()
@@ -208,5 +258,7 @@ class BM2NetworkLinux(BM2Network):
 
         :return: str
         """
-
-        return brickmaster.util.interface_ip(self._net_interface)
+        try:
+            return brickmaster.util.interface_ip(self._net_interface)
+        except KeyError:
+            return "Interface Down"

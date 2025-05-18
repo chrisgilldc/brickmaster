@@ -10,6 +10,8 @@ from . import gpio
 from . import network
 # Scripts
 from . import scripts
+# Sensors
+from . import sensors
 # # Utility methods.
 from . import util
 
