@@ -11,7 +11,7 @@ class SensorHTU31D(BaseSensor):
     """
     Sensor for an HTU31D temperature/humidity sensor.
     """
-    def __init__(self, ctrl_id, name, i2c_bus, address, core, unit="C", publish_time=6,
+    def __init__(self, ctrl_id, name, i2c_bus, address, core, unit="C", publish_time=60,
                  icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
         """
         Args:
@@ -37,6 +37,7 @@ class SensorHTU31D(BaseSensor):
         self._unit = unit
         self._latest_update = 0
         self._latest_data = None
+        self._publish_time = publish_time
         self._sensor = adafruit_htu31d.HTU31D(self._i2c_bus, self._address)
 
     @property
@@ -52,7 +53,7 @@ class SensorHTU31D(BaseSensor):
         """
 
         # Update every 6 seconds - 10 times a minute.
-        if time.monotonic() - self._latest_update > 6:
+        if time.monotonic() - self._latest_update > self._publish_time:
             temp, humidity = self._sensor.measurements
             # Convert temp if needed
             if self._unit == "F":
