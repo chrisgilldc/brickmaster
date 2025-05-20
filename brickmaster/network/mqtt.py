@@ -367,7 +367,7 @@ def ha_discovery_sensor_HTU31D(short_name, system_id, device_info, topic_prefix,
 
     temp_dict = {
         'name': sensor.name + " Temperature",
-        'object_id': short_name + "_" + sensor.id,
+        'object_id': short_name + "_" + sensor.id + "_temperature",
         'device': device_info,
         'unique_id': system_id + "_" + sensor.id + "_temperature",
         'state_topic': topic_prefix + short_name + '/sensors/' + sensor.id + '/status',
@@ -379,7 +379,7 @@ def ha_discovery_sensor_HTU31D(short_name, system_id, device_info, topic_prefix,
 
     humidity_dict = {
         'name': sensor.name + " Humidity",
-        'object_id': short_name + "_" + sensor.id,
+        'object_id': short_name + "_" + sensor.id + "_humidity",
         'device': device_info,
         'unique_id': system_id + "_" + sensor.id + "_humidity",
         'state_topic': topic_prefix + short_name + '/sensors/' + sensor.id + '/status',
