@@ -4,14 +4,22 @@ Brickmaster Display System
 
 import adafruit_logging as logger
 # from .segment_format import number_7s, time_7s
-from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
+
 import time
+
 class Display:
     """
     Brickmaster Display Class
     Create once per display.
     """
     def __init__(self, config, i2c_bus):
+
+        # Import the ht16k33 library when required.
+        try:
+            from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
+        except ImportError as ie:
+            raise ie
+
         # Create a logger
         self._logger = logger.getLogger('Brickmaster')
         # Save the config.
