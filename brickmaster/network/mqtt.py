@@ -1,5 +1,5 @@
 """
-Brickmaster2 MQTT Method Generation methods.
+Brickmaster MQTT Method Generation methods.
 
 These methods are meant to work with either the Linux or CircuitPython classes. It's the responsibility of those
 classes to handle the actual publication!
