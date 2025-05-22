@@ -1,5 +1,5 @@
 """
-Brickmaster2 MQTT Method Generation methods.
+Brickmaster MQTT Method Generation methods.
 
 These methods are meant to work with either the Linux or CircuitPython classes. It's the responsibility of those
 classes to handle the actual publication!
@@ -10,6 +10,7 @@ import json
 import brickmaster.util
 import board
 import brickmaster.controls.CtrlFlasher
+import os
 
 logger = adafruit_logging.getLogger('Brickmaster')
 logger.setLevel(adafruit_logging.DEBUG)
@@ -115,11 +116,11 @@ def ha_device_info(system_id, long_name, version, ha_area=None, ip=None):
         suggested_area=ha_area,
         sw_version=str(version)
     )
-    print("MQTT: IP is '{}'".format(ip))
-    if ip is not None:
+    # print("MQTT: IP is '{}'".format(ip))
+    if ip is not None and os.uname().sysname == 'ESP32':
         # Send the configuration URL if an IP is provided. This is just a string, so could technically be a hostname.
         # Intended only for CircuitPython boards.
-        print("Got ip {} ({})".format(ip, type(ip)))
+        # print("Got ip {} ({})".format(ip, type(ip)))
         return_data['configuration_url'] = "http://" + ip + "/"
     # Only add suggested_area if it's set to not None, otherwise discovery will reject this.
     if ha_area is not None:

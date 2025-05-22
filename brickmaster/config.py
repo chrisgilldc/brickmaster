@@ -35,14 +35,25 @@ class BM2Config:
     # Master validator
     def _validate(self):
         # Check for the required config sections.
-        required_keys = ['system', 'controls', 'scripts']
-        optional_keys = ['sensors']
+        required_keys = ['system', 'controls']
+        optional_keys = ['displays','scripts','sensors']
+        optional_defaults = {
+            'displays': [],
+            'scripts': {},
+            'sensors': []
+        }
         print(self._config)
         for key in required_keys:
             self._logger.debug("Checking for section '{}'".format(key))
             if key not in self._config:
                 self._logger.critical("Required configuration section '{}' not present. Cannot continue!".format(key))
                 sys.exit(1)
+        for key in optional_keys:
+            self._logger.debug("Checking for section '{}'".format(key))
+            if key not in self._config:
+                self._logger.info("Optional configuration section '{}' not present.".format(key))
+                self._config[key] = optional_defaults[key]
+
         # Change the logging level.
         self._validate_logging()
         self._logger.info("Config: Adjusting log level to '{}'".format(self._config['system']['log_level_name']))

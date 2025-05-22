@@ -5,7 +5,7 @@ Brickmaster Sensor - HTU31D Temperature and Humidity
 import adafruit_logging
 from .BaseSensor import BaseSensor
 import time
-import adafruit_htu31d
+
 
 class SensorHTU31D(BaseSensor):
     """
@@ -29,6 +29,11 @@ class SensorHTU31D(BaseSensor):
             None
         """
         super().__init__(ctrl_id, name, core, icon, publish_time, log_level)
+
+        try:
+            import adafruit_htu31d
+        except ImportError as ie:
+            raise ie
 
         self._i2c_bus = i2c_bus
         self._address = address

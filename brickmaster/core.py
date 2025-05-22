@@ -289,11 +289,15 @@ class Brickmaster:
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
-            self._displays[display_cfg['name']] = brickmaster.Display(display_cfg, self._i2c_bus, )
-            if display_cfg['idle']['show'] == 'time':
-                self._clocks.append(display_cfg['name'])
-            elif display_cfg['idle']['show'] == 'date':
-                self._dates.append(display_cfg['name'])
+            try:
+                self._displays[display_cfg['name']] = brickmaster.Display(display_cfg, self._i2c_bus, )
+            except ImportError:
+                self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
+            else:
+                if display_cfg['idle']['show'] == 'time':
+                    self._clocks.append(display_cfg['name'])
+                elif display_cfg['idle']['show'] == 'date':
+                    self._dates.append(display_cfg['name'])
 
     def _create_scripts(self):
         # If we're on Linux and scan files is enable, get a list of all the JSON files.
@@ -369,13 +373,17 @@ class Brickmaster:
                     self._logger.error("Cannot configure HTU31D '{}' when I2C bus is not configured.".
                                        format(sensor_cfg['id']))
                 else:
-                    self._sensors[sensor_cfg['id']] = brickmaster.sensors.SensorHTU31D(
-                        ctrl_id=sensor_cfg['id'],
-                        name=sensor_cfg['name'],
-                        address=sensor_cfg['address'],
-                        i2c_bus=self._i2c_bus,
-                        core=self,
-                        log_level=self._bm2config.system['log_level'])
+                    try:
+                        self._sensors[sensor_cfg['id']] = brickmaster.sensors.SensorHTU31D(
+                            ctrl_id=sensor_cfg['id'],
+                            name=sensor_cfg['name'],
+                            address=sensor_cfg['address'],
+                            i2c_bus=self._i2c_bus,
+                            core=self,
+                            log_level=self._bm2config.system['log_level'])
+                    except ImportError:
+                        self._logger.error("Core: Could not import HTU31D library. Will not create sensor '{}'".
+                                           format(sensor_cfg['id']))
             else:
                 raise ValueError("Cannot configure sensor '{}', type '{}' does not have setup.".
                                  format(sensor_cfg['id'], sensor_cfg['type']))
