@@ -4,7 +4,7 @@ Brickmaster Display System
 
 import adafruit_logging as logger
 # from .segment_format import number_7s, time_7s
-
+from adafruit_ht16k33.segments import Seg7x4, BigSeg7x4
 import time
 
 class Display:
