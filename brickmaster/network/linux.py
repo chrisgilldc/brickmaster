@@ -158,7 +158,7 @@ class BM2NetworkLinux(BM2Network):
         })
         return messages_ps
 
-    def _mc_publish(self, topic, message, qos=0, retain=False):
+    def _mc_publish(self, topic, message, qos=0, retain=False, force=False):
         """
         Publish via the client object.
 
@@ -168,15 +168,29 @@ class BM2NetworkLinux(BM2Network):
         :type qos: int
         :param retain: Should the message be retained by the broker?
         :type retain: bool
+        :param force: Should the message be sent even if the message hasn't changed?
+        :type force: bool
         :return: None
         """
 
-        try:
-            self._paho_client.publish(topic, message, qos, retain)
-        except TypeError as te:
-            self._logger.error("Network: Could not publish message, wrong type. '{}' ({})".
-                               format(message, type(message)))
-            raise te
+        # Assume we don't send.
+        send = False
+
+        if topic not in self._mqtt_messages_log:
+            # If this topic hasn't been seen before, send it.
+            send = True
+        elif self._mqtt_messages_log[topic] != message:
+            # If the new messages is different, send it.
+            send = True
+
+        if send:
+            try:
+                self._paho_client.publish(topic, message, qos, retain)
+            except TypeError as te:
+                self._logger.error("Network: Could not publish message, wrong type. '{}' ({})".
+                                   format(message, type(message)))
+                raise te
+            self._mqtt_messages_log[topic] = message
 
     def _mc_subscribe(self, topic):
         """

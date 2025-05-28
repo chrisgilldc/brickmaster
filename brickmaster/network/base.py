@@ -72,6 +72,7 @@ class BM2Network:
         self._mqtt_username = mqtt_username
         self._mqtt_password = mqtt_password
         self._mqtt_timeout = mqtt_timeout
+        self._mqtt_messages_log = {} # Log for seen messages.
         self._net_interface = net_interface
         # All the HA variables start with _ha, you know, obviously.
         self._ha_override = False
@@ -632,7 +633,7 @@ class BM2Network:
     def _mc_disconnect(self):
         raise NotImplemented("Must be defined in subclass!")
 
-    def _mc_publish(self, topic, message, qos=0, retain=False):
+    def _mc_publish(self, topic, message, qos=0, retain=False, force=False):
         """
         Publish via the client object.
 
@@ -642,6 +643,8 @@ class BM2Network:
         :type qos: int
         :param retain: Should the message be retained by the broker?
         :type retain: bool
+        :param force: Should the message be sent, even if the message hasn't changed?
+        :type force: bool
         :return: None
         """
         raise NotImplemented("Must be defined in subclass!")

@@ -129,7 +129,7 @@ class BM2NetworkCircuitPython(BM2Network):
             # Return it!
             return [return_dict]
 
-    def _mc_publish(self, topic, message, qos=0, retain=False):
+    def _mc_publish(self, topic, message, qos=0, retain=False, force=False):
         """
         Publish via the client object.
 
@@ -139,26 +139,40 @@ class BM2NetworkCircuitPython(BM2Network):
         :type qos: int
         :param retain: Should the message be retained by the broker?
         :type retain: bool
+        :param force: Should the message be sent even if the message hasn't changed?
+        :type force: bool
         :return: None
         """
-        try:
-            self._logger.debug("Network (MiniMQTT): Publishing to '{}'\n\t"
-                               "Payload - '{}'.".format(topic, message))
-            self._mini_client.publish(topic, message, retain, qos)
-            self._logger.debug("Network (MiniMQTT): Publish complete.")
-        except BrokenPipeError as e:
-            self._logger.error("Network (MiniMQTT): Disconnection while publishing!")
-            raise brickmaster.exceptions.BMRecoverableError from e
-        except ConnectionError as e:
-            self._logger.error("Network (MiniMQTT): Connection failed, raised error '{}'".format(e.args[0]))
-            raise brickmaster.exceptions.BMRecoverableError from e
-        except OSError as e:
-            if e.args[0] == 104:
-                self._logger.error("Network (MiniMQTT): Tried to publish while not connected! Marking broker as not connected, "
-                                   "will retry.")
+
+        # Assume we don't send.
+        send = False
+
+        if topic not in self._mqtt_messages_log:
+            # If this topic hasn't been seen before, send it.
+            send = True
+        elif self._mqtt_messages_log[topic] != message:
+            # If the new messages is different, send it.
+            send = True
+
+        if send:
+            try:
+                self._logger.debug("Network (MiniMQTT): Publishing to '{}'\n\t"
+                                   "Payload - '{}'.".format(topic, message))
+                self._mini_client.publish(topic, message, retain, qos)
+                self._logger.debug("Network (MiniMQTT): Publish complete.")
+            except BrokenPipeError as e:
+                self._logger.error("Network (MiniMQTT): Disconnection while publishing!")
                 raise brickmaster.exceptions.BMRecoverableError from e
-            else:
-                raise e
+            except ConnectionError as e:
+                self._logger.error("Network (MiniMQTT): Connection failed, raised error '{}'".format(e.args[0]))
+                raise brickmaster.exceptions.BMRecoverableError from e
+            except OSError as e:
+                if e.args[0] == 104:
+                    self._logger.error("Network (MiniMQTT): Tried to publish while not connected! Marking broker as not connected, "
+                                       "will retry.")
+                    raise brickmaster.exceptions.BMRecoverableError from e
+                else:
+                    raise e
 
     def _mc_subscribe(self, topic):
         """
