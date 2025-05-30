@@ -13,7 +13,7 @@ from paho.mqtt.client import Client
 class BM2NetworkLinux(BM2Network):
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
                  mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
-                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, logger=None):
         """
         Brickmaster Network Class
 
@@ -48,11 +48,12 @@ class BM2NetworkLinux(BM2Network):
         :param ha_meminfo: Memory topic format. Must be one of 'unified', 'unified-used', 'split-pct', 'split-all'
         :param wifi_obj: Wifi Object for CircuitPython systems.
         :type wifi_obj: brickmaster.network.BMWiFi
-        :param log_level: Level to log at.
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
         """
         super().__init__(core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout,
                          mqtt_log, net_interface, net_indicator, port, ha_discover, ha_base, ha_area, ha_meminfo,
-                         wifi_obj, log_level)
+                         wifi_obj, logger)
 
         # Flag so that we only log interface being not up once.
         self._flag_interface_logged = False

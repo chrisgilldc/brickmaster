@@ -13,7 +13,6 @@ import brickmaster.controls.CtrlFlasher
 import os
 
 logger = adafruit_logging.getLogger('Brickmaster')
-logger.setLevel(adafruit_logging.DEBUG)
 
 def initial_messages(short_name, topic_prefix='brickmaster'):
     """

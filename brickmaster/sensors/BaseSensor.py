@@ -7,7 +7,7 @@ class BaseSensor:
     """
     Base Sensor object.
     """
-    def __init__(self, sensor_id, name, core, icon="mdi:toy-brick", publish_time=15, log_level=adafruit_logging.WARNING):
+    def __init__(self, sensor_id, name, core, icon="mdi:toy-brick", publish_time=15, logger=None):
         """
         Base Sensor initialization.
 
@@ -21,9 +21,8 @@ class BaseSensor:
         @type icon: str
         @param publish_time:
         @type publish_time: int
-        @param log_level: Logging level to use for the control. Technically an int, should be a valid adafruit_logging
-        constant.
-        @type log_level: int
+        @param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        @type logger: adafruit_logging.Logger
 
         """
         # Save inputs.
@@ -41,8 +40,11 @@ class BaseSensor:
         self._status = None
 
         # Create a logger with the specified logger.
-        self._logger = adafruit_logging.getLogger('Brickmaster')
-        self._logger.setLevel(log_level)
+        if logger is None:
+            self._logger = adafruit_logging.getLogger('Brickmaster')
+            self._logger.setLevel(adafruit_logging.DEBUG)
+        else:
+            self._logger = logger
 
     @property
     def topics(self):

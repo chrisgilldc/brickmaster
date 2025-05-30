@@ -14,6 +14,7 @@ class BM2Config:
     Brickmaster2 Configuration Class
     """
     def __init__(self, config_json):
+
         self._config = config_json
         self._logger = logging.getLogger("Brickmaster")
         self._logger.setLevel(logging.INFO)
@@ -488,15 +489,47 @@ class BM2Config:
                     # i += 1
                     continue
             # Make sure type is legitimate.
-            if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4'):
+            if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4', 'lcd'):
                 self._logger.critical("Display type '{}' not known in display {}. Discarding display.".
                                       format(self._config['displays'][i]['type'], i))
                 to_delete.append(i)
                 # i += 1
                 continue
+
             # If name isn't defined, convert ID to name.
             if 'name' not in self._config['displays'][i]:
                 self._config['displays'][i]['name'] = self._config['displays'][i]['id']
+
+            # LCD requires cols and rows
+            if self._config['displays'][i]['type'] == 'lcd':
+                if 'rows' not in self._config['displays'][i]:
+                    self._logger.critical("Display {} must have 'rows' defined.".
+                                          format(self._config['displays'][i]['name']))
+                    to_delete.append(i)
+                    continue
+                else:
+                    try:
+                        self._config['displays'][i]['rows'] = int(self._config['displays'][i]['rows'])
+                    except TypeError:
+                        self._logger.critical("Cannot convert row value for display '{}' to an integer.".
+                                              format(self._config['displays'][i]['name']))
+                        to_delete.append(i)
+                        continue
+
+                if 'cols' not in self._config['displays'][i]:
+                    self._logger.critical("Display {} must have 'cols' defined.".
+                                          format(self._config['displays'][i]['name']))
+                    to_delete.append(i)
+                    continue
+                else:
+                    try:
+                        self._config['displays'][i]['cols'] = int(self._config['displays'][i]['cols'])
+                    except TypeError:
+                        self._logger.critical("Cannot convert cols value for display '{}' to an integer.".
+                                              format(self._config['displays'][i]['name']))
+                        to_delete.append(i)
+                        continue
+
 
             # Convert the address to a hex value.
             try:
@@ -507,6 +540,7 @@ class BM2Config:
                 # i += 1
                 to_delete.append(i)
                 continue
+
             # Default when_idle to blank, if not otherwise specified.
             if 'idle' not in self._config['displays'][i]:
                 self._config['displays'][i]['idle'] = {'show': 'blank'}

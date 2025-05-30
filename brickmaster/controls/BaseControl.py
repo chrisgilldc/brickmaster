@@ -11,7 +11,7 @@ class BaseControl:
     """
     Base control object.
     """
-    def __init__(self, ctrl_id, name, core, icon="mdi:toy-brick", publish_time=15, log_level=adafruit_logging.WARNING):
+    def __init__(self, ctrl_id, name, core, icon="mdi:toy-brick", publish_time=15, logger=None):
         """
         Base control initialization.
 
@@ -25,11 +25,8 @@ class BaseControl:
         @type icon: str
         @param publish_time:
         @type publish_time: int
-        @param log_level: Logging level to use for the control. Technically an int, should be a valid adafruit_logging
-        constant.
-        @type log_level: int
-
         """
+
         # Save inputs.
         # Set the ID.
         self._ctrl_id = ctrl_id
@@ -44,9 +41,12 @@ class BaseControl:
         self._topics = None
         self._status = None
 
-        # Create a logger with the specified logger.
-        self._logger = adafruit_logging.getLogger('Brickmaster')
-        self._logger.setLevel(log_level)
+        # Create or save logger.
+        if logger is None:
+            self._logger = adafruit_logging.getLogger('Brickmaster')
+            self._logger.setLevel(adafruit_logging.DEBUG)
+        else:
+            self._logger = logger
         self._logger.debug("Control {}: Set icon to '{}'".format(self._ctrl_id, self._icon))
 
     @property

@@ -15,7 +15,7 @@ class CtrlFlasher(BaseControl):
     Control to handle flashing across multiple pins.
     """
     def __init__(self, ctrl_id, name, core, pinlist, publish_time, loiter_time=1000, switch_time=1, active_low=False,
-                 extio_obj=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
+                 extio_obj=None, icon="mdi:toy-brick", logger=None):
 
         """
         @param ctrl_id: Short ID for the control. No spaces!
@@ -35,12 +35,10 @@ class CtrlFlasher(BaseControl):
         @type loiter_time: int
         @param switch_time: How long to keep everything off between items, in milliseconds. Defaults to 0.
         @type switch_time: int
-        @param log_level: Logging level to use for the control. Technically an int, should be a valid adafruit_logging
-        constant.
-        @type log_level: int
-
+        @param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        @type logger: adafruit_logger.Logger
         """
-        super().__init__(ctrl_id, name, core, icon, publish_time, log_level)
+        super().__init__(ctrl_id, name, core, icon, publish_time, logger)
 
         self._active_low = active_low # Save the active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.

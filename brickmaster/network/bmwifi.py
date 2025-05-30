@@ -13,7 +13,7 @@ class BMWiFi:
     Brickmaster WiFi Handling for CircuitPython Boards
     """
     def __init__(self, ssid, password, wifihw=None, retry_limit = 5, retry_time = 30, hostname = None, 
-                 log_level=adafruit_logging.DEBUG):
+                 logger=None):
         """
         Set up the Brickmaster WiFi handler. Works for ESP32s, direct or SPI connected.
 
@@ -29,11 +29,13 @@ class BMWiFi:
         :type retry_time: int
         :param hostname: Hostname to set. Otherwise will default to whatever the board wants.
         :type hostname: str
-        :param log_level:
+        :param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         """
-        # Create the logger and set the level to debug. This will get reset later.
-        self._logger = adafruit_logging.getLogger("Brickmaster")
-        self._logger.setLevel(log_level)
+        if logger is None:
+            self._logger = adafruit_logging.getLogger("Brickmaster")
+            self._logger.setLevel(adafruit_logging.DEBUG)
+        else:
+            self._logger = logger
 
         self._hostname = hostname
         self._ip = None

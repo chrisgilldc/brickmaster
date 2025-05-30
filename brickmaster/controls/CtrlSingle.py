@@ -13,8 +13,28 @@ class CtrlSingle(BaseControl):
     Control class for a single GPIO pin.
     """
     def __init__(self, ctrl_id, name, core, pins, publish_time, active_low=False,
-                 extio_obj=None, icon="mdi:toy-brick", log_level=adafruit_logging.WARNING):
-        super().__init__(ctrl_id, name, core, icon, publish_time, log_level)
+                 extio_obj=None, icon="mdi:toy-brick", logger=None):
+        """
+        @param ctrl_id: Short ID for the control. No spaces!
+        @type ctrl_id: str
+        @param name: Long name for the control
+        @type name: str
+        @param core: Reference to the Brickmaster core object.
+        @type core: object
+        @param pinlist: List of pins to use for the flasher. Must contain either strings (single pins) or dicts with
+        'on' and 'off' keys.
+        @type pinlist: list
+        @param publish_time: How long after startup to publish this control for to Home Assistant, in seconds.
+        @type publish_time: int
+        @param active_low: Should the pin set voltage low when active, high when inactive? This "inverts" the usual behavior.
+        @type active_low: bool
+        @param extio_obj: External IO object to use for the device.
+        @param icon: Icon name to send to Home Assistant.
+        @type icon: str
+        @param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        @type logger: adafruit_logger.Logger
+        """
+        super().__init__(ctrl_id, name, core, icon, publish_time, logger=logger)
 
         self._active_low = active_low # Save our active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.

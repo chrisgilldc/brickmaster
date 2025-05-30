@@ -21,7 +21,7 @@ class BM2Network:
     """
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
                  mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
-                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, logger=None):
         """
         Brickmaster Network Class
 
@@ -56,7 +56,7 @@ class BM2Network:
         :param ha_meminfo: Memory topic format. Must be one of 'unified', 'unified-used', 'split-pct', 'split-all'
         :param wifi_obj: Wifi Object for CircuitPython systems.
         :type wifi_obj: brickmaster.network.BMWiFi
-        :param log_level: Level to log at.
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         """
         # Set our status to initialization.
         self._status = (0, time.monotonic())
@@ -91,12 +91,12 @@ class BM2Network:
         }
 
         # Default the logging level.
-        if log_level is None:
-            log_level = adafruit_logging.WARNING
+        if logger is None:
+            self._logger = adafruit_logging.getLogger('Brickmaster')
+            self._logger.setLevel(adafruit_logging.DEBUG)
+        else:
+            self._logger = logger
 
-        # Set up logger. Adafruit Logging doesn't support hierarchical logging.
-        self._logger = adafruit_logging.getLogger('Brickmaster')
-        self._logger.setLevel(log_level)
         self._logger.info(f"Network: System Name is '{self._long_name}'")
         self._logger.info("Network: Home Assistant discovery (ha discover) is {}".format(self._ha_discover))
 
