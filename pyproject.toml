@@ -8,6 +8,7 @@ description = "Brickmaster Lego Control"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "adafruit-circuitpython-charlcd",
     "adafruit-circuitpython-logging",
     "adafruit-circuitpython-ht16k33",
     "adafruit-circuitpython-htu31d",

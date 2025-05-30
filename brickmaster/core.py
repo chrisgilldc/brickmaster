@@ -1,6 +1,7 @@
 """
 Brickmaster System Core
 """
+import time
 
 import adafruit_logging as logging
 import board
@@ -64,6 +65,8 @@ class Brickmaster:
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
         self._logger = logging.getLogger('Brickmaster')
+        print_handler = logging.StreamHandler()
+        self._logger.addHandler(print_handler)
         # Start out at the DEBUG level. The Config module will load the log level
         # From the config file and adjust appropriately.
         self._logger.setLevel(logging.DEBUG)
@@ -72,23 +75,31 @@ class Brickmaster:
         self._bm2config = brickmaster.BM2Config(config_json)
 
         # Reset the log level based on the config.
-        self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
-        self._logger.setLevel(self._bm2config.system['log_level'])
+        # self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
+        # self._logger.setLevel(self._bm2config.system['log_level'])
 
         # Debug output of the config.
         self._logger.debug("Core: System config is: {}".format(self._bm2config.system))
 
         # Set up the indicators
         self._indicators.update(self._setup_indicators())
-        self._logger.debug("Core: Have indicators '{}'".format(self._indicators))
+        self._logger.info("Core: Have indicators '{}'".format(self._indicators))
 
         # Set the system indicator on.
         # This should have been done earlier, but in case it wasn't, we do it again here.
         self._indicators['sysrun'].set('on')
 
         # Set up the I2C Bus.
+        # try:
         self._setup_i2c_bus()
-        gc.collect()
+        # except OSError as oe:
+        #     self._logger.critical("Core: Cannot get lock on I2C bus.")
+        #     sys.exit(1)
+        # else:
+        #     self._logger.info("Core: I2C configured.")
+        # gc.collect()
+
+        self._logger.info("Core: Have I2C Bus object - {}".format(self._i2c_bus))
 
         # Create the controls. Set the publish time to the system-wide publish time.
         self._create_controls(publish_time=self._bm2config.system['publish_time'])
@@ -120,7 +131,7 @@ class Brickmaster:
                                             net_indicator=self._indicators['net'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             ha_area=self._bm2config.system['ha_area'],
-                                            log_level=self._bm2config.system['log_level'],
+                                            logger=self._logger,
                                             net_interface=self._bm2config.system['interface']
                                             )
         elif sys.implementation.name == 'circuitpython':
@@ -138,7 +149,7 @@ class Brickmaster:
                                             net_indicator=self._indicators['net'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             ha_area=self._bm2config.system['ha_area'],
-                                            log_level=self._bm2config.system['log_level']
+                                            logger=self._logger
                                             )
         else:
             self._logger.critical("Core: Implementation '{}' unknown, cannot determine correct network module.".
@@ -263,9 +274,9 @@ class Brickmaster:
                     publish_time = publish_time,
                     extio_obj = extio_obj,
                     icon = control_cfg['icon'],
-                    log_level=self._bm2config.system['log_level'])
+                    logger=self._logger)
             elif control_cfg['type'].lower() == 'flasher':
-                self._controls[control_cfg['id']] = (brickmaster.controls.CtrlFlasher(
+                self._controls[control_cfg['id']] = brickmaster.controls.CtrlFlasher(
                     ctrl_id = control_cfg['id'],
                     name = control_cfg['name'],
                     core = self,
@@ -275,7 +286,7 @@ class Brickmaster:
                     publish_time = publish_time,
                     extio_obj = extio_obj,
                     icon = control_cfg['icon'],
-                    log_level=self._bm2config.system['log_level']))
+                    logger=self._logger)
 
     def _create_displays(self):
         if len(self._bm2config.displays) == 0:
@@ -289,11 +300,17 @@ class Brickmaster:
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
-            try:
-                self._displays[display_cfg['name']] = brickmaster.Display(display_cfg, self._i2c_bus, )
-            except ImportError:
-                self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
-            else:
+            if display_cfg['type'] == 'lcd':
+                # try:
+                self._displays[display_cfg['name']] = brickmaster.displays.BM2DisplayLCD(display_cfg, self._i2c_bus)
+                # except ImportError:
+                #     self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
+            elif display_cfg['type'] in ('bigseg7x4','seg7x4'):
+                # try:
+                self._displays[display_cfg['name']] = brickmaster.displays.BM2DisplaySeg(display_cfg, self._i2c_bus)
+                # except ImportError:
+                #     self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
+                # else:
                 if display_cfg['idle']['show'] == 'time':
                     self._clocks.append(display_cfg['name'])
                 elif display_cfg['idle']['show'] == 'date':
@@ -432,6 +449,13 @@ class Brickmaster:
                 self._logger.error("Received Value Error while setting up I2C")
                 self._logger.error(str(e))
                 self._i2c_bus = None
+            else:
+                if not self._i2c_bus.try_lock():
+                    raise OSError("Cannot get lock on I2C bus.")
+                else:
+                    found_addresses = [hex(device_address) for device_address in self._i2c_bus.scan()]
+                    self._logger.info("Core: Found addresses - {}".format(found_addresses))
+                    self._i2c_bus.unlock()
         else:
             self._logger.warning("Core: No I2C bus defined. Skipping setup.")
             self._i2c_bus = None
@@ -458,25 +482,7 @@ class Brickmaster:
         else:
             indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self)
 
-        # indicators = {}
-        # for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
-        #     target_id = target[0]
-        #     name = target[1]
-        #     self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
-        #     try:
-        #         if self._bm2config.system['indicators'][target_id] is not None:
-        #             indicators[target_id] = brickmaster.controls.CtrlSingle(target_id, name, self,
-        #                                                                     self._bm2config.system['indicators'][target_id],15)
-        #         else:
-        #             self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-        #             indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
-        #     except (KeyError, TypeError):
-        #          self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-        #          indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
-        #     except AttributeError:
-        #          self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
-        #              self._bm2config.system['indicators'][target_id], target_id))
-        #          indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+        self._logger.info("Core: Setup will return indicators '{}'".format(indicators))
 
         return indicators
 
@@ -572,6 +578,11 @@ class Brickmaster:
             self._indicators['sysrun'].value = False
         except AttributeError:
             pass
+        # Deinitialize the I2C Bus.
+        if self._i2c_bus is not None:
+            self._i2c_bus.deinit()
+            self._logger.info("Core: I2C bus released.")
+
         self._print_or_log("critical", "Core: Cleanup complete.")
         # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
         if signalNumber in (None, 15):
