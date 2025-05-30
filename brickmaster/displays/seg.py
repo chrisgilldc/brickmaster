@@ -1,38 +1,25 @@
 """
-Brickmaster Display System
+Brickmaster Segmented Displays
 """
 
-import adafruit_logging as logger
-# from .segment_format import number_7s, time_7s
-from adafruit_ht16k33.segments import Seg7x4, BigSeg7x4
 import time
+from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
+from .base import BM2Display
 
-class Display:
-    """
-    Brickmaster Display Class
-    Create once per display.
-    """
+class BM2DisplaySeg(BM2Display):
     def __init__(self, config, i2c_bus):
+        # Call the super class init.
+        super().__init__(config, i2c_bus)
 
-        # Import the ht16k33 library when required.
-        try:
-            from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
-        except ImportError as ie:
-            raise ie
+        # Import the ht16k33 library
+        # try:
+        #     from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
+        # except ImportError as ie:
+        #     raise ie
 
-        # Create a logger
-        self._logger = logger.getLogger('Brickmaster')
-        # Save the config.
-        self._config = config
-
-        # Save the I2C bus object.
-        self._i2c_bus = i2c_bus
-
-        # Save our name for easy reference.
-        self.name = self._config['name']
-        # Create a display object.
+        # Create the display object.
         self._display_obj = self._create_object(disptype=self._config['type'], address=self._config['address'])
-        # test it!
+        # Run a test.
         self._test()
 
     def show(self, the_input):
@@ -106,18 +93,6 @@ class Display:
             # self._logger.debug("Display: Setting second colon off.")
             self._display_obj.colons[1] = False
 
-    def _create_object(self, disptype, address):
-        if disptype == 'bigseg7x4':
-            display_class = BigSeg7x4
-        elif disptype == 'seg7x4':
-            display_class = Seg7x4
-        else:
-            raise ValueError("{} is not a valid display type.".format(disptype))
-
-        # Create the object.
-        display_obj = display_class(i2c=self._i2c_bus, address=address)
-        return display_obj
-
     # Create a formatted string to send to displays from localtime.
     # This is a simple implementation since CircuitPython doesn't support datetime with strftime.
     @staticmethod
@@ -144,7 +119,25 @@ class Display:
                 ampm_val = False
             return ampm_val
 
+    def _create_object(self, disptype, address):
+        """
+        Create the underlying object.
+        """
+        if disptype == 'bigseg7x4':
+            display_class = BigSeg7x4
+        elif disptype == 'seg7x4':
+            display_class = Seg7x4
+        else:
+            raise ValueError("{} is not a valid display type.".format(disptype))
+
+        # Create the object.
+        display_obj = display_class(i2c=self._i2c_bus, address=address)
+        return display_obj
+
     def _test(self, delay=0.1):
+        """
+        Test the display.
+        """
         for x in range(10):
             self._display_obj.print(str(x) * 4)
             # Flash the dots on even numbers.
