@@ -4,12 +4,51 @@ Brickmaster Segmented Displays
 
 import time
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
-from .base import BM2Display
+from .BaseDisplay import BaseDisplay
 
-class BM2DisplaySeg(BM2Display):
-    def __init__(self, config, i2c_bus):
+class BMDisplaySeg(BaseDisplay):
+    def __init__(self, disp_id, name, address, type, idle_show, idle_brightness, writable, i2c_bus, logger, icon="mdi:clock-digital"):
+        """
+        Initilize an LED segmented display.
+
+        :param disp_id: Display ID.
+        :type disp_id: str
+        :param name: Name of the Display.
+        :type name: str
+        :param address: Address of the display on the I2C bus.
+        :type name: number
+        :param type: Type of segmented display. May be 'bigseg7x4' or 'seg7x4'
+        :type type: str
+        :param idle_show: What to show when idle. May be "blank", "time" or "date".
+        :type idle_show: str
+        :param idle_brightness: How bright to be when idle. May be between 0.25 and 1.
+        :type rows: float
+        :param icon: Icon to use for discovery.
+        :type icon: str
+        :param i2c_bus: I2C bus object, usually created by the core.
+        :type i2c_bus: busio.I2C
+        :param writable: Is this display settable via MQTT?
+        :type writable: bool
+        """
+
+        # Make sure display type is valid.
+        if type.lower() not in ('bigseg7x4', 'seg7x4'):
+            raise ValueError("Provided display type '{}' is not recognized.".format(type))
+
         # Call the super class init.
-        super().__init__(config, i2c_bus)
+        super().__init__(disp_id=disp_id,
+                         name=name,
+                         address=address,
+                         icon=icon,
+                         writable=writable,
+                         logger=logger,
+                         i2c_bus=i2c_bus)
+
+        # Save additional parameters
+        self._idle_brightness = idle_brightness
+        self._idle_show = idle_show
+        self._showing = None
+        self._type = type
 
         # Import the ht16k33 library
         # try:
@@ -18,7 +57,7 @@ class BM2DisplaySeg(BM2Display):
         #     raise ie
 
         # Create the display object.
-        self._display_obj = self._create_object(disptype=self._config['type'], address=self._config['address'])
+        self._display_obj = self._create_object(disptype=self._type, address=self._address)
         # Run a test.
         self._test()
 
@@ -30,6 +69,9 @@ class BM2DisplaySeg(BM2Display):
             self._display_obj.print(the_input)
         except ValueError:
             self._logger.warning("Could not send input to display. Not a valid type.")
+        else:
+            self._status=True
+            self._showing=the_input
 
     def show_dt(self, dtelement='time', clkhr=12):
         """
@@ -41,7 +83,8 @@ class BM2DisplaySeg(BM2Display):
         :type clkhr: int
         """
         if dtelement == 'date':
-            self._display_obj.print(self._format_dt(field='date'))
+            self._showing = self._format_dt(field='date')
+            self._display_obj.print(self._showing)
             # Make sure AM/PM is off, if we're a big segment.
             if isinstance(self._display_obj, BigSeg7x4):
                 self._display_obj.ampm = False
@@ -52,10 +95,12 @@ class BM2DisplaySeg(BM2Display):
                     "Clock hours must be either '12' or 24'. Instead got {}. Are you on Mars?".format(clkhr))
             # Default is time, so assume any other input wants it to be time.
             # Print the string.
-            self._display_obj.print(self._format_dt(field='time', clkhr=clkhr))
+            self._showing = self._format_dt(field='time', clkhr=clkhr)
+            self._display_obj.print(self._showing)
             # If we're a big display, we can set an AM/PM indicator.
             if isinstance(self._display_obj, BigSeg7x4):
                 self._display_obj.ampm = self._format_dt('pm')
+        self._status = True
 
     # Method to show whatever the displays idle state is.
     def show_idle(self):
@@ -63,15 +108,23 @@ class BM2DisplaySeg(BM2Display):
         Show the display's idle state. Idle will be whatever is defined in the configuration.
         """
         # Known idle states!
-        if self._config['idle']['show'] == 'time':
+        if self._idle_show == 'time':
             self.show_dt()
-            self._display_obj.brightness = self._config['idle']['brightness']
-        elif self._config['idle']['show'] == 'date':
+            self._display_obj.brightness = self._idle_brightness
+        elif self._idle_show == 'date':
             self.show_dt(dtelement='date')
-            self._display_obj.brightness = self._config['idle']['brightness']
+            self._display_obj.brightness = self._idle_brightness
         else:
             # There's probably a more elegant way to do this that's faster. Look to optimize later.
             self.off()
+            self._showing=None
+
+    @property
+    def showing(self):
+        """
+        What is currently showing on the display
+        """
+        return self._showing
 
     def off(self):
         """
@@ -88,10 +141,12 @@ class BM2DisplaySeg(BM2Display):
             self._display_obj.top_left_dot = False
             # self._logger.debug("Display: Setting bottom-left dot off.")
             self._display_obj.bottom_left_dot = False
-            # self._logger.debug("Display: Setting first colon off off.")
+            # self._logger.debug("Display: Setting first colon off.")
             self._display_obj.colons[0] = False
             # self._logger.debug("Display: Setting second colon off.")
             self._display_obj.colons[1] = False
+        self._showing = None
+        self._status = False
 
     # Create a formatted string to send to displays from localtime.
     # This is a simple implementation since CircuitPython doesn't support datetime with strftime.
@@ -104,13 +159,13 @@ class BM2DisplaySeg(BM2Display):
 
         # Return date in format "mm.dd"
         if field == 'date':
-            date_val = str(time.localtime().tm_mon).rjust(2) + "." + str(time.localtime().tm_mday).rjust(2)
+            date_val = f"{time.localtime().tm_mon:{0}>{2}}" + "." + f"{time.localtime().tm_mday:{0}>{2}}"
             return date_val
         if field == 'time':
             hour = time.localtime().tm_hour
             if clkhr == 12 and hour > 12:
                 hour -= 12
-            time_val = str(hour).rjust(2) + ":" + str(time.localtime().tm_min).rjust(2, '0')
+            time_val = f"{hour:{0}>{2}}" + ":" + f"{time.localtime().tm_min:{0}>{2}}"
             return time_val
         if field == 'pm':
             if time.localtime().tm_hour >= 12:
