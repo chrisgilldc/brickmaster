@@ -40,11 +40,11 @@ class BaseSensor:
         self._status = None
 
         # Create a logger with the specified logger.
-        if logger is None:
-            self._logger = adafruit_logging.getLogger('Brickmaster')
-            self._logger.setLevel(adafruit_logging.DEBUG)
-        else:
-            self._logger = logger
+        # if logger is None:
+        #     self._logger = adafruit_logging.getLogger('Brickmaster')
+        #     self._logger.setLevel(adafruit_logging.DEBUG)
+        # else:
+        self._logger = logger
 
     @property
     def topics(self):

@@ -11,7 +11,7 @@ class BaseControl:
     """
     Base control object.
     """
-    def __init__(self, ctrl_id, name, core, icon="mdi:toy-brick", publish_time=15, logger=None):
+    def __init__(self, ctrl_id, name, core, logger, icon="mdi:toy-brick",  publish_time=15):
         """
         Base control initialization.
 
@@ -25,6 +25,8 @@ class BaseControl:
         @type icon: str
         @param publish_time:
         @type publish_time: int
+        @param logger: Logger object.
+        @type logger: adafruit_logging.Logger
         """
 
         # Save inputs.
