@@ -19,10 +19,11 @@ if sysrun_pin is not None:
         sysrun_ctrl = brickmaster.controls.CtrlSingle('sysrun', 'System Status', None, sysrun_pin, 15)
     except (KeyError, TypeError):
         print(f"No pin defined for status LED '{id}'. Will proceed without indicator.")
-        sysrun_ctrl = brickmaster.controls.CtrlNull('sysrun_null', 'System Status Null', None)
+        sysrun_ctrl = brickmaster.controls.CtrlNull('sysrun_null', 'System Status Null', None, None)
     except AttributeError:
-        print(f"System Status LED pin '{sysrun_pin}' cannot be configured on board. Will proceed without indicator.")
-        sysrun_ctrl = brickmaster.controls.CtrlNull('sysrun_null', 'System Status Null', None)
+        print("System Status LED pin '{}' cannot be configured on board. Will proceed without indicator.".
+              format(sysrun_pin))
+        sysrun_ctrl = brickmaster.controls.CtrlNull('sysrun_null', 'System Status Null', None, None)
     # Turn it on.
     sysrun_ctrl.set('on')
 else:
@@ -57,7 +58,8 @@ wifi_obj = brickmaster.network.BMWiFi(
     ssid=os.getenv("CIRCUITPY_WIFI_SSID"),
     password=os.getenv("CIRCUITPY_WIFI_PASSWORD"),
     wifihw=wifihw,
-    hostname = hostname
+    hostname = hostname,
+    logger=None
 )
 
 # Create the Brickmaster Object.
