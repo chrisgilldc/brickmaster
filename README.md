@@ -40,11 +40,16 @@ platform limitations.
 - Load config from a remote site.
 - Remote reload command to reset (and load new config!)
 - Actual Sphinx documentation
+- Additional display support
+  - ~~Character LCDs (via I2C)~~ Supported! Now support the Adafruit I2C character displays. More kinds could be worked in, but the framework isn't that modular.
+  - ~~Ability to set displays remotely.~~ Basics implemented. Can send a JSON with various commands to the "set" topic of the display.
+  - Advanced Display Feature
+- NTP support for Circuitpython?
 
 ## V0.6 Target Features
 - ~~Option to load config from a remote site (ie: web directory)~~ - Nope, moving to v0.7
-- Package for PyPi and Circup.
-- Control options
+- ~~Package for PyPi and Circup.~~ Seems to work!
+- ~~Control options~~
   - ~~Multi-pin controls.~~ Done!
   - ~~Groups to wrap multiple controls together.~~ - Dropped. Probably better to group through Home Assistant.
   - ~~Flasher option.~~ Done!
