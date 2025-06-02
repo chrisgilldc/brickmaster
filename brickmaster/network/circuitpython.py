@@ -158,7 +158,20 @@ class BM2NetworkCircuitPython(BM2Network):
             try:
                 self._logger.debug("Network (MiniMQTT): Publishing to '{}'\n\t"
                                    "Payload - '{}'.".format(topic, message))
-                self._mini_client.publish(topic, message, retain, qos)
+                # Do type conversion where necessary.
+                if isinstance(message, bool):
+                    # Convert booleans to a "True" or "False" string.
+                    if message:
+                        message = "True"
+                    else:
+                        message = "False"
+
+                try:
+                    self._mini_client.publish(topic, message, retain, qos)
+                except ValueError as ve:
+                    self._logger.error("Network (MiniMQTT): Payload '{}' ({}) is not a valid value.".
+                                       format(message, type(message)))
+                    raise ve
                 self._logger.debug("Network (MiniMQTT): Publish complete.")
             except BrokenPipeError as e:
                 self._logger.error("Network (MiniMQTT): Disconnection while publishing!")
