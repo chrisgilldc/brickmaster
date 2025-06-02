@@ -38,9 +38,6 @@ class Brickmaster:
         self._displays = {} # I2C displays
         self._indicators = { 'sysrun': sysrun } # LED indicators, if any.
         self._i2c_bus = None
-        # If system running indicator was passed, use it, otherwise set up a null indicator.
-        if self._indicators['sysrun'] is None:
-            self._indicators['sysrun'] = brickmaster.controls.CtrlNull('sysrun', 'System Status Null', self)
 
         self._scripts = {} # Scripts
         self._sensors = {} # Sensors
@@ -71,12 +68,17 @@ class Brickmaster:
         # From the config file and adjust appropriately.
         self._logger.setLevel(logging.DEBUG)
 
+        # If system running indicator was passed, use it, otherwise set up a null indicator.
+        if self._indicators['sysrun'] is None:
+            self._indicators['sysrun'] = brickmaster.controls.CtrlNull(
+                'sysrun', 'System Status Null', self, self._logger)
+
         # Validate the config and process it.
         self._bm2config = brickmaster.BM2Config(config_json)
 
         # Reset the log level based on the config.
-        # self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
-        # self._logger.setLevel(self._bm2config.system['log_level'])
+        self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
+        self._logger.setLevel(self._bm2config.system['log_level'])
 
         # Debug output of the config.
         self._logger.debug("Core: System config is: {}".format(self._bm2config.system))
@@ -168,6 +170,10 @@ class Brickmaster:
         self._logger.debug("Core: Registering sensors with network module.")
         for sensor in self._sensors:
             self._network.register_object(self._sensors[sensor])
+
+        self._logger.debug("Core: Registering displays with network module.")
+        for display in self._displays:
+            self._network.register_object(self._displays[display])
 
         gc.collect()
 
@@ -301,19 +307,41 @@ class Brickmaster:
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
             if display_cfg['type'] == 'lcd':
-                # try:
-                self._displays[display_cfg['name']] = brickmaster.displays.BM2DisplayLCD(display_cfg, self._i2c_bus)
-                # except ImportError:
-                #     self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
+                try:
+                    self._displays[display_cfg['name']] = brickmaster.displays.BMDisplayLCD(
+                        disp_id=display_cfg['id'],
+                        name=display_cfg['name'],
+                        address=display_cfg['address'],
+                        cols=display_cfg['cols'],
+                        rows=display_cfg['rows'],
+                        writable=display_cfg['writable'],
+                        logger=self._logger,
+                        i2c_bus=self._i2c_bus)
+                except ValueError as ve:
+                    self._logger.error("Core: For display '{}', received exception '{}'. Cannot create display.".format(display_cfg['id'], ve))
+                except ImportError as ie:
+                     self._logger.error("Core: Display library for '{}' not available. Cannot create display.".
+                                        format(display_cfg['name']))
+
             elif display_cfg['type'] in ('bigseg7x4','seg7x4'):
-                # try:
-                self._displays[display_cfg['name']] = brickmaster.displays.BM2DisplaySeg(display_cfg, self._i2c_bus)
-                # except ImportError:
-                #     self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
+                try:
+                    self._displays[display_cfg['name']] = brickmaster.displays.BMDisplaySeg(
+                        disp_id=display_cfg['id'],
+                        name=display_cfg['name'],
+                        address=display_cfg['address'],
+                        type=display_cfg['type'],
+                        idle_show=display_cfg['idle_show'],
+                        idle_brightness=display_cfg['idle_brightness'],
+                        writable=display_cfg['writable'],
+                        logger=self._logger,
+                        i2c_bus=self._i2c_bus)
+                except ImportError as ie:
+                     self._logger.error("Core: Display library for '{}' not available. Cannot create display.".
+                                        format(display_cfg['name']))
                 # else:
-                if display_cfg['idle']['show'] == 'time':
+                if display_cfg['idle_show'] == 'time':
                     self._clocks.append(display_cfg['name'])
-                elif display_cfg['idle']['show'] == 'date':
+                elif display_cfg['idle_show'] == 'date':
                     self._dates.append(display_cfg['name'])
 
     def _create_scripts(self):
@@ -480,7 +508,7 @@ class Brickmaster:
         if indicator_pins is not None:
             indicators['net'] = brickmaster.controls.CtrlSingle('net', 'Network',self, indicator_pins, 10)
         else:
-            indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self)
+            indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self, self._logger)
 
         self._logger.info("Core: Setup will return indicators '{}'".format(indicators))
 
@@ -578,10 +606,6 @@ class Brickmaster:
             self._indicators['sysrun'].value = False
         except AttributeError:
             pass
-        # Deinitialize the I2C Bus.
-        if self._i2c_bus is not None:
-            self._i2c_bus.deinit()
-            self._logger.info("Core: I2C bus released.")
 
         self._print_or_log("critical", "Core: Cleanup complete.")
         # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
