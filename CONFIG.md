@@ -161,14 +161,15 @@ is defined as a dict with the following definition.
 
 :white_check_mark: **means required**
 
-| Name                         | Type   | Default | Description                                                                                                       |
-|------------------------------|--------|---------|-------------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: `name`    | string |         | Name of the display. Will be referenced elsewhere.                                                                |
-| :white_check_mark: `type`    | string |         | Type of display.<br/>Valid values are `bigseg7x4`, `seg7x4`                                                       |
-| :white_check_mark: `address` | string |         | Address of the display. Must be a string in format `0xDD`, will be hex converted.                                 |
-| :white_check_mark: `idle`    | dict   |         | What the display should show when not otherwise running. May be empty.                                            |
-| `idle` -> `show`             | string | 'blank' | What to show when idle. May be `blank` (turn off display), `time` (time in local timezone), `date` (current date) |
-| `idle` -> `brightness`       | float  | 1       | Brightness of the display when idle. Can be between 0.25 and 1.                                                   |
+| Name                         | Type   | Default | Description                                                                                                             |
+|------------------------------|--------|---------|-------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `name`    | string |         | Name of the display. Will be referenced elsewhere.                                                                      |
+| :white_check_mark: `type`    | string |         | Type of display.<br/>Valid values are `lcd` for LCD character displays, bigseg7x4` or `seg7x4` for LED segment displays |
+| :white_check_mark: `address` | string |         | Address of the display. Must be a string in format `0xDD`, will be hex converted.                                       |
+| :white_check_mark: `idle`    | dict   |         | What the display should show when not otherwise running. May be empty.                                                  |
+| `idle_show`                  | string | 'blank' | What to show when idle. May be `blank` (turn off display), `time` (time in local timezone), `date` (current date)       |
+| `idle_brightness             | float  | 1       | Brightness of the display when idle. Can be between 0.25 and 1.                                                         |
+| `writable` | bool | Depends on type | Should this display be settable via MQTT. Defaults to True for LCD character displays, False for segmented displays.    |
 
 ### Scripts
 
