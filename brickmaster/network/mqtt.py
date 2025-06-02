@@ -70,7 +70,7 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
             # Running Configuration.
             outbound_messages.append(
                 {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/loiter_time',
-                 'message': control_object.loiter_tunit_ime, 'force_repeat': force_repeat, 'retain': False}
+                 'message': control_object.loiter_time, 'force_repeat': force_repeat, 'retain': False}
             )
             outbound_messages.append(
                 {'topic': 'brickmaster/' + short_name + '/controls/' + control_object.id + '/switch_time',
@@ -86,11 +86,24 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
         )
 
     # Displays aren't yet supported. Maybe some day.
-    # for item in object_register['displays']:
-    # display_object = object_register['displays'][item]
-    # logger.debug("Generating messages for object '{}' (type: {})".format(
-    #     display_object.id, type(display_object)))
-    # outbound_messages
+    for item in object_register['displays']:
+        display_object = object_register['displays'][item]
+        logger.debug("Generating messages for object '{}' (type: {})".format(
+            display_object.id, type(display_object)))
+        # Status
+        outbound_messages.append(
+            {'topic': 'brickmaster/' + short_name + '/displays/' + display_object.id + '/status',
+             'message': display_object.status, 'force_repeat': force_repeat, 'retain': False}
+        )
+        # Showing
+        outbound_messages.append(
+            {'topic': 'brickmaster/' + short_name + '/displays/' + display_object.id + '/showing',
+             'message': display_object.showing, 'force_repeat': force_repeat, 'retain': False}
+        )
+        # outbound_messages.append(
+        #     {'topic': 'brickmaster/' + short_name + '/displays/' + display_object.id + '/status',
+        #      'message': display_object.status, 'force_repeat': force_repeat, 'retain': False}
+        # )
 
     ## Active script.
     # logger.debug("Generating active script message...")
@@ -193,6 +206,22 @@ def ha_discovery(short_name, system_id, device_info, topic_prefix, ha_base, memi
             outbound_messages.extend(ha_discovery_sensor_HTU31D(
                 short_name, system_id, device_info, topic_prefix, ha_base, object_registry['sensors'][sensor_id]))
 
+    # Discover Displays
+    logger.debug("Displays defined: {}".format(object_registry['displays']))
+    for display_id in object_registry['displays']:
+        if isinstance(object_registry['displays'][display_id], brickmaster.displays.BMDisplayLCD):
+            logger.debug("Display '{}' is Character LCD. Performing discovery.".format(display_id))
+            outbound_messages.extend(ha_discovery_display_lcd(
+                short_name, system_id, device_info, topic_prefix, ha_base, object_registry['displays'][display_id]))
+
+        elif isinstance(object_registry['displays'][display_id], brickmaster.displays.BMDisplaySeg):
+            logger.debug("Display '{}' is Segmented LED. Performing discovery.".format(display_id))
+            outbound_messages.extend(ha_discovery_display_seg(
+                short_name, system_id, device_info, topic_prefix, ha_base, object_registry['displays'][display_id]))
+        else:
+            logger.warning("Display '{}' has unknown type '{}'. Not supported for discovery.".
+                           format(display_id, type(object_registry['sensors'][display_id])))
+
     #TODO: Add discovery for scripts and send script data, ie: elapsed time.
     # The outbound topics dict includes references to the objects, so we can get the objects from there.
     # for item in self._topics_outbound:
@@ -248,6 +277,99 @@ def ha_discovery_connectivity(short_name, system_id, device_info, topic_prefix, 
     return [{'topic': discovery_topic, 'message': discovery_json}]
     # self._mqtt_client.publish(discovery_topic, discovery_json, True)
     # self._topics_outbound['connectivity']['discovery_time'] = time.monotonic()
+
+
+def ha_discovery_display_lcd(short_name, system_id, device_info, topic_prefix, ha_base, sensor):
+    """
+    Discovery message for an LCD display.
+
+    :param short_name: Short name of the system.
+    :type short_name: str
+    :param system_id: System ID
+    :type system_id: str
+    :param device_info: Device Info block
+    :type device_info:
+    :param topic_prefix: Our own topic prefix
+    :param ha_base: Prefix for Home Assistant
+    :param display: Display object.
+    :type display: brickmaster.display.BMDisplayLCD
+    :return: list
+    """
+
+    discovery_array = []
+
+    text_dict = {
+        'name': sensor.name + " Text",
+        'object_id': short_name + "_" + sensor.id + "_text",
+        'device': device_info,
+        'unique_id': system_id + "_" + sensor.id + "_text",
+        'state_topic': topic_prefix + short_name + '/displays/' + sensor.id + '/showing',
+        'command_topic': topic_prefix + short_name + '/displays/' + sensor.id + '/show',
+        'retain': True,
+        'availability': ha_availability(topic_prefix, short_name)
+    }
+    discovery_array.append(
+        {'topic': ha_base + '/text/' + 'bm2_' + system_id + '/' + sensor.id + '_text/config',
+         'message': json.dumps(text_dict)},
+    )
+
+    return discovery_array
+
+def ha_discovery_display_seg(short_name, system_id, device_info, topic_prefix, ha_base, display):
+    """
+    Discovery message for an Segmented LED display.
+
+    :param short_name: Short name of the system.
+    :type short_name: str
+    :param system_id: System ID
+    :type system_id: str
+    :param device_info: Device Info block
+    :type device_info:
+    :param topic_prefix: Our own topic prefix
+    :param ha_base: Prefix for Home Assistant
+    :param display: Display object.
+    :type display: brickmaster.display.BMDisplaySeg
+    :return: list
+    """
+
+    discovery_array = []
+
+    if display.writable:
+        # If display is set to writable, we use a Text input box.
+        text_dict = {
+            'name': display.name + " Text",
+            'object_id': short_name + "_" + display.id + "_text",
+            'device': device_info,
+            'unique_id': system_id + "_" + display.id + "_text",
+            'state_topic': topic_prefix + short_name + '/displays/' + display.id + '/showing',
+            'command_topic': topic_prefix + short_name + '/displays/' + display.id + '/show',
+            'retain': True,
+            # 'pattern': '[\d,:]',
+            'availability': ha_availability(topic_prefix, short_name)
+        }
+        discovery_array.append(
+            {'topic': ha_base + '/text/' + 'bm2_' + system_id + '/' + display.id + '_text/config',
+             'message': json.dumps(text_dict)},
+        )
+    else:
+        # If not writable, use a regular sensor.
+        sensor_dict = {
+            'name': display.name + " Text",
+            'object_id': short_name + "_" + display.id + "_text",
+            'device': device_info,
+            'unique_id': system_id + "_" + display.id + "_text",
+            'state_topic': topic_prefix + short_name + '/displays/' + display.id + '/showing',
+            'command_topic': topic_prefix + short_name + '/displays/' + display.id + '/show',
+            'retain': True,
+            # 'pattern': '[\d,:]',
+            'availability': ha_availability(topic_prefix, short_name)
+        }
+        discovery_array.append(
+            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/' + display.id + '_text/config',
+             'message': json.dumps(sensor_dict)},
+        )
+
+    return discovery_array
 
 
 def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_base, mode):
@@ -486,20 +608,3 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
 
     return return_data
 
-# def ha_discovery_display(short_name, system_id, device_info, topic_prefix, ha_base, display_obj):
-#     """
-#     Discovery message for a GPIO control.
-#
-#     :param short_name: Short name of the system.
-#     :type short_name: str
-#     :param system_id: System ID
-#     :type system_id: str
-#     :param device_info: Device Info block
-#     :type device_info:
-#     :param topic_prefix: Our own topic prefix
-#     :param ha_base: Prefix for Home Assistant
-#     :param display_obj: Display object
-#     :type display_obj: brickmaster.BM2Display
-#     :return: list
-#     """
-#     raise NotImplemented("Nope, not yet!")
