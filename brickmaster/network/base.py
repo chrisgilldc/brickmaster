@@ -91,11 +91,11 @@ class BM2Network:
         }
 
         # Default the logging level.
-        if logger is None:
-            self._logger = adafruit_logging.getLogger('Brickmaster')
-            self._logger.setLevel(adafruit_logging.DEBUG)
-        else:
-            self._logger = logger
+        # if logger is None:
+        #     self._logger = adafruit_logging.getLogger('Brickmaster')
+        #     self._logger.setLevel(adafruit_logging.DEBUG)
+        # else:
+        self._logger = logger
 
         self._logger.info(f"Network: System Name is '{self._long_name}'")
         self._logger.info("Network: Home Assistant discovery (ha discover) is {}".format(self._ha_discover))
@@ -356,6 +356,10 @@ class BM2Network:
             elif issubclass(type(action_object), brickmaster.sensors.BaseSensor):
                 self._logger.debug("Registering sensor '{}' to topics '{}'".format(action_object.id, obj_topics))
                 self._object_register['sensors'][action_object.id] = action_object
+            elif issubclass(type(action_object), brickmaster.displays.BaseDisplay):
+                self._logger.debug("Registering display '{}' to topics '{}'".format(action_object.id, obj_topics))
+                self._object_register['displays'][action_object.id] = action_object
+
             else:
                 self._logger.error("Cannot determine class of object '{}' (type: {}). Cannot register.".
                                    format(action_object.id, type(action_object)))
@@ -459,20 +463,35 @@ class BM2Network:
         self._mc_subscribe('brickmaster/' + self._short_name + '/script/set')
         self._mc_callback_add('brickmaster/' + self._short_name + '/script/set',
                               self._core.callback_scr)
-        # Subscribe to the Control topics.
-        for control_id in self._object_register['controls']:
-            # Subscribe to the topic.
-            self._logger.debug(f"Network: Subscribing to control topic for '{self._object_register['controls'][control_id].id}'")
-            self._mc_subscribe('brickmaster/' + self._short_name + '/controls/' +
-                               self._object_register['controls'][control_id].id + '/set')
-            # Connect the callback.f
-            self._mc_callback_add(
-                'brickmaster/' + self._short_name + '/controls/' +
-                self._object_register['controls'][control_id].id + '/set',
-                self._object_register['controls'][control_id].callback)
+        # # Subscribe to the Control topics.
+        # for control_id in self._object_register['controls']:
+        #     # Subscribe to the topic.
+        #     self._logger.debug(f"Network: Subscribing to control topic for '{self._object_register['controls'][control_id].id}'")
+        #     self._mc_subscribe('brickmaster/' + self._short_name + '/controls/' +
+        #                        self._object_register['controls'][control_id].id + '/set')
+        #     # Connect the callbacks for controls
+        #     self._mc_callback_add(
+        #         'brickmaster/' + self._short_name + '/controls/' +
+        #         self._object_register['controls'][control_id].id + '/set',
+        #         self._object_register['controls'][control_id].callback)
 
-        # Send the online message.
-        self._send_online()
+        # Subscribe to topics for object callbacks.
+        self._logger.info("Have object register: {}".format(self._object_register))
+        for register in ('controls','displays'):
+            for obj_id in self._object_register[register]:
+                # Subscribe to the topic.
+                self._logger.info("Network: Subscribing to control topic for {}".
+                                  format(self._object_register[register][obj_id].id))
+                self._mc_subscribe('brickmaster/' + self._short_name + '/' + register + '/' +
+                                   self._object_register[register][obj_id].id + '/set')
+                # Connect the callbacks for controls
+                self._mc_callback_add(
+                    'brickmaster/' + self._short_name + '/' + register + '/' +
+                    self._object_register[register][obj_id].id + '/set',
+                    self._object_register[register][obj_id].callback)
+
+            # Send the online message.
+            self._send_online()
 
         # Do Home Assistant Discovery.
         self._logger.debug("Network: On Connect invoking HA Discovery.")
