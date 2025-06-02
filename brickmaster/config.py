@@ -542,32 +542,40 @@ class BM2Config:
                 continue
 
             # Default when_idle to blank, if not otherwise specified.
-            if 'idle' not in self._config['displays'][i]:
-                self._config['displays'][i]['idle'] = {'show': 'blank'}
+            if 'idle_show' not in self._config['displays'][i]:
+                self._logger.warning("No idle show provided. Defaulting to blank.")
+                self._config['displays'][i]['idle_show'] = 'blank'
             else:
-                # If the idle was put in as a string, convert it into a dict and default to full brightness.
-                if isinstance(self._config['displays'][i]['idle'], str):
-                    self._config['displays'][i]['idle'] = {
-                        'show': self._config['displays'][i]['idle'],
-                        'brightness': 1
-                         }
-                else:
-                    # Check the show option.
-                    if self._config['displays'][i]['idle']['show'] not in ('time', 'date', 'blank'):
-                        self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to "
-                                             "blank.".format(i, self._config['displays'][i]['idle']['show']))
-                        self._config['displays'][i]['idle']['show'] = 'blank'
-                        self._config['displays'][i]['idle']['brightness'] = 1
+                if self._config['displays'][i]['idle_show'] not in ('time', 'date', 'blank'):
+                    self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to "
+                                         "blank.".format(i, self._config['displays'][i]['idle']['show']))
+                    self._config['displays'][i]['idle']['show'] = 'blank'
 
-                    # Convert the brightness setting to a float.
-                    try:
-                        self._config['displays'][i]['idle']['brightness'] = (
-                            float(self._config['displays'][i]['idle']['brightness']))
-                    except KeyError:
-                        self._config['displays'][i]['idle']['brightness'] = 1
-                    except ValueError:
-                        self._config['displays'][i]['idle']['brightness'] = 1
+            if 'idle_brightness' not in self._config['displays'][i]:
+                self._logger.warning("No idle brightness provided. Defaulting to full brightness.")
+                self._config['displays'][i]['idle_brightness'] = 1
+            else:
+                self._config['displays'][i]['idle_brightness'] = (
+                    float(self._config['displays'][i]['idle_brightness']))
+
+                    # # Convert the brightness setting to a float.
+                    # try:
+                    #     self._config['displays'][i]['idle']['brightness'] = (
+                    #         float(self._config['displays'][i]['idle']['brightness']))
+                    # except KeyError:
+                    #     self._config['displays'][i]['idle']['brightness'] = 1
+                    # except ValueError:
+                    #     self._config['displays'][i]['idle']['brightness'] = 1
+
+            # Default writablity.
+            if 'writable' not in self._config['displays'][i]:
+                if self._config['displays'][i]['type'] == 'lcd':
+                    self._config['displays'][i]['writable'] = True
+                elif self._config['displays'][i]['type'].lower() in ('bigseg7x4','seg7x4'):
+                    self._config['displays'][i]['writable'] = False
+
             i += 1
+
 
         # Delete any invalidated displays
         self._logger.debug("Displays to delete: {}".format(to_delete))
