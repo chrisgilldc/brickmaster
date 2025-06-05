@@ -44,7 +44,9 @@ platform limitations.
   - ~~Character LCDs (via I2C)~~ Supported! Now support the Adafruit I2C character displays. More kinds could be worked in, but the framework isn't that modular.
   - ~~Ability to set displays remotely.~~ Basics implemented. Can send a JSON with various commands to the "set" topic of the display.
   - Advanced Display Feature
-- NTP support for Circuitpython?
+- NTP support for Circuitpython
+  - Partial. Sets clock from NTP. No timezone support yet.
+- Allow Non-MQTT use?
 
 ## V0.6 Target Features
 - ~~Option to load config from a remote site (ie: web directory)~~ - Nope, moving to v0.7

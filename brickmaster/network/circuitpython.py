@@ -6,12 +6,69 @@ import adafruit_logging
 
 import brickmaster.exceptions
 from brickmaster.network.base import BM2Network
+from brickmaster.network.ntp_client import BMNTP
 # import brickmaster.util
 # import brickmaster.network.mqtt
 import gc
 import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
 
 class BM2NetworkCircuitPython(BM2Network):
+    def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
+                 mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', timeservers=None, tz="UTC",
+                 recheck=60, wifi_obj=None, logger=None):
+        """
+        Brickmaster Network Class
+
+        :param core: Reference to the main Brickmaster2 object.
+        :type core: Brickmaster
+        :param system_id: ID of the system. Cannot include spaces!
+        :type system_id: str
+        :param long_name: Long name of the system. Used for Home Assistant discovery.
+        :type long_name: str
+        :param broker: IP or hostname of the MQTT broker
+        :type  broker: str
+        :param port: MQTT port to connect to. Defaults to 1883. SSL is *NOT* supported.
+        :type port: int
+        :param mqtt_username: MQTT Username
+        :type mqtt_username: str
+        :param mqtt_password: MQTT Password
+        :type mqtt_password: str
+        :param mqtt_log: Enable logging of the base MQTT client. Disabled by default. Will only be logged at the Debug level.
+        :type mqtt_log: bool
+        :param mqtt_timeout: Timeout for MQTT polling in seconds.
+        :type mqtt_timeout: int
+        :param net_interface: Linux network interface to use. Defaults to 'wlan0'.
+        :type net_interface: str
+        :param net_indicator: Indicator for network status, if configured.
+        :type net_indicator: brickmaster.control.Control
+        :param ha_discover: Should we send Home Assistant discovery messages?
+        :type ha_discover: bool
+        :param ha_base: When doing Home Assistant discovery, base topic name?
+        :type ha_base: str
+        :param ha_area: Area to suggest for entities.
+        :type ha_area: str
+        :param ha_meminfo: Memory topic format. Must be one of 'unified', 'unified-used', 'split-pct', 'split-all'
+        :param wifi_obj: Wifi Object for CircuitPython systems.
+        :type wifi_obj: brickmaster.network.BMWiFi
+        :param timeservers: List of timeservers to try. Will be tried in-order. Can be IPs or hostnames.
+        :type timeservers: list
+        :param tz: A timezone
+        :type tz: int
+        :param recheck: How often to recheck the time, in minutes.
+        :type recheck: int
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
+        """
+        super().__init__(core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout,
+                         mqtt_log, net_interface, net_indicator, port, ha_discover, ha_base, ha_area, ha_meminfo,
+                         wifi_obj, logger)
+
+        if timeservers is None:
+            timeservers = ["pool.ntp.org"]
+        # Create a BMNTP object.
+        self._ntp = BMNTP(timeservers, tz, recheck, wifi_obj, logger)
+
     def connect(self):
         """
         Connect to WiFi, and then to MQTT if successful.
@@ -25,6 +82,8 @@ class BM2NetworkCircuitPython(BM2Network):
             self._logger.critical(f"Network: {e}")
             raise
         else:
+            self._logger.debug("Network: Calling NTP poll.")
+            self._ntp.poll()
             self._logger.debug("Network: Calling base class connect method for MQTT.")
             try:
                 return super().connect()
@@ -57,7 +116,8 @@ class BM2NetworkCircuitPython(BM2Network):
             except BaseException:
                 raise
 
-        # System's interface is up, run the base poll.
+        # System's interface is up. Poll the NTP object to see if it's time to resync time.
+        self._ntp.poll()
 
         # Call the base class poll.
         return super().poll()

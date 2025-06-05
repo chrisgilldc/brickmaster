@@ -151,6 +151,9 @@ class Brickmaster:
                                             net_indicator=self._indicators['net'],
                                             ha_discover=self._bm2config.system['ha_discover'],
                                             ha_area=self._bm2config.system['ha_area'],
+                                            timeservers=self._bm2config.system['ntp']['servers'],
+                                            tz=self._bm2config.system['ntp']['tz'],
+                                            recheck=self._bm2config.system['ntp']['recheck'],
                                             logger=self._logger
                                             )
         else:

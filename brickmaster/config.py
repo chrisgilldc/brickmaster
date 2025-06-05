@@ -108,8 +108,9 @@ class BM2Config:
         """
         self._logger.debug("Config: Validating system section")
         required_params = ['id', 'mqtt']
-        optional_params = ['name', 'i2c', 'interface', 'log_level', 'wifihw']
+        optional_params = ['name', 'ntp', 'i2c', 'interface', 'log_level', 'wifihw']
         optional_defaults = {
+            'ntp': {'servers': ['pool.ntp.org'], 'tz': 'UTC', 'recheck': 60},
             'i2c': None,
             'interface': 'wlan0',
             'log_level': 'info',
@@ -143,6 +144,14 @@ class BM2Config:
             self._config['system']['mqtt']['log'] = False
         if 'port' not in self._config['system']['mqtt']:
             self._config['system']['mqtt']['port'] = 1883
+
+        # Confirm all NTP subkeys are defined.
+        ntp_keys = {'servers','tz','recheck'}
+        ntp_defaults = {'servers': ['pool.ntp.org'], 'tz': 'UTC', 'recheck': 60}
+        for key in ntp_keys:
+            if key not in self._config['system']['ntp']:
+                self._logger.info("Config: NTP setting '{}' defaulting to '{}'".format(key,ntp_defaults[key]))
+                self._config['system']['ntp'][key] = ntp_defaults[key]
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:

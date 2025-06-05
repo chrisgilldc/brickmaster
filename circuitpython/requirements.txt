@@ -5,6 +5,7 @@
 adafruit-circuitpython-aw9523 ~= 1.1.11
 adafruit-circuitpython-character_lcd ~= 1.0
 adafruit-circuitpython-datetime ~= 1.4.2
+adafruit-tzdb
 adafruit-circuitpython-esp32spi ~= 8.4.3
 adafruit-circuitpython-ht16k33 >= 4.6.11
 adafruit-circuitpython-logging ~= 5.5.2
