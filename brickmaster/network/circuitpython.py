@@ -5,14 +5,14 @@ Brickmaster CircuitPython Networking
 import adafruit_logging
 
 import brickmaster.exceptions
-from brickmaster.network.base import BM2Network
+from brickmaster.network.base import BMNetwork
 from brickmaster.network.ntp_client import BMNTP
 # import brickmaster.util
 # import brickmaster.network.mqtt
 import gc
 import adafruit_minimqtt.adafruit_minimqtt as af_mqtt
 
-class BM2NetworkCircuitPython(BM2Network):
+class BMNetworkCircuitPython(BMNetwork):
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
                  mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
                  ha_base='homeassistant', ha_area=None, ha_meminfo='unified', timeservers=None, tz="UTC",

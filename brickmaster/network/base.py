@@ -15,7 +15,7 @@ import brickmaster.exceptions
 from ..exceptions import BMRecoverableError
 
 
-class BM2Network:
+class BMNetwork:
     """
     Brickmaster Networking class for Linux
     """
@@ -57,6 +57,7 @@ class BM2Network:
         :param wifi_obj: Wifi Object for CircuitPython systems.
         :type wifi_obj: brickmaster.network.BMWiFi
         :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
         """
         # Set our status to initialization.
         self._status = (0, time.monotonic())

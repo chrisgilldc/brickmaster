@@ -93,3 +93,4 @@ def mac_id(wifihw='wlan0'):
     # #TODO: Replace this with actually checking against the default route. May be too many edge cases.
     mac = netifaces.ifaddresses(wifihw)[netifaces.AF_PACKET][0]['addr']
     return mac.replace(':', '')
+

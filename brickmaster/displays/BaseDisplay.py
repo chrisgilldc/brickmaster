@@ -27,6 +27,8 @@ class BaseDisplay:
         :type i2c_bus: busio.I2C
         :param writable: Is this display settable via MQTT?
         :type writable: bool
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
         """
 
         # Create a logger

@@ -9,7 +9,7 @@ import json
 import gc
 
 
-class BM2Config:
+class BMConfig:
     """
     Brickmaster2 Configuration Class
     """
@@ -555,10 +555,10 @@ class BM2Config:
                 self._logger.warning("No idle show provided. Defaulting to blank.")
                 self._config['displays'][i]['idle_show'] = 'blank'
             else:
-                if self._config['displays'][i]['idle_show'] not in ('time', 'date', 'blank'):
+                if self._config['displays'][i]['idle_show'] not in ('time4', 'time6', 'date', 'blank'):
                     self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to "
                                          "blank.".format(i, self._config['displays'][i]['idle']['show']))
-                    self._config['displays'][i]['idle']['show'] = 'blank'
+                    self._config['displays'][i]['idle_show'] = 'blank'
 
             if 'idle_brightness' not in self._config['displays'][i]:
                 self._logger.warning("No idle brightness provided. Defaulting to full brightness.")
