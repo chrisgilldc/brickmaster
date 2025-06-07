@@ -5,9 +5,11 @@ Brickmaster Segmented Displays
 import time
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
 from .BaseDisplay import BaseDisplay
+from brickmaster.time import BMDateTime
 
 class BMDisplaySeg(BaseDisplay):
-    def __init__(self, disp_id, name, address, type, idle_show, idle_brightness, writable, i2c_bus, logger, icon="mdi:clock-digital"):
+    def __init__(self, disp_id, name, address, type, idle_show, idle_brightness, writable, i2c_bus, logger,
+                 icon="mdi:clock-digital"):
         """
         Initilize an LED segmented display.
 
@@ -23,12 +25,14 @@ class BMDisplaySeg(BaseDisplay):
         :type idle_show: str
         :param idle_brightness: How bright to be when idle. May be between 0.25 and 1.
         :type rows: float
-        :param icon: Icon to use for discovery.
-        :type icon: str
-        :param i2c_bus: I2C bus object, usually created by the core.
-        :type i2c_bus: busio.I2C
         :param writable: Is this display settable via MQTT?
         :type writable: bool
+        :param i2c_bus: I2C bus object, usually created by the core.
+        :type i2c_bus: busio.I2C
+        :param icon: Icon to use for discovery.
+        :type icon: str
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
         """
 
         # Make sure display type is valid.
@@ -67,23 +71,26 @@ class BMDisplaySeg(BaseDisplay):
         """
         try:
             self._display_obj.print(the_input)
+            self._display_obj.show()
         except ValueError:
             self._logger.warning("Could not send input to display. Not a valid type.")
         else:
             self._status=True
             self._showing=the_input
 
-    def show_dt(self, dtelement='time', clkhr=12):
+    def show_dt(self, dtinput, dtelement='time4', clkhr=12):
         """
         Send date or time to the display.
 
+        :param dtinput: The datetime to display
+        :type dtinput: datetime.datetime
         :param dtelement: Should date or time be sent? 'time' or 'date', defaults to time.
         :type dtelement: str
         :param clkhr: Use either 12 or 24 hour time.
         :type clkhr: int
         """
         if dtelement == 'date':
-            self._showing = self._format_dt(field='date')
+            self._showing = self._format_dt(dtinput, field='date')
             self._display_obj.print(self._showing)
             # Make sure AM/PM is off, if we're a big segment.
             if isinstance(self._display_obj, BigSeg7x4):
@@ -95,29 +102,33 @@ class BMDisplaySeg(BaseDisplay):
                     "Clock hours must be either '12' or 24'. Instead got {}. Are you on Mars?".format(clkhr))
             # Default is time, so assume any other input wants it to be time.
             # Print the string.
-            self._showing = self._format_dt(field='time', clkhr=clkhr)
+            self._showing = self._format_dt(dtinput, field='time4', clkhr=clkhr)
             self._display_obj.print(self._showing)
             # If we're a big display, we can set an AM/PM indicator.
             if isinstance(self._display_obj, BigSeg7x4):
-                self._display_obj.ampm = self._format_dt('pm')
+                self._display_obj.ampm = self._check_pm(dtinput)
         self._status = True
 
     # Method to show whatever the displays idle state is.
-    def show_idle(self):
+    def show_idle(self, dtinput=None):
         """
         Show the display's idle state. Idle will be whatever is defined in the configuration.
+
+        :param dtinput: Datetime to be used when showing a date or time.
+        :type dtinput: datetime.datetime
         """
         # Known idle states!
-        if self._idle_show == 'time':
-            self.show_dt()
+        if self._idle_show in ('time4', 'time6'):
+            self.show_dt(dtinput)
             self._display_obj.brightness = self._idle_brightness
         elif self._idle_show == 'date':
-            self.show_dt(dtelement='date')
+            self.show_dt(dtinput, dtelement='date')
             self._display_obj.brightness = self._idle_brightness
         else:
             # There's probably a more elegant way to do this that's faster. Look to optimize later.
             self.off()
             self._showing=None
+        self._display_obj.show()
 
     @property
     def showing(self):
@@ -145,34 +156,59 @@ class BMDisplaySeg(BaseDisplay):
             self._display_obj.colons[0] = False
             # self._logger.debug("Display: Setting second colon off.")
             self._display_obj.colons[1] = False
+        self._display_obj.show()
         self._showing = None
         self._status = False
 
-    # Create a formatted string to send to displays from localtime.
-    # This is a simple implementation since CircuitPython doesn't support datetime with strftime.
     @staticmethod
-    def _format_dt(field=None, clkhr=12):
-        if field not in ('date', 'time', 'pm'):
-            raise ValueError("{} not a valid formatting field.")
-        if clkhr not in (12, 24):
-            raise ValueError("Clock can only 12 or 24 hours.")
+    def _format_dt(dtinput, field=None, clkhr=12):
+        """
+        Format the date or time from a datetime for a segmented display.
+        This is a simple implementation since Circuitpython doesn't support strftime.
 
-        # Return date in format "mm.dd"
+        :param dtinput: The datetime to format. This is not Timezone aware, so make sure it's in the correct timezone already.
+        :type dtinput: datetime.datetime
+        :param field: The field to extract. May be 'date', 'time4' for hh:mm or 'time6' for hh:mm:ss.
+        :type field: str
+        :param clkhr: Type of clock to use, '12' hr or '24'hr.
+        :type clkhr: int
+        """
+        if field not in ('date', 'time4', 'time6'):
+            raise ValueError("{} not a valid formatting field.".format(field))
+        if clkhr not in (12, 24):
+            raise ValueError("Clock modes can only be 12 or 24 hours.")
+
+        return_val = None
         if field == 'date':
-            date_val = f"{time.localtime().tm_mon:{0}>{2}}" + "." + f"{time.localtime().tm_mday:{0}>{2}}"
-            return date_val
-        if field == 'time':
-            hour = time.localtime().tm_hour
-            if clkhr == 12 and hour > 12:
+            return_val = f"{dtinput.month:{0}>{2}}" + "." + f"{dtinput.day:{0}>{2}}"
+        elif field in ('time4', 'time6'):
+            # Common time actions
+            hour = dtinput.hour
+            if clkhr == 12 and dtinput.hour > 12:
                 hour -= 12
-            time_val = f"{hour:{0}>{2}}" + ":" + f"{time.localtime().tm_min:{0}>{2}}"
-            return time_val
-        if field == 'pm':
-            if time.localtime().tm_hour >= 12:
-                ampm_val = True
-            else:
-                ampm_val = False
-            return ampm_val
+            # 4-cell time, Hour-Minute.
+            if field == 'time4':
+                return_val = f"{hour:{0}>{2}}" + ":" + f"{dtinput.minute:{0}>{2}}"
+            # 6-cell time, Hour-Minute-Seconds.
+            elif field == 'time6':
+                return_val = f"{hour:{0}>{2}}" + ":" + f"{dtinput.minute:{0}>{2}}" + ":" + f"{dtinput.second:{0}>{2}}"
+        return return_val
+
+    def _check_pm(self, dtinput):
+        """
+        Check if a Time is before or after noon to set AM/PM indicator.
+
+        :param dtinput: The datetime to check.
+        :type dtinput: adafruit_datetime.datetime
+        """
+
+        if dtinput.hour >= 12:
+            pm = True
+        else:
+            pm = False
+
+        return pm
+
 
     def _create_object(self, disptype, address):
         """
@@ -187,6 +223,7 @@ class BMDisplaySeg(BaseDisplay):
 
         # Create the object.
         display_obj = display_class(i2c=self._i2c_bus, address=address)
+        display_obj.auto_write = False
         return display_obj
 
     def _test(self, delay=0.1):

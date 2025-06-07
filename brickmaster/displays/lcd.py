@@ -22,14 +22,14 @@ class BMDisplayLCD(BaseDisplay):
         :type cols: int
         :param rows: Rows in the display.
         :type rows: int
-        :param icon: Icon to use for discovery.
-        :type icon: str
         :param writable: Is this display settable via MQTT?
         :type writable: bool
-        :param logger: Logger to use.
-        :type logger: adafruit_logging.Logger
         :param i2c_bus: I2C bus object, usually created by the core.
         :type i2c_bus: busio.I2C
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
+        :param icon: Icon to use for discovery.
+        :type icon: str
         """
         # Call the super class init.
         super().__init__(disp_id=disp_id,
@@ -80,7 +80,7 @@ class BMDisplayLCD(BaseDisplay):
         # Oddly, sending the message sometimes turns the backlight off. So make sure it's on.
         self._display_obj.backlight = True
 
-    def show_idle(self):
+    def show_idle(self, dtinput=None):
         """ LCDs don't show idle. Skip it."""
         pass
 

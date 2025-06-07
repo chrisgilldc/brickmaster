@@ -73,8 +73,11 @@ class Brickmaster:
             self._indicators['sysrun'] = brickmaster.controls.CtrlNull(
                 'sysrun', 'System Status Null', self, self._logger)
 
+        # Create a time object.
+        self._bmdt = brickmaster.BMDateTime()
+
         # Validate the config and process it.
-        self._bm2config = brickmaster.BM2Config(config_json)
+        self._bm2config = brickmaster.BMConfig(config_json)
 
         # Reset the log level based on the config.
         self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
@@ -121,41 +124,41 @@ class Brickmaster:
 
         if sys.implementation.name == 'cpython':
             self._logger.info("Core: Setting up network for general-purpose OS.")
-            from .network.linux import BM2NetworkLinux
-            self._network = BM2NetworkLinux(self,
-                                            system_id=self._mac_id,
-                                            short_name=self._bm2config.system['id'],
-                                            long_name=self._bm2config.system['name'],
-                                            broker=self._bm2config.system['mqtt']['broker'],
-                                            mqtt_username=self._bm2config.system['mqtt']['user'],
-                                            mqtt_password=self._bm2config.system['mqtt']['key'],
-                                            mqtt_log=self._bm2config.system['mqtt']['log'],
-                                            net_indicator=self._indicators['net'],
-                                            ha_discover=self._bm2config.system['ha_discover'],
-                                            ha_area=self._bm2config.system['ha_area'],
-                                            logger=self._logger,
-                                            net_interface=self._bm2config.system['interface']
-                                            )
+            from .network.linux import BMNetworkLinux
+            self._network = BMNetworkLinux(self,
+                                           system_id=self._mac_id,
+                                           short_name=self._bm2config.system['id'],
+                                           long_name=self._bm2config.system['name'],
+                                           broker=self._bm2config.system['mqtt']['broker'],
+                                           mqtt_username=self._bm2config.system['mqtt']['user'],
+                                           mqtt_password=self._bm2config.system['mqtt']['key'],
+                                           mqtt_log=self._bm2config.system['mqtt']['log'],
+                                           net_indicator=self._indicators['net'],
+                                           ha_discover=self._bm2config.system['ha_discover'],
+                                           ha_area=self._bm2config.system['ha_area'],
+                                           logger=self._logger,
+                                           net_interface=self._bm2config.system['interface']
+                                           )
         elif sys.implementation.name == 'circuitpython':
             self._logger.info("Core: Setting up network for CircuitPython board.")
-            from .network.circuitpython import BM2NetworkCircuitPython
-            self._network = BM2NetworkCircuitPython(self,
-                                            wifi_obj=self._wifi_obj,
-                                            system_id=self._mac_id,
-                                            short_name=self._bm2config.system['id'],
-                                            long_name=self._bm2config.system['name'],
-                                            broker=self._bm2config.system['mqtt']['broker'],
-                                            mqtt_username=self._bm2config.system['mqtt']['user'],
-                                            mqtt_password=self._bm2config.system['mqtt']['key'],
-                                            mqtt_log=self._bm2config.system['mqtt']['log'],
-                                            net_indicator=self._indicators['net'],
-                                            ha_discover=self._bm2config.system['ha_discover'],
-                                            ha_area=self._bm2config.system['ha_area'],
-                                            timeservers=self._bm2config.system['ntp']['servers'],
-                                            tz=self._bm2config.system['ntp']['tz'],
-                                            recheck=self._bm2config.system['ntp']['recheck'],
-                                            logger=self._logger
-                                            )
+            from .network.circuitpython import BMNetworkCircuitPython
+            self._network = BMNetworkCircuitPython(self,
+                                                   wifi_obj=self._wifi_obj,
+                                                   system_id=self._mac_id,
+                                                   short_name=self._bm2config.system['id'],
+                                                   long_name=self._bm2config.system['name'],
+                                                   broker=self._bm2config.system['mqtt']['broker'],
+                                                   mqtt_username=self._bm2config.system['mqtt']['user'],
+                                                   mqtt_password=self._bm2config.system['mqtt']['key'],
+                                                   mqtt_log=self._bm2config.system['mqtt']['log'],
+                                                   net_indicator=self._indicators['net'],
+                                                   ha_discover=self._bm2config.system['ha_discover'],
+                                                   ha_area=self._bm2config.system['ha_area'],
+                                                   timeservers=self._bm2config.system['ntp']['servers'],
+                                                   tz=self._bm2config.system['ntp']['tz'],
+                                                   recheck=self._bm2config.system['ntp']['recheck'],
+                                                   logger=self._logger
+                                                   )
         else:
             self._logger.critical("Core: Implementation '{}' unknown, cannot determine correct network module.".
                                   format(sys.implementation.name))
@@ -197,8 +200,6 @@ class Brickmaster:
                 if isinstance(self._controls[control], brickmaster.controls.CtrlFlasher):
                     self._controls[control].update()
 
-
-
             # If there's an active script, do it.
             if self._active_script is not None:
                 # self._logger.debug(f"Core: Script active, executing '{self._active_script}'")
@@ -211,7 +212,7 @@ class Brickmaster:
                 # Push time and date to displays that need it.
                 # self._logger.debug("Core: Showing idle display state.")
                 for display in self._displays:
-                    self._displays[display].show_idle()
+                     self._displays[display].show_idle(self._bmdt.now())
 
     def callback_scr(self, client, topic, message):
         """

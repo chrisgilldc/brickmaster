@@ -19,7 +19,8 @@ from . import util
 
 # Unitary Classes from files
 from .core import Brickmaster
-from .config import BM2Config
+from .config import BMConfig
+from .time import BMDateTime
 # from .display import Display
 from . import exceptions
 from .version import __version__
