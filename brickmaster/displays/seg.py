@@ -8,10 +8,10 @@ from .BaseDisplay import BaseDisplay
 from brickmaster.time import BMDateTime
 
 class BMDisplaySeg(BaseDisplay):
-    def __init__(self, disp_id, name, address, type, idle_show, idle_brightness, writable, i2c_bus, logger,
+    def __init__(self, disp_id, name, address, disptype, idle_show, idle_brightness, writable, i2c_bus, logger,
                  icon="mdi:clock-digital"):
         """
-        Initilize an LED segmented display.
+        Initialize an LED segmented display.
 
         :param disp_id: Display ID.
         :type disp_id: str
@@ -19,19 +19,18 @@ class BMDisplaySeg(BaseDisplay):
         :type name: str
         :param address: Address of the display on the I2C bus.
         :type name: number
-        :param type: Type of segmented display. May be 'bigseg7x4' or 'seg7x4'
-        :type type: str
+        :param disptype: Type of segmented display. May be 'bigseg7x4' or 'seg7x4'
+        :type disptype: str
         :param idle_show: What to show when idle. May be "blank", "time" or "date".
         :type idle_show: str
         :param idle_brightness: How bright to be when idle. May be between 0.25 and 1.
-        :type rows: float
         :param writable: Is this display settable via MQTT?
         :type writable: bool
         :param i2c_bus: I2C bus object, usually created by the core.
         :type i2c_bus: busio.I2C
         :param icon: Icon to use for discovery.
         :type icon: str
-        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         :type logger: adafruit_logging.Logger
         """
 
@@ -52,7 +51,7 @@ class BMDisplaySeg(BaseDisplay):
         self._idle_brightness = idle_brightness
         self._idle_show = idle_show
         self._showing = None
-        self._type = type
+        self._disptype = disptype
 
         # Import the ht16k33 library
         # try:
@@ -61,7 +60,7 @@ class BMDisplaySeg(BaseDisplay):
         #     raise ie
 
         # Create the display object.
-        self._display_obj = self._create_object(disptype=self._type, address=self._address)
+        self._display_obj = self._create_object(disptype=self._disptype, address=self._address)
         # Run a test.
         self._test()
 
@@ -194,7 +193,8 @@ class BMDisplaySeg(BaseDisplay):
                 return_val = f"{hour:{0}>{2}}" + ":" + f"{dtinput.minute:{0}>{2}}" + ":" + f"{dtinput.second:{0}>{2}}"
         return return_val
 
-    def _check_pm(self, dtinput):
+    @staticmethod
+    def _check_pm(dtinput):
         """
         Check if a Time is before or after noon to set AM/PM indicator.
 
