@@ -7,11 +7,13 @@ import adafruit_logging
 # from adafruit_ht16k33.segments import Seg7x4, BigSeg7x4
 import time
 
+from brickmaster.time import BMDateTime
+
 class BaseDisplay:
     """
     Brickmaster Base Display Class
     """
-    def __init__(self, disp_id, name, address, icon, i2c_bus, writable, logger=None):
+    def __init__(self, disp_id, name, address, icon, i2c_bus, writable, tz=None, logger=None):
         """
         Base initialization for a Display.
 
@@ -27,15 +29,12 @@ class BaseDisplay:
         :type i2c_bus: busio.I2C
         :param writable: Is this display settable via MQTT?
         :type writable: bool
+        :param tz: When showing time and date, timezone to use. Name should be a valid IANA timezone.
+        :param tz: str
         :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         :type logger: adafruit_logging.Logger
         """
 
-        # Create a logger
-        # if logger is None:
-        #     self._logger = adafruit_logging.getLogger('Brickmaster')
-        #     self._logger.setLevel(adafruit_logging.DEBUG)
-        # else:
         self._logger = logger
 
         # Save the configuration parameters.
@@ -44,13 +43,13 @@ class BaseDisplay:
         self._id = disp_id
         self._name = name
         self._status = False
+        self._tz = tz
         self._writable = writable
         # Save the I2C bus object.
         self._i2c_bus = i2c_bus
         # Initialize values.
+        self._bmdt = BMDateTime()
         self._topics = None
-
-
 
     def callback(self, client, topic, message):
         """
@@ -105,6 +104,22 @@ class BaseDisplay:
         List of topics to subscribe to for this control. To be read by the Network object.
         """
         return self._topics
+
+    @property
+    def tz(self):
+        """
+        Timezone for showing time and date.
+        """
+        if self._tz is None:
+            return str(BMDateTime.local_zone)
+        else:
+            return self._tz
+
+    def update(self):
+        """
+        Perform any necessary updates.
+        """
+        raise NotImplemented("Update method must be implemented by specific class.")
 
     @property
     def writable(self):

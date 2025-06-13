@@ -1,11 +1,13 @@
 """
-Brickmaster2
+Brickmaster
 """
 
 # Controls
 from . import controls
 # Displays
 from . import displays
+# Effects
+from . import effects
 # GPIO
 from . import gpio
 # Network

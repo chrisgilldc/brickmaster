@@ -73,9 +73,6 @@ class Brickmaster:
             self._indicators['sysrun'] = brickmaster.controls.CtrlNull(
                 'sysrun', 'System Status Null', self, self._logger)
 
-        # Create a time object.
-        self._bmdt = brickmaster.BMDateTime()
-
         # Validate the config and process it.
         self._bm2config = brickmaster.BMConfig(config_json)
 
@@ -94,6 +91,9 @@ class Brickmaster:
         # This should have been done earlier, but in case it wasn't, we do it again here.
         self._indicators['sysrun'].set('on')
 
+        # Create a time object. This also sets the global local time zone.
+        self._bmdt = brickmaster.BMDateTime(local_tz=self._bm2config.system['local_tz'], logger=self._logger)
+
         # Set up the I2C Bus.
         # try:
         self._setup_i2c_bus()
@@ -106,7 +106,7 @@ class Brickmaster:
 
         self._logger.info("Core: Have I2C Bus object - {}".format(self._i2c_bus))
 
-        # Create the controls. Set the publish time to the system-wide publish time.
+        # Create the controls. Set the publishing time to the system-wide publish time.
         self._create_controls(publish_time=self._bm2config.system['publish_time'])
         self._bm2config.del_controls()
         # Create the displays.
@@ -212,6 +212,7 @@ class Brickmaster:
                 # Push time and date to displays that need it.
                 # self._logger.debug("Core: Showing idle display state.")
                 for display in self._displays:
+                     self._displays[display].update()
                      self._displays[display].show_idle(self._bmdt.now())
 
     def callback_scr(self, client, topic, message):
@@ -333,12 +334,13 @@ class Brickmaster:
                         disp_id=display_cfg['id'],
                         name=display_cfg['name'],
                         address=display_cfg['address'],
-                        type=display_cfg['type'],
+                        disptype=display_cfg['type'],
                         idle_show=display_cfg['idle_show'],
                         idle_brightness=display_cfg['idle_brightness'],
                         writable=display_cfg['writable'],
                         logger=self._logger,
-                        i2c_bus=self._i2c_bus)
+                        i2c_bus=self._i2c_bus,
+                        tz=display_cfg['tz'])
                 except ImportError as ie:
                      self._logger.error("Core: Display library for '{}' not available. Cannot create display.".
                                         format(display_cfg['name']))

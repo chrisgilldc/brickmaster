@@ -31,11 +31,7 @@ class BMWiFi:
         :type hostname: str
         :param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         """
-        if logger is None:
-            self._logger = adafruit_logging.getLogger("Brickmaster")
-            self._logger.setLevel(adafruit_logging.DEBUG)
-        else:
-            self._logger = logger
+        self._logger = logger
 
         self._hostname = hostname
         self._ip = None

@@ -1,16 +1,16 @@
 """
-Brickmaster LCD Display
+Brickmaster LCD
 """
-
+import brickmaster.effects
 from .BaseDisplay import BaseDisplay
 from adafruit_character_lcd.character_lcd_i2c import Character_LCD_I2C
-# from datetime import datetime
 import json
+
 
 class BMDisplayLCD(BaseDisplay):
     def __init__(self, disp_id, name, address, cols, rows, writable, i2c_bus, logger, icon=None):
         """
-        Initilize an LCD character display.
+        Initialize an LCD character display.
 
         :param disp_id: Display ID.
         :type disp_id: str
@@ -26,7 +26,7 @@ class BMDisplayLCD(BaseDisplay):
         :type writable: bool
         :param i2c_bus: I2C bus object, usually created by the core.
         :type i2c_bus: busio.I2C
-        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         :type logger: adafruit_logging.Logger
         :param icon: Icon to use for discovery.
         :type icon: str
@@ -44,7 +44,13 @@ class BMDisplayLCD(BaseDisplay):
         self._cols = cols
         self._rows = rows
 
-        # Import the charachter_lcd library
+        # Initialize parameters
+        self._original_message = None # Original message as submitted.
+        self._full_message = [] # Full message as submitted.
+        self._active_effects = [] # Any effects.
+        self._showing = None # What is showing on the screen right now!
+
+        # Import the character_lcd library
         # try:
         #     import adafruit_character_lcd.character_lcd_i2c
         # except ImportError as ie:
@@ -53,6 +59,35 @@ class BMDisplayLCD(BaseDisplay):
         # Create the display object.
         self._display_obj = self._create_object(cols=self._cols, rows=self._rows,
                                                 address=self._address)
+
+    def callback(self, client, topic, message):
+        """
+        Receive messages from the MQTT broker to set the display.
+        """
+
+        if isinstance(message, str):
+            # MiniMQTT (Circuitpython) outputs a straight string.
+            message_text = message
+        else:
+            # Paho MQTT (linux) delivers a message object from which we need to extract the payload.
+            # Convert the message payload (which is binary) to a string.
+            message_text = str(message.payload, 'utf-8')
+        self._logger.info("Display({}): Received payload {}".format(self.id, type(message)))
+        self._received_payload = json.loads(message_text)
+        self._logger.info("Display ({}): Received message '{}'".format(self.id, self._received_payload))
+        # Clear by default, or if
+        if 'clear' in self._received_payload:
+            if self._received_payload['clear']:
+                self.clear()
+        else:
+            self.clear()
+        if 'message' in self._received_payload:
+            self._process_display_instructions(self._received_payload)
+
+        if 'backlight' in self._received_payload:
+            self._display_obj.backlight=self._received_payload['backlight']
+        self.update()
+
     def clear(self):
         """
         Clear the display without turning off.
@@ -67,7 +102,7 @@ class BMDisplayLCD(BaseDisplay):
         # self._display_obj.clear()
         self._display_obj.backlight = False
 
-    def show(self, the_input, clear=False):
+    def show(self, the_input, clear=True):
         """
         Send text to the display. Any old output will be cleared.
         Be sure the new input is formatted for the display size, no automatic checking will be done.
@@ -76,6 +111,8 @@ class BMDisplayLCD(BaseDisplay):
         if clear:
             self._display_obj.clear()
         # Display the new message.
+        if isinstance(the_input, list):
+            the_input = "\n".join(the_input)
         self._display_obj.message = the_input
         # Oddly, sending the message sometimes turns the backlight off. So make sure it's on.
         self._display_obj.backlight = True
@@ -90,7 +127,7 @@ class BMDisplayLCD(BaseDisplay):
         What is currently on the display.
         Note this will not take into account any text shifting that has been done.
         """
-        return self._display_obj.message
+        return self._showing
 
     @property
     def status(self):
@@ -99,23 +136,27 @@ class BMDisplayLCD(BaseDisplay):
         """
         return self._display_obj.backlight
 
-    # def show_idle(self):
-    #     """
-    #     Show the display's idle state.
-    #     """
-    #     # Known idle states!
-    #     if self._idle_show == 'time':
-    #         time_string = datetime.strftime(datetime.now(), "%-I:%M:%S %p").center(self._display_obj.columns," ")
-    #         self.show(time_string)
-    #     elif self._idle_show == 'date':
-    #         date_string = datetime.strftime(datetime.now(), "%-m/%d/%y").center(self._display_obj.columns," ")
-    #         self.show(date_string)
-    #     elif self._idle_show == 'datetime':
-    #         date_string = datetime.strftime(datetime.now(), "%-m/%d/%y").center(self._display_obj.columns," ")
-    #         time_string = datetime.strftime(datetime.now(), "%-I:%M:%S %p").center(self._display_obj.columns," ")
-    #         self.show("{}\n{}".format(time_string, date_string))
-    #     else:
-    #         self.off()
+    def update(self):
+        """
+        Update any automatic effects.
+        """
+        for effect in self._active_effects:
+            effect.update()
+
+        output_list = []
+        for row in self._full_message:
+            if isinstance(row, brickmaster.effects.HorizontalScroll):
+                output_list.append(str(row))
+            else:
+                output_list.append(self._lcd_format(str(row)))
+
+        # print("Index: {}".format(self._active_effects[0]._index))
+
+        output_text = "\n".join(output_list)
+
+        if output_text != self._showing:
+            self._showing = output_text
+            self.show(output_text, clear=False)
 
 
     def _create_object(self, cols, rows, address):
@@ -136,27 +177,120 @@ class BMDisplayLCD(BaseDisplay):
         obj.backlight = False
         return obj
 
-    def callback(self, client, topic, message):
+    def _process_display_instructions(self, the_instructions):
         """
-        Receive messages from the MQTT broker to set the display.
+        Process LCD display instructions
+
+        :param the_instructions: The instructions to process.
+        :type the_instructions: dict
+        :returns: Initial display message, effects tracking initialization
+        :rtype: (str, dict)
         """
 
-        if isinstance(message, str):
-            # MiniMQTT (Circuitpython) outputs a straight string.
-            message_text = message
+        if 'message' not in the_instructions:
+            raise ValueError("Display instructions must have a message!")
+
+        # Save the message.
+        self._original_message = the_instructions['message']
+        self._full_message = the_instructions['message']
+
+        # Clear the existing effects.
+        self._active_effects = []
+
+        if 'effects' in the_instructions and isinstance(the_instructions['message'], list):
+            if 'vertical-scroll' in the_instructions['effects']:
+                # tracking_init['vs_timestamp'] = sync_timestamp
+                self._logger.info("Display ({}): Would vertical scroll, but not implemented.".format(self._id))
+            if 'horizontal-scroll' in the_instructions['effects']:
+                for hsline in the_instructions['effects']['horizontal-scroll']:
+                    if isinstance(hsline['target'], int):
+                        # Create a Horizontal Scroll object.
+                        if hsline['direction'] == 'right':
+                            sr = True
+                        else:
+                            sr = False
+
+                        hs = brickmaster.effects.HorizontalScroll(
+                            text=the_instructions['message'][hsline['target']],
+                            width=self._cols,
+                            scroll_right=sr,
+                            animate=hsline['speed']
+                        )
+                        self._active_effects.append(hs)
+                        self._full_message[hsline['target']] = hs
+                    elif isinstance(hsline['target'], list):
+                        for target in hsline['target']:
+                            if hsline['direction'] == 'right':
+                                sr = True
+                            else:
+                                sr = False
+
+                            hs = brickmaster.effects.HorizontalScroll(
+                                text=the_instructions['message'][hsline['target']],
+                                width=self._cols,
+                                scroll_right=sr,
+                                animate=hsline['speed']
+                            )
+                            self._active_effects.append(hs)
+                            self._full_message[target] = hs
+            if 'rotate' in the_instructions['effects']:
+                for rtline in the_instructions['effects']['rotate']:
+                    if isinstance(rtline['target'], int):
+                        rt = brickmaster.effects.RotateText(
+                            text=the_instructions['message'][rtline['target']],
+                            animate=rtline['speed']
+                        )
+                        self._active_effects.append(rt)
+                        self._full_message[rtline['target']] = rt
+                    elif isinstance(rtline['target'], list):
+                        for target in rtline['target']:
+                            rt = brickmaster.effects.RotateText(
+                                text=the_instructions['message'][target],
+                                animate=rtline['speed']
+                            )
+                            self._active_effects.append(rt)
+                            self._full_message[target] = rt
+
+    def _lcd_format(self, input_line):
+        """
+        Follow display rules to format a single line. This is for 'standard' formatting, not dynamic 'effects'.
+
+        :param input_line: Input list defining what to show on each row.
+        :type input_line: str, int, float, list
+
+        :returns: List of lines, formatted appropriately.
+        :rtype: str
+        """
+
+        if type(input_line) in (str, int, float):
+            text = str(input_line)
+        elif isinstance(input_line, dict):
+            if 'text' not in input_line:
+                self._logger.warning("Display ({}): No text specified in payload.".format(self._id))
+                text = "No text in line."
+            # If alignment command is given.
+            elif 'align' in input_line:
+                if input_line['align'] == 'left':
+                    # substr = input_line['text'][:self._cols]
+                    text = input_line['text'].ljust(self._cols)
+                elif input_line['align'] == 'right':
+                    substr = input_line['text'][self._cols * -1:]
+                    text = substr.rjust(self._cols)
+                elif input_line['align'] == 'center':
+                    if len(input_line['text']) > self._cols:
+                        overhang = round(( len(input_line['text']) - self._cols ) / 2)
+                        text = input_line['text'][overhang:overhang * -1]
+                    else:
+                        text = input_line['text'].center(self._cols)
+                else: #Unknown alignment, ignore it.
+                    self._logger.warning("Display ({}): Alignment '{}' not supported.".
+                                         format(self._id, input_line['align']))
+                    text = input_line['text']
+            else:
+                text = input_line['text']
         else:
-            # Paho MQTT (linux) delivers a message object from which we need to extract the payload.
-            # Convert the message payload (which is binary) to a string.
-            message_text = str(message.payload, 'utf-8')
-        input = json.loads(message_text)
-        self._logger.info("Display ({}): Received message '{}'".format(self.id, input))
-        # Clear by default, or if
-        if 'clear' in input:
-            if input['clear']:
-                self.clear()
-        else:
-            self.clear()
-        if 'message' in input:
-            self.show(input['message'])
-        if 'backlight' in input:
-            self._display_obj.backlight=input['backlight']
+            self._logger.warning("Display ({}): Can't format '{}' ({})".format(self._id,input_line, type(input_line)))
+            text = "Unknown type"
+        return text
+
+

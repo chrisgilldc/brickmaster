@@ -10,6 +10,9 @@ import rtc
 import time
 
 class BMNTP:
+    """
+    Brickmaster NTP class. Only used on Circitpython. Rely on the system time service on a general-purpose OS.
+    """
     def __init__(self, timeservers, tz, recheck, bmwifi, logger=None):
         """
         :param timeservers: List of timeservers to try. Will be tried in-order. Can be IPs or hostnames.
@@ -31,11 +34,7 @@ class BMNTP:
         self._timezone = tz
         self._update_timestamp = None
 
-        if logger is None:
-            self._logger = adafruit_logging.getLogger('Brickmaster')
-            self._logger.setLevel(adafruit_logging.DEBUG)
-        else:
-            self._logger = logger
+        self._logger = logger
         self._logger.info("Network (NTP): Configured NTP with timeservers '{}', timezone '{}', recheck every {}m".
                           format(self._timeservers, self._timezone, self._recheck))
 
@@ -57,7 +56,7 @@ class BMNTP:
         try:
             self._rtc.datetime = self.get_datetime()
         except ValueError:
-            self._logger.error("Network (NTP): Exhausted all configued timeservers while trying to set RTC.")
+            self._logger.error("Network (NTP): Exhausted all configured timeservers while trying to set RTC.")
         except BaseException as be:
             self._logger.critical("Network (NTP): Encountered unexpected exception while trying to set RTC '{}'".
                                   format(be))
@@ -76,8 +75,7 @@ class BMNTP:
         i = 0
         while result is None:
             self._ntp_client = adafruit_ntp.NTP(self._bmwifi.socket_pool,
-                                                server=self._timeservers[self._active_timeserver],
-                                                tz_offset=0)
+                                                server=self._timeservers[self._active_timeserver])
             try:
                 result = self._ntp_client.datetime
             except OSError as oe:

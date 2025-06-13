@@ -14,26 +14,34 @@
     }
   },
   "controls": [
-    {
-      "id": "test0",
-      "name": "Test D0",
-      "type": "gpio",
-      "pin": "D0"
-    },
-    {
-      "id": "test1",
-      "name": "Test D1",
-      "type": "gpio",
-      "pin": "D1"
-    },
-    {
-      "id": "test2",
-      "name": "Test D2",
-      "type": "gpio",
-      "pin": "D2"
-    }
   ],
   "displays":[
+    {
+      "id": "senate",
+      "name": "Senate",
+      "type": "lcd",
+      "address": "0x20",
+      "cols": 16,
+      "rows": 2,
+      "writable": true
+    },
+    {
+      "id": "house",
+      "name": "House",
+      "type": "lcd",
+      "address": "0x21",
+      "cols": 16,
+      "rows": 2,
+      "writable": true
+    },
+    {
+      "id": "testseg",
+      "type": "bigseg7x4",
+      "address": "0x70",
+      "idle_show": "time",
+      "writable": false
+    },
+    }
   ],
   "scripts": {
     "dir": "scripts"

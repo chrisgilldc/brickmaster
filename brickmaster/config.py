@@ -108,11 +108,12 @@ class BMConfig:
         """
         self._logger.debug("Config: Validating system section")
         required_params = ['id', 'mqtt']
-        optional_params = ['name', 'ntp', 'i2c', 'interface', 'log_level', 'wifihw']
+        optional_params = ['i2c', 'interface', 'local_tz', 'log_level', 'name', 'ntp', 'wifihw']
         optional_defaults = {
             'ntp': {'servers': ['pool.ntp.org'], 'tz': 'UTC', 'recheck': 60},
             'i2c': None,
             'interface': 'wlan0',
+            'local_tz': 'UTC',
             'log_level': 'info',
             'wifihw': None
         }
@@ -508,6 +509,10 @@ class BMConfig:
             # If name isn't defined, convert ID to name.
             if 'name' not in self._config['displays'][i]:
                 self._config['displays'][i]['name'] = self._config['displays'][i]['id']
+
+            # If a timezone isn't set, cmake sure the key exists.
+            if 'tz' not in self._config['displays'][i]:
+                self._config['displays'][i]['tz'] = None
 
             # LCD requires cols and rows
             if self._config['displays'][i]['type'] == 'lcd':

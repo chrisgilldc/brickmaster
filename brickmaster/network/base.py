@@ -91,11 +91,6 @@ class BMNetwork:
             'sensors': {}
         }
 
-        # Default the logging level.
-        # if logger is None:
-        #     self._logger = adafruit_logging.getLogger('Brickmaster')
-        #     self._logger.setLevel(adafruit_logging.DEBUG)
-        # else:
         self._logger = logger
 
         self._logger.info(f"Network: System Name is '{self._long_name}'")

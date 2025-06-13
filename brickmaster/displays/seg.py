@@ -9,7 +9,7 @@ from brickmaster.time import BMDateTime
 
 class BMDisplaySeg(BaseDisplay):
     def __init__(self, disp_id, name, address, disptype, idle_show, idle_brightness, writable, i2c_bus, logger,
-                 icon="mdi:clock-digital"):
+                 tz=None, icon="mdi:clock-digital"):
         """
         Initialize an LED segmented display.
 
@@ -32,10 +32,12 @@ class BMDisplaySeg(BaseDisplay):
         :type icon: str
         :param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         :type logger: adafruit_logging.Logger
+        :param tz: When showing time and date, timezone to use. Name should be a valid IANA timezone.
+        :param tz: str
         """
 
         # Make sure display type is valid.
-        if type.lower() not in ('bigseg7x4', 'seg7x4'):
+        if disptype.lower() not in ('bigseg7x4', 'seg7x4'):
             raise ValueError("Provided display type '{}' is not recognized.".format(type))
 
         # Call the super class init.
@@ -45,7 +47,8 @@ class BMDisplaySeg(BaseDisplay):
                          icon=icon,
                          writable=writable,
                          logger=logger,
-                         i2c_bus=i2c_bus)
+                         i2c_bus=i2c_bus,
+                         tz=tz)
 
         # Save additional parameters
         self._idle_brightness = idle_brightness
@@ -88,8 +91,10 @@ class BMDisplaySeg(BaseDisplay):
         :param clkhr: Use either 12 or 24 hour time.
         :type clkhr: int
         """
+        dtconverted = self._bmdt.tzconvert(dtinput, tz=self._tz)
+
         if dtelement == 'date':
-            self._showing = self._format_dt(dtinput, field='date')
+            self._showing = self._format_dt(dtconverted, field='date')
             self._display_obj.print(self._showing)
             # Make sure AM/PM is off, if we're a big segment.
             if isinstance(self._display_obj, BigSeg7x4):
@@ -101,11 +106,11 @@ class BMDisplaySeg(BaseDisplay):
                     "Clock hours must be either '12' or 24'. Instead got {}. Are you on Mars?".format(clkhr))
             # Default is time, so assume any other input wants it to be time.
             # Print the string.
-            self._showing = self._format_dt(dtinput, field='time4', clkhr=clkhr)
+            self._showing = self._format_dt(dtconverted, field='time4', clkhr=clkhr)
             self._display_obj.print(self._showing)
             # If we're a big display, we can set an AM/PM indicator.
             if isinstance(self._display_obj, BigSeg7x4):
-                self._display_obj.ampm = self._check_pm(dtinput)
+                self._display_obj.ampm = self._check_pm(dtconverted)
         self._status = True
 
     # Method to show whatever the displays idle state is.
@@ -134,7 +139,16 @@ class BMDisplaySeg(BaseDisplay):
         """
         What is currently showing on the display
         """
-        return self._showing
+        if isinstance(self._showing, list):
+            return "\n".join(self._showing)
+        else:
+            return self._showing
+
+    def update(self):
+        """
+        Update any automatic effects.
+        """
+        pass
 
     def off(self):
         """

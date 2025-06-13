@@ -37,19 +37,12 @@ class BaseControl:
         # Save the reference back to the core.
         self._core = core
         self._icon = icon
+        self._logger = logger
         self._publish_time = publish_time
 
         # Initialize
         self._topics = None
         self._status = None
-
-        # Create or save logger.
-        if logger is None:
-            self._logger = adafruit_logging.getLogger('Brickmaster')
-            self._logger.setLevel(adafruit_logging.DEBUG)
-        else:
-            self._logger = logger
-        self._logger.debug("Control {}: Set icon to '{}'".format(self._ctrl_id, self._icon))
 
     @property
     def topics(self):

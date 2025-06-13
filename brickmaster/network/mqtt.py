@@ -100,6 +100,11 @@ def messages(core, object_register, short_name, logger, force_repeat=False, topi
             {'topic': 'brickmaster/' + short_name + '/displays/' + display_object.id + '/showing',
              'message': display_object.showing, 'force_repeat': force_repeat, 'retain': False}
         )
+        # Timezone
+        outbound_messages.append(
+            {'topic': 'brickmaster/' + short_name + '/displays/' + display_object.id + '/timezone',
+             'message': display_object.tz, 'force_repeat': force_repeat, 'retain': False}
+        )
         # outbound_messages.append(
         #     {'topic': 'brickmaster/' + short_name + '/displays/' + display_object.id + '/status',
         #      'message': display_object.status, 'force_repeat': force_repeat, 'retain': False}
