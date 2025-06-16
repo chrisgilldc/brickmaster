@@ -73,20 +73,29 @@ class BMDisplayLCD(BaseDisplay):
             # Convert the message payload (which is binary) to a string.
             message_text = str(message.payload, 'utf-8')
         self._logger.info("Display({}): Received payload {}".format(self.id, type(message)))
-        self._received_payload = json.loads(message_text)
-        self._logger.info("Display ({}): Received message '{}'".format(self.id, self._received_payload))
-        # Clear by default, or if
-        if 'clear' in self._received_payload:
-            if self._received_payload['clear']:
-                self.clear()
+        try:
+            self._received_payload = json.loads(message_text)
+        except json.decoder.JSONDecodeError:
+            self._logger.warning("Display ({}): JSON payload does not decode. Will ignore.".format(self._id))
         else:
-            self.clear()
-        if 'message' in self._received_payload:
-            self._process_display_instructions(self._received_payload)
+            self._logger.info("Display ({}): Received message '{}'".format(self.id, self._received_payload))
+            # Clear by default, or if
+            if 'clear' in self._received_payload:
+                if self._received_payload['clear']:
+                    self.clear()
+            else:
+                self.clear()
 
-        if 'backlight' in self._received_payload:
-            self._display_obj.backlight=self._received_payload['backlight']
-        self.update()
+            if 'backlight' in self._received_payload:
+                self._display_obj.backlight=self._received_payload['backlight']
+
+            if 'message' in self._received_payload:
+                try:
+                    self._process_display_instructions(self._received_payload)
+                except BaseException:
+                    self._logger.warning("Display ({}): Invalid command found. Ignoring.".format(self._id))
+                else:
+                    self.update()
 
     def clear(self):
         """
@@ -99,7 +108,8 @@ class BMDisplayLCD(BaseDisplay):
         Turn off the display, clear all elements.
         """
         self._logger.info("Display ({}): Turning off.".format(self._id))
-        # self._display_obj.clear()
+        self._display_obj.clear()
+        self._showing = ""
         self._display_obj.backlight = False
 
     def show(self, the_input, clear=True):
@@ -150,8 +160,6 @@ class BMDisplayLCD(BaseDisplay):
             else:
                 output_list.append(self._lcd_format(str(row)))
 
-        # print("Index: {}".format(self._active_effects[0]._index))
-
         output_text = "\n".join(output_list)
 
         if output_text != self._showing:
@@ -189,10 +197,6 @@ class BMDisplayLCD(BaseDisplay):
 
         if 'message' not in the_instructions:
             raise ValueError("Display instructions must have a message!")
-
-        # Save the message.
-        self._original_message = the_instructions['message']
-        self._full_message = the_instructions['message']
 
         # Clear the existing effects.
         self._active_effects = []
@@ -234,22 +238,39 @@ class BMDisplayLCD(BaseDisplay):
                             self._active_effects.append(hs)
                             self._full_message[target] = hs
             if 'rotate' in the_instructions['effects']:
-                for rtline in the_instructions['effects']['rotate']:
-                    if isinstance(rtline['target'], int):
-                        rt = brickmaster.effects.RotateText(
-                            text=the_instructions['message'][rtline['target']],
-                            animate=rtline['speed']
-                        )
-                        self._active_effects.append(rt)
-                        self._full_message[rtline['target']] = rt
-                    elif isinstance(rtline['target'], list):
-                        for target in rtline['target']:
-                            rt = brickmaster.effects.RotateText(
-                                text=the_instructions['message'][target],
-                                animate=rtline['speed']
-                            )
-                            self._active_effects.append(rt)
-                            self._full_message[target] = rt
+
+                    for rtline in the_instructions['effects']['rotate']:
+                        if isinstance(rtline['target'], int):
+                            try:
+                                rt = brickmaster.effects.RotateText(
+                                    text=the_instructions['message'][rtline['target']],
+                                    animate=rtline['speed']
+                                )
+                                self._active_effects.append(rt)
+                                self._full_message[rtline['target']] = rt
+                            except IndexError as ie:
+                                self._logger.warning(
+                                    "Display ({}): Rotate references line ({}) that does not exist. Ignoring entire command.".format(
+                                        self._id, rtline['target']))
+                                raise ie
+                        elif isinstance(rtline['target'], list):
+                            for target in rtline['target']:
+                                try:
+                                    rt = brickmaster.effects.RotateText(
+                                        text=the_instructions['message'][target],
+                                        animate=rtline['speed']
+                                    )
+                                    self._active_effects.append(rt)
+                                    self._full_message[target] = rt
+                                except IndexError as ie:
+                                    self._logger.warning(
+                                        "Display ({}): Rotate references line ({}) that does not exist. Ignoring entire command.".format(
+                                            self._id, target))
+                                    raise ie
+
+        # Save the message.
+        self._original_message = the_instructions['message']
+        self._full_message = the_instructions['message']
 
     def _lcd_format(self, input_line):
         """
