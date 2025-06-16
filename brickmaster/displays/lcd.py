@@ -59,6 +59,7 @@ class BMDisplayLCD(BaseDisplay):
         # Create the display object.
         self._display_obj = self._create_object(cols=self._cols, rows=self._rows,
                                                 address=self._address)
+        self._display_obj.backlight = False
 
     def callback(self, client, topic, message):
         """
