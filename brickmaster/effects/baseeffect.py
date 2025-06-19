@@ -48,6 +48,15 @@ class BaseEffect:
         """
         return self._full_text
 
+    @property
+    def showing(self):
+        """
+        Currently showing text. May be a pure string, may be a dict with formatting instructions.
+
+        :rtrype: str or dict
+        """
+        return self._showing
+
     def __str__(self):
         """
         The currently showing string.
