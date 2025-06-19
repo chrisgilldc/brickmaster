@@ -11,7 +11,7 @@ class RotateText(BaseEffect):
     """
     def __init__(self, text, animate=0.2):
         """
-        Set up a horizontal scroller
+        Set up a text rotater.
 
         :param text: List of text strings to rotate among.
         :type text: list
@@ -28,7 +28,6 @@ class RotateText(BaseEffect):
 
         # Initialize values.
         self._index = 0
-        self.update()
 
     def _update(self, force=False):
         """
@@ -42,3 +41,12 @@ class RotateText(BaseEffect):
             self._index = 0
 
         self._last_animate_time = time.monotonic()
+
+    def __str__(self):
+        """
+        The currently showing string.
+        """
+        if isinstance(self._showing, dict):
+            return self._showing['text']
+        else:
+            return self._showing
