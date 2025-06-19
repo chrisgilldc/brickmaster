@@ -6,7 +6,6 @@ from .BaseDisplay import BaseDisplay
 from adafruit_character_lcd.character_lcd_i2c import Character_LCD_I2C
 import json
 
-
 class BMDisplayLCD(BaseDisplay):
     def __init__(self, disp_id, name, address, cols, rows, writable, i2c_bus, logger, icon=None):
         """
@@ -72,14 +71,20 @@ class BMDisplayLCD(BaseDisplay):
         else:
             # Paho MQTT (linux) delivers a message object from which we need to extract the payload.
             # Convert the message payload (which is binary) to a string.
-            message_text = str(message.payload, 'utf-8')
-        self._logger.info("Display({}): Received payload {}".format(self.id, type(message)))
+            message_text = str(message.payload.decode('utf-8'))
+        self._logger.debug("Display ({}): Received payload - '{}'".format(self.id, message.payload))
+        self._logger.debug("Display ({}): UTF-8 decoded payload - '{}' ".format(self.id, message_text))
+        self._logger.debug("Display ({}): Type is {}".format(self.id, type(message_text)))
         try:
             self._received_payload = json.loads(message_text)
         except json.decoder.JSONDecodeError:
             self._logger.warning("Display ({}): JSON payload does not decode. Will ignore.".format(self._id))
         else:
-            self._logger.info("Display ({}): Received message '{}'".format(self.id, self._received_payload))
+            self._logger.debug("Display ({}): Received message '{}'".format(self.id, self._received_payload))
+            self._logger.debug("Display ({}): Message type is - {}".format(self.id, type(self._received_payload)))
+            for element in self._received_payload['message']:
+                self._logger.info("Display ({}): Message element '{}' is type {}".format(self.id, element, type(element)))
+
             # Clear by default, or if
             if 'clear' in self._received_payload:
                 if self._received_payload['clear']:
@@ -155,11 +160,13 @@ class BMDisplayLCD(BaseDisplay):
             effect.update()
 
         output_list = []
+        # self._logger.info("Display ({}): Full message is type {}".format(self._id, type(self._full_message)))
         for row in self._full_message:
             if isinstance(row, brickmaster.effects.HorizontalScroll):
                 output_list.append(str(row))
             else:
-                output_list.append(self._lcd_format(str(row)))
+                output_list.append(self._lcd_format(row))
+
 
         output_text = "\n".join(output_list)
 
@@ -202,6 +209,10 @@ class BMDisplayLCD(BaseDisplay):
         # Clear the existing effects.
         self._active_effects = []
 
+        # Save the message.
+        self._original_message = the_instructions['message']
+        self._full_message = the_instructions['message']
+
         if 'effects' in the_instructions and isinstance(the_instructions['message'], list):
             if 'vertical-scroll' in the_instructions['effects']:
                 # tracking_init['vs_timestamp'] = sync_timestamp
@@ -222,6 +233,8 @@ class BMDisplayLCD(BaseDisplay):
                             animate=hsline['speed']
                         )
                         self._active_effects.append(hs)
+                        print("Full message has {} entries.".format(len(self._full_message)))
+                        print("Full message: {}".format(self._full_message))
                         self._full_message[hsline['target']] = hs
                     elif isinstance(hsline['target'], list):
                         for target in hsline['target']:
@@ -270,8 +283,8 @@ class BMDisplayLCD(BaseDisplay):
                                     raise ie
 
         # Save the message.
-        self._original_message = the_instructions['message']
-        self._full_message = the_instructions['message']
+        # self._original_message = the_instructions['message']
+        # self._full_message = the_instructions['message']
 
     def _lcd_format(self, input_line):
         """
@@ -284,21 +297,24 @@ class BMDisplayLCD(BaseDisplay):
         :rtype: str
         """
 
-        if type(input_line) in (str, int, float):
-            text = str(input_line)
-        elif isinstance(input_line, dict):
+
+
+        if isinstance(input_line, dict):
             if 'text' not in input_line:
                 self._logger.warning("Display ({}): No text specified in payload.".format(self._id))
                 text = "No text in line."
             # If alignment command is given.
-            elif 'align' in input_line:
+            if 'align' in input_line:
                 if input_line['align'] == 'left':
+                    self._logger.debug("Display ({}): Left-aligning text.".format(self.id))
                     # substr = input_line['text'][:self._cols]
                     text = input_line['text'].ljust(self._cols)
                 elif input_line['align'] == 'right':
+                    self._logger.debug("Display ({}): Right-aligning text.".format(self.id))
                     substr = input_line['text'][self._cols * -1:]
                     text = substr.rjust(self._cols)
                 elif input_line['align'] == 'center':
+                    self._logger.debug("Display ({}): Centering text.".format(self.id))
                     if len(input_line['text']) > self._cols:
                         overhang = round(( len(input_line['text']) - self._cols ) / 2)
                         text = input_line['text'][overhang:overhang * -1]
@@ -309,7 +325,11 @@ class BMDisplayLCD(BaseDisplay):
                                          format(self._id, input_line['align']))
                     text = input_line['text']
             else:
+                self._logger.debug("Display ({}): No alignment provided. Using text directly.".format(self.id))
                 text = input_line['text']
+        elif type(input_line) in (str, int, float):
+            self._logger.debug("Display ({}): Line type is {}, sending directly.".format(self.id, type(input_line)))
+            text = str(input_line)
         else:
             self._logger.warning("Display ({}): Can't format '{}' ({})".format(self._id,input_line, type(input_line)))
             text = "Unknown type"
