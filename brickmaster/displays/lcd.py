@@ -162,11 +162,12 @@ class BMDisplayLCD(BaseDisplay):
         output_list = []
         # self._logger.info("Display ({}): Full message is type {}".format(self._id, type(self._full_message)))
         for row in self._full_message:
-            if isinstance(row, brickmaster.effects.HorizontalScroll):
-                output_list.append(str(row))
+            if issubclass(type(row), brickmaster.effects.BaseEffect):
+                output_list.append(self._lcd_format(row.showing))
+            # if isinstance(row, brickmaster.effects.HorizontalScroll):
+            #     output_list.append(str(row))
             else:
                 output_list.append(self._lcd_format(row))
-
 
         output_text = "\n".join(output_list)
 
@@ -297,8 +298,6 @@ class BMDisplayLCD(BaseDisplay):
         :rtype: str
         """
 
-
-
         if isinstance(input_line, dict):
             if 'text' not in input_line:
                 self._logger.warning("Display ({}): No text specified in payload.".format(self._id))
@@ -334,5 +333,3 @@ class BMDisplayLCD(BaseDisplay):
             self._logger.warning("Display ({}): Can't format '{}' ({})".format(self._id,input_line, type(input_line)))
             text = "Unknown type"
         return text
-
-
