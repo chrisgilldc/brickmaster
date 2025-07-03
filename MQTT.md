@@ -70,3 +70,81 @@ Alternately, if using the `rotate` effect (see below), a line can be specified a
     [ "Line 2 First", "Line 2 Second" ]
     ]
 }`
+
+### Effects
+
+Effects are optional, and are applied separately to one or several target lines. While it's possible to apply effects to
+a simple message, generally it's best to apply effects to formatted messages, so each line can be addressed distinctl.
+
+Note that it may be possible to stack effects but that behavior hasn't been fully tested and may have odd effects or 
+cause crashes.
+
+Effects are defined in the `effects` key of the message body, like so:
+
+```
+{
+"message": [
+    "Line 1",
+    "Line 2"
+    ],
+"effects": {
+    "horizontal-scroll": ...
+    "rotate": ...
+    "vertical-scroll": ...
+}
+```
+
+#### Horizontal Scroll
+Scrolls text left or right along a line. This may blur the text, depending on your display and the speed.
+A list may be used to define multiple different effects for different lines.
+Options are:
+* target - Line or lines to scroll. Remember, lines are zero-indexed from the top of the display. A single line may be 
+an integer, otherwise should be a list.
+* direction - Either 'left' or 'right', for the direction of the test movement. Defaults to left.
+* speed - How fast to move the text. Will move one character in the chosen direction ever "speed" seconds. May decimal 
+fractions (ie: 0.1)
+
+Example - 
+```
+{
+"message": [
+    "This is a very very long line.",
+    "This is an exceedingly long line."
+    ],
+"effects": {
+    "horizontal-scroll": [
+        {"target": 0, speed: 1},
+        {"target": 1, speed: 0.5, direction: "right"
+    ]
+}
+```
+
+This effect will scroll the first line of text one character to the left every second, and the second line
+to the right every half second.
+
+#### Rotate
+Rotates among text strings. This is a complete replacement. It's assumed the text will fit in the display.
+Options are:
+* target - Line or lines to scroll. Remember, lines are zero-indexed from the top of the display. A single line may be 
+an integer, otherwise should be a list.
+* speed - How fast to move the text. Will move one character in the chosen direction ever "speed" seconds. May decimal 
+fractions (ie: 0.1)
+
+Example - 
+```
+{
+"message": [
+    "Static Line",
+    ["Show This First", "Show This Second"]
+    ],
+"effects": {
+    "rotate": [
+        {"target": 1, speed: 1}
+    ]
+}
+```
+This effect will swap the second line of the display between the two different values every second.
+
+#### Vertical Scroll
+Move lines of text up and down the display.
+NOT YET IMPLEMENTED
