@@ -19,7 +19,7 @@ class Brickmaster:
     """
     Core Brickmaster class. Create one of these, then run it.
     """
-    def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None):
+    def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None, logger=None):
         """
         Brickmaster Core Module
 
@@ -29,6 +29,8 @@ class Brickmaster:
         :type mac_id: str
         :param wifi_obj: Wifi Object. ONLY used for CircuitPython
         :type wifi_obj: brickmaster.network.BMWiFi
+        :param logger: External logger. This will get passed by the Circuitpython code.py if need be.
+        :type logger: adafruit_logger
         """
         # Force a garbage collection
         gc.collect()
@@ -61,12 +63,15 @@ class Brickmaster:
 
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
-        self._logger = logging.getLogger('Brickmaster')
-        print_handler = logging.StreamHandler()
-        self._logger.addHandler(print_handler)
-        # Start out at the DEBUG level. The Config module will load the log level
-        # From the config file and adjust appropriately.
-        self._logger.setLevel(logging.DEBUG)
+        if logger is None:
+            self._logger = logging.getLogger('Brickmaster')
+            print_handler = logging.StreamHandler()
+            self._logger.addHandler(print_handler)
+            # Start out at the DEBUG level. The Config module will load the log level
+            # From the config file and adjust appropriately.
+            self._logger.setLevel(logging.DEBUG)
+        else:
+            self._logger = logger
 
         # If system running indicator was passed, use it, otherwise set up a null indicator.
         if self._indicators['sysrun'] is None:
@@ -512,7 +517,8 @@ class Brickmaster:
                                'off': self._bm2config.system['indicators']['netoff'] }
 
         if indicator_pins is not None:
-            indicators['net'] = brickmaster.controls.CtrlSingle('net', 'Network',self, indicator_pins, 10)
+            indicators['net'] = brickmaster.controls.CtrlSingle('net', 'Network',self, indicator_pins,
+                                                                10, logger=self._logger)
         else:
             indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self, self._logger)
 
