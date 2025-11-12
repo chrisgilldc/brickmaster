@@ -253,7 +253,6 @@ class BMDisplayLCD(BaseDisplay):
                             self._active_effects.append(hs)
                             self._full_message[target] = hs
             if 'rotate' in the_instructions['effects']:
-
                     for rtline in the_instructions['effects']['rotate']:
                         if isinstance(rtline['target'], int):
                             try:
@@ -329,6 +328,13 @@ class BMDisplayLCD(BaseDisplay):
         elif type(input_line) in (str, int, float):
             self._logger.debug("Display ({}): Line type is {}, sending directly.".format(self.id, type(input_line)))
             text = str(input_line)
+        elif isinstance(input_line, list):
+            # We probably shouldn't get a list, but if we do, pull out the first element if we can and process it.
+            if len(input_line) > 0:
+                self._logger.debug("Display ({}): Line type is {}, processing first element.".format(self.id, type(input_line)))
+                return self._lcd_format(input_line[0])
+            else:
+                return ""
         else:
             self._logger.warning("Display ({}): Can't format '{}' ({})".format(self._id,input_line, type(input_line)))
             text = "Unknown type"
