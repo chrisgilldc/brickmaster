@@ -21,7 +21,7 @@ class BMNTP:
         :type tz: int
         :param recheck: How often to recheck the time, in minutes.
         :type recheck: int
-        :param bmwifi: The Brickmaster Wifi object.
+        :param bmwifi: The Brickmaster Wi-Fi object.
         :type bmwifi: brickmaster.network.bmwifi.BMWiFi
         """
 
@@ -53,17 +53,17 @@ class BMNTP:
         """
         Set the RTC based on an NTP response.
         """
-        try:
-            self._rtc.datetime = self.get_datetime()
-        except ValueError:
-            self._logger.error("Network (NTP): Exhausted all configured timeservers while trying to set RTC.")
-        except BaseException as be:
-            self._logger.critical("Network (NTP): Encountered unexpected exception while trying to set RTC '{}'".
-                                  format(be))
-        else:
-            self._update_timestamp = time.monotonic()
-            self._logger.info("Network (NTP): Updated RTC time to '{}'".format(
-                self._format_datetime(self._rtc.datetime)))
+        # try:
+        self._rtc.datetime = self.get_datetime()
+        # except ValueError:
+        #     self._logger.error("Network (NTP): Exhausted all configured timeservers while trying to set RTC.")
+        # except BaseException as be:
+        #     self._logger.critical("Network (NTP): Encountered unexpected exception while trying to set RTC '{}'".
+        #                           format(be))
+        # else:
+        self._update_timestamp = time.monotonic()
+        self._logger.info("Network (NTP): Updated RTC time to '{}'".format(
+            self._format_datetime(self._rtc.datetime)))
 
 
     def get_datetime(self):
