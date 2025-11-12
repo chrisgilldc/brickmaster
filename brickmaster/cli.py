@@ -70,7 +70,7 @@ def bmcli():
 
             # Initialize the system
             print("CLI - Initializing...")
-            bm2 = brickmaster.Brickmaster(config_json, sys_mac_id)
+            bm = brickmaster.Brickmaster(config_json, sys_mac_id)
 
             # Exit if in test mode, otherwise start the run loop.
             if args.test:
@@ -78,7 +78,7 @@ def bmcli():
                 sys.exit()
             else:
                 print("CLI - Initialization complete. Operation start.")
-                bm2.run()
+                bm.run()
 
     except pid.base.PidFileAlreadyLockedError:
         print("Cannot start, already running!")
