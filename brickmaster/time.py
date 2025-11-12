@@ -39,7 +39,7 @@ class BMDateTime():
     # If circuitpython, set class variables.
     if sys.implementation.name ==  'circuitpython':
         local_zone = 'UTC'  # Local timezone, defaults to UTC.
-        UTC = adafruit_datetime.timezone(adafruit_datetime.timedelta(),"UTC") # Pre-baked UTC zone, since UTC is always the same.
+        UTC = adafruit_datetime.timezone(adafruit_datetime.timedelta(hours=0),"UTC") # Pre-baked UTC zone, since UTC is always the same.
         known_timezones = {
             'UTC': UTC
         }  # Stores known timezones. Used for CircuitPython. Pre-loaded with UTC zones.
@@ -138,13 +138,15 @@ class BMDateTime():
         """
         Get a tzinfo object
         """
+        self._logger.debug("Time: Get TZ '{}'".format(tz))
         if sys.implementation.name == 'circuitpython':
             try:
                 offset = BMDateTime.known_timezones[tz]
+                self._logger.debug("Time: Retrieved offset '{}' for TZ '{}'".format(offset, tz))
+                return offset
             except KeyError as ke:
                 self._logger.error("Time: Requested timezone '{}' is not known.")
                 raise ke
-            return adafruit_datetime.timezone(adafruit_datetime.timedelta(hours=offset), tz)
         else:
             # On CPython (presuambly Linux), get the zone from Zoneinfo
             try:
