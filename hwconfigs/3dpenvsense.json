@@ -1,7 +1,7 @@
 
 {
   "system": {
-    "id": "3dpenvsense",
+    "id": "3dprinter-env",
     "name": "3d Printer Environment Sensors",
     "log_level": "warning",
     "i2c": "True",
@@ -20,16 +20,18 @@
   "scripts": {
     "scan_dir": "false"
   },
-  "sensors": {
-    "ambient": {
+  "sensors": [
+    {
+      "id": "amb",
       "name": "Ambient",
       "type": "HTU31D",
       "address": "0x40"
     },
-    "enclosure": {
+    {
+      "id": "enc",
       "name": "Enclosure",
       "type": "HTU31D",
       "address": "0x41"
     }
-  }
+  ]
 }
