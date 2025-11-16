@@ -281,28 +281,33 @@ class Brickmaster:
 
             # Check the type to create the correct object type.
             # try:
-            if control_cfg['type'].lower() == 'single':
-                self._controls[control_cfg['id']] = brickmaster.controls.CtrlSingle(
-                    ctrl_id = control_cfg['id'],
-                    name = control_cfg['name'],
-                    core = self,
-                    pins = control_cfg['pins'],
-                    publish_time = publish_time,
-                    extio_obj = extio_obj,
-                    icon = control_cfg['icon'],
-                    logger=self._logger)
-            elif control_cfg['type'].lower() == 'flasher':
-                self._controls[control_cfg['id']] = brickmaster.controls.CtrlFlasher(
-                    ctrl_id = control_cfg['id'],
-                    name = control_cfg['name'],
-                    core = self,
-                    pinlist = control_cfg['pins'],
-                    loiter_time = control_cfg['loiter_time'],
-                    switch_time = control_cfg['switch_time'],
-                    publish_time = publish_time,
-                    extio_obj = extio_obj,
-                    icon = control_cfg['icon'],
-                    logger=self._logger)
+            try:
+                if control_cfg['type'].lower() == 'single':
+                    self._controls[control_cfg['id']] = brickmaster.controls.CtrlSingle(
+                        ctrl_id = control_cfg['id'],
+                        name = control_cfg['name'],
+                        core = self,
+                        pins = control_cfg['pins'],
+                        publish_time = publish_time,
+                        extio_obj = extio_obj,
+                        icon = control_cfg['icon'],
+                        logger=self._logger)
+                elif control_cfg['type'].lower() == 'flasher':
+                    self._controls[control_cfg['id']] = brickmaster.controls.CtrlFlasher(
+                        ctrl_id = control_cfg['id'],
+                        name = control_cfg['name'],
+                        core = self,
+                        pinlist = control_cfg['pins'],
+                        loiter_time = control_cfg['loiter_time'],
+                        switch_time = control_cfg['switch_time'],
+                        publish_time = publish_time,
+                        extio_obj = extio_obj,
+                        icon = control_cfg['icon'],
+                        logger=self._logger)
+            except AttributeError as ae:
+                self._logger.error("Could not create control '{}'. Received error '{}'. Will continue with other "
+                                   "controls".format(control_cfg['id'], str(ae)))
+
 
     def _create_displays(self):
         if len(self._bm2config.displays) == 0:
