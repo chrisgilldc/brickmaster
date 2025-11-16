@@ -12,6 +12,7 @@ dependencies = [
     "adafruit-circuitpython-logging",
     "adafruit-circuitpython-ht16k33",
     "adafruit-circuitpython-htu31d",
+    "adafruit-circuitpython-mcp230xx",
     "Adafruit-Blinka",
     "netifaces2",
     "paho-mqtt",
