@@ -38,7 +38,7 @@ class CtrlFlasher(BaseControl):
         @param logger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
         @type logger: adafruit_logger.Logger
         """
-        super().__init__(ctrl_id, name, core, icon, publish_time, logger)
+        super().__init__(ctrl_id, name, core, logger, icon, publish_time)
 
         self._active_low = active_low # Save the active low status.
         self._extio_obj = extio_obj # Save the external IO object, if any.
