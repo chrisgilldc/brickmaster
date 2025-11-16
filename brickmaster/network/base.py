@@ -442,11 +442,11 @@ class BMNetwork:
 
         :param userdata:
         :param flags:
-        :param rc:
+        :param rc: Result Code
         :param properties:
         :return:
         """
-        self._logger.info(f"Network: On Connect callback invoked from result code '{rc}'")
+        self._logger.info(f"Network: Broker connection established.")
         self._logger.debug("Network:\n\tuserdata - '{}'\n\tflags - '{}'\n\tproperties - '{}'".
                            format(userdata, flags,properties))
         self._logger.debug("Network: Setting status to 'connected'")
@@ -500,7 +500,6 @@ class BMNetwork:
             self._logger.info(f"Network: Sending initial message - {message}")
             self._pub_message(**message)
 
-
     def _on_disconnect(self, client, userdata, rc):
         """
         MQTT Client disconnect callback.
@@ -510,12 +509,13 @@ class BMNetwork:
         :param rc:
         :return:
         """
-        self._logger.info("Network: Received on_disconnect")
+        self._logger.info("Network: Disconnected from broker.")
         self._logger.debug("Network:\n\tclient - '{}'\n\tuserdata - '{}'".format(client, userdata))
         if rc != 0:
             #TODO: Add some logic here or in the platform class to actually handle the result codes and back off when
             # a specific error type is unrecoverable.
-            self._logger.warning("Network: Unexpected disconnect with code: {}".format(rc))
+            self._logger.warning("Network: Unexpected disconnect with error '{}'".
+                                 format(brickmaster.util.convert_connect_code(rc)))
         self._reconnect_timer = time.monotonic()
         self._logger.debug("Network: Setting internal MQTT tracker False in '_on_disconnect' callback.")
         self.status = const.NET_STATUS_DISCONNECTED
