@@ -3,6 +3,8 @@ Brickmaster Linux Networking
 """
 
 import adafruit_logging
+from paho.mqtt.enums import CallbackAPIVersion
+
 from brickmaster.network.base import BMNetwork
 import brickmaster.const as const
 import brickmaster.util
@@ -250,7 +252,9 @@ class BMNetworkLinux(BMNetwork):
 
         # Create the MQTT Client.
         self._paho_client = Client(
+            callback_api_version=CallbackAPIVersion.VERSION1,
             client_id=self._system_id
+
         )
         self._paho_client.username_pw_set(
             username=self._mqtt_username,
