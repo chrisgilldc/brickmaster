@@ -6,7 +6,7 @@ import adafruit_logging
 
 import brickmaster.exceptions
 from brickmaster.network.base import BMNetwork
-from brickmaster.network.ntp_client import BMNTP
+# from brickmaster.network.ntp_client import BMNTP
 # import brickmaster.util
 # import brickmaster.network.mqtt
 import gc
@@ -67,7 +67,7 @@ class BMNetworkCircuitPython(BMNetwork):
         if timeservers is None:
             timeservers = ["pool.ntp.org"]
         # Create a BMNTP object.
-        self._ntp = BMNTP(timeservers, tz, recheck, wifi_obj, logger)
+        # self._ntp = BMNTP(timeservers, tz, recheck, wifi_obj, logger)
 
     def connect(self):
         """
@@ -82,8 +82,8 @@ class BMNetworkCircuitPython(BMNetwork):
             self._logger.critical(f"Network: {e}")
             raise
         else:
-            self._logger.debug("Network: Calling NTP poll.")
-            self._ntp.poll()
+            # self._logger.debug("Network: Calling NTP poll.")
+            # self._ntp.poll()
             self._logger.debug("Network: Calling base class connect method for MQTT.")
             try:
                 return super().connect()
@@ -117,7 +117,7 @@ class BMNetworkCircuitPython(BMNetwork):
                 raise
 
         # System's interface is up. Poll the NTP object to see if it's time to resync time.
-        self._ntp.poll()
+        # self._ntp.poll()
 
         # Call the base class poll.
         return super().poll()

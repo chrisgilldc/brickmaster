@@ -7,7 +7,7 @@ import adafruit_logging
 # from adafruit_ht16k33.segments import Seg7x4, BigSeg7x4
 import time
 
-from brickmaster.time import BMDateTime
+# from brickmaster.time import BMDateTime
 
 class BaseDisplay:
     """
@@ -48,7 +48,7 @@ class BaseDisplay:
         # Save the I2C bus object.
         self._i2c_bus = i2c_bus
         # Initialize values.
-        self._bmdt = BMDateTime()
+        # self._bmdt = BMDateTime()
         self._topics = None
 
     def callback(self, client, topic, message):
@@ -105,15 +105,15 @@ class BaseDisplay:
         """
         return self._topics
 
-    @property
-    def tz(self):
-        """
-        Timezone for showing time and date.
-        """
-        if self._tz is None:
-            return str(BMDateTime.local_zone)
-        else:
-            return self._tz
+    #@property
+    #def tz(self):
+    #    """
+    #    Timezone for showing time and date.
+    #    """
+    #    if self._tz is None:
+    #        return str(BMDateTime.local_zone)
+    #    else:
+    #        return self._tz
 
     def update(self):
         """

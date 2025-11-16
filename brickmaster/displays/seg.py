@@ -5,7 +5,7 @@ Brickmaster Segmented Displays
 import time
 from adafruit_ht16k33.segments import BigSeg7x4, Seg7x4
 from .BaseDisplay import BaseDisplay
-from brickmaster.time import BMDateTime
+# from brickmaster.time import BMDateTime
 
 class BMDisplaySeg(BaseDisplay):
     def __init__(self, disp_id, name, address, disptype, idle_show, idle_brightness, writable, i2c_bus, logger,

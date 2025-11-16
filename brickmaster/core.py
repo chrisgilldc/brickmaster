@@ -97,7 +97,7 @@ class Brickmaster:
         self._indicators['sysrun'].set('on')
 
         # Create a time object. This also sets the global local time zone.
-        self._bmdt = brickmaster.BMDateTime(local_tz=self._bm2config.system['local_tz'], logger=self._logger)
+        # self._bmdt = brickmaster.BMDateTime(local_tz=self._bm2config.system['local_tz'], logger=self._logger)
 
         # Set up the I2C Bus.
         # try:
