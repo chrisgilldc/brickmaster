@@ -104,3 +104,25 @@ def mac_id(iface='wlan0'):
     else:
         return mac.replace(':', '')
 
+def convert_connect_code(rc):
+    """ Convert a Paho MQTT API v1 RC code to a string.
+    :param rc: MQTT rc
+    :type rc: int
+    """
+    if rc == 0:
+        return "Connection successful"
+    elif rc == 1:
+        return "Incorrect protocol version"
+    elif rc == 2:
+        return "Invalid client identifier"
+    elif rc == 3:
+        return "Server unavailable"
+    elif rc == 4:
+        return "Bad username or password"
+    elif rc == 5:
+        return "Not authorized"
+    else:
+        return "Unknown error"
+
+
+
