@@ -13,26 +13,36 @@ import sys
 from pprint import pprint
 
 import brickmaster.util
+from brickmaster.exceptions import BMRecoverableError
+
 
 def bmcli():
     """
     Main CLI Setup
     """
-    print("Brickmaster2 - {}".format(brickmaster.__version__))
+    print("Brickmaster - {}".format(brickmaster.__version__))
     print("Running as '{}'".format(pwd.getpwuid(os.getuid()).pw_name))
-    sys_mac_id = brickmaster.util.mac_id()
-    print("This systems' MAC id is: {}".format(sys_mac_id))
     # Parse command line options.
     parser = argparse.ArgumentParser(
-        description="Brickmaster2 MQTT Lego Control System"
+        description="Brickmaster MQTT Lego Control System"
     )
     config_group = parser.add_mutually_exclusive_group()
     config_group.add_argument("-c", "--config", action="store", help="Config file path.")
     config_group.add_argument("-nc", "--netconfig", action="store", help="NetConfig URL")
+    parser.add_argument("-i", "--interface", action="store", default="wlan0", help="Interface to use for ID")
     parser.add_argument("-dc", "--dumpconfig", action="store_true", help="Dump config once loaded")
     parser.add_argument("-r", "--rundir", action="store", default="/tmp", help="Run directory, for the PID file.")
     parser.add_argument("-t", "--test", action="store_true", help="Test initialization and then exit.")
     args = parser.parse_args()
+
+    try:
+        sys_mac_id = brickmaster.util.mac_id(args.interface)
+    except BMRecoverableError:
+        print("Interface '{}' doesn't exist. Try specifying the interface with the -i option.".format(args.interface))
+        sys.exit(1)
+
+    print("This system's MAC id is: {}".format(sys_mac_id))
+
 
     # Start the main operating loop.
     try:

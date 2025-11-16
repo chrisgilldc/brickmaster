@@ -7,6 +7,8 @@ import microcontroller
 import os
 import sys
 
+from brickmaster.exceptions import BMRecoverableError
+
 # Conditionally import netifaces.
 if sys.implementation.name == 'cpython':
     import netifaces
@@ -83,14 +85,22 @@ def load_config(config_path):
         the_json = json.load(config_file_handle)
     return the_json
 
-def mac_id(wifihw='wlan0'):
+def mac_id(iface='wlan0'):
     """
-    Get the MAC ID of the default gateway interface for a Linux system. Circuitpython doesn't need to use this method,
-    as MAC is retrieved by the wifi class which is invoked by code.py prior to creating the Brickmaster instance.
+    Get the MAC ID of the default gateway interface for a Linux system.
+    Circuitpython doesn't need to use this method as MAC is retrieved by the wifi class which is invoked by code.py
+    prior to creating the Brickmaster instance.
+
+    @param iface: Interface name to get the MAC from. Defaults to wlan0.
+    @type iface: str
 
     :return:
     """
     # #TODO: Replace this with actually checking against the default route. May be too many edge cases.
-    mac = netifaces.ifaddresses(wifihw)[netifaces.AF_PACKET][0]['addr']
-    return mac.replace(':', '')
+    try:
+        mac = netifaces.ifaddresses(iface)[netifaces.AF_PACKET][0]['addr']
+    except KeyError:
+        raise BMRecoverableError('Interface {} not found.'.format(iface))
+    else:
+        return mac.replace(':', '')
 
