@@ -36,7 +36,15 @@ future. Requires a pystack value of at least 4096, possibly more depending on yo
 Feature set is intended to be 1:1 between CPython and CircuitPython. Documentation notes where this is not true due to
 platform limitations.
 
-## v0.7 Target Features - Target date: Someday!
+## v0.7 Changes!
+Major features:
+- Additional Display Support
+  - Character LCDs via I2C.
+  - Remote display setting via MQTT
+Other Changes:
+- Command line for Linux now takes '-i' option to specify main interface.
+- 
+
 - Load config from a remote site.
 - Remote reload command to reset (and load new config!)
 - Actual Sphinx documentation
