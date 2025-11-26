@@ -257,7 +257,7 @@ def ha_discovery_activescript(short_name, system_id, device_info, topic_prefix, 
         'availability': ha_availability(topic_prefix, short_name)
     }
     discovery_json = json.dumps(discovery_dict)
-    discovery_topic = ha_base + '/sensor/' + 'bm2_' + system_id + '/activescript/config'
+    discovery_topic = ha_base + '/sensor/' + 'bm_' + short_name + '/activescript/config'
     return [{'topic': discovery_topic, 'message': discovery_json}]
 
 
@@ -278,7 +278,7 @@ def ha_discovery_connectivity(short_name, system_id, device_info, topic_prefix, 
         'payload_off': 'offline'
     }
     discovery_json = json.dumps(discovery_dict)
-    discovery_topic = ha_base + '/binary_sensor/' + 'bm2_' + system_id + '/connectivity/config'
+    discovery_topic = ha_base + '/binary_sensor/' + 'bm_' + short_name + '/connectivity/config'
     return [{'topic': discovery_topic, 'message': discovery_json}]
     # self._mqtt_client.publish(discovery_topic, discovery_json, True)
     # self._topics_outbound['connectivity']['discovery_time'] = time.monotonic()
@@ -314,7 +314,7 @@ def ha_discovery_display_lcd(short_name, system_id, device_info, topic_prefix, h
         'availability': ha_availability(topic_prefix, short_name)
     }
     discovery_array.append(
-        {'topic': ha_base + '/text/' + 'bm2_' + system_id + '/' + sensor.id + '_text/config',
+        {'topic': ha_base + '/text/' + 'bm_' + short_name + '/' + sensor.id + '_text/config',
          'message': json.dumps(text_dict)},
     )
 
@@ -353,7 +353,7 @@ def ha_discovery_display_seg(short_name, system_id, device_info, topic_prefix, h
             'availability': ha_availability(topic_prefix, short_name)
         }
         discovery_array.append(
-            {'topic': ha_base + '/text/' + 'bm2_' + system_id + '/' + display.id + '_text/config',
+            {'topic': ha_base + '/text/' + 'bm_' + short_name + '/' + display.id + '_text/config',
              'message': json.dumps(text_dict)},
         )
     else:
@@ -370,7 +370,7 @@ def ha_discovery_display_seg(short_name, system_id, device_info, topic_prefix, h
             'availability': ha_availability(topic_prefix, short_name)
         }
         discovery_array.append(
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/' + display.id + '_text/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/' + display.id + '_text/config',
              'message': json.dumps(sensor_dict)},
         )
 
@@ -441,11 +441,11 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
     if mode == 'unified':
         # Unified just sets up Memory, Percent Free. Add in the other memory info as JSON attributes.
         memfreepct_dict['json_attributes_topic'] = topic_prefix + short_name + '/meminfo'
-        return [{'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memfreepct/config',
+        return [{'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memfreepct/config',
                  'message': json.dumps(memfreepct_dict)}]
     elif mode == 'unified-used':
         memusedpct_dict['json_attributes_topic'] = topic_prefix + short_name + '/meminfo'
-        return [{'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memusedpct/config',
+        return [{'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memusedpct/config',
                  'message': json.dumps(memusedpct_dict)}]
     elif mode == 'split-pct':
         # When providing separate memory percentages, add JSON attributes on free or used.
@@ -456,20 +456,20 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
         memusedpct_dict['json_attributes_template'] = \
             "{{ {'mem_used': value_json.mem_used, 'mem_total': value_json.mem_total} | tojson }}"
         return [
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memfreepct/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memfreepct/config',
              'message': json.dumps(memfreepct_dict)},
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memusedpct/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memusedpct/config',
              'message': json.dumps(memusedpct_dict)}]
     elif mode == 'split-all':
         # If we're splitting everything, we don't need to add JSON attributes.
         return [
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memfreepct/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memfreepct/config',
              'message': json.dumps(memfreepct_dict)},
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memusedpct/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memusedpct/config',
              'message': json.dumps(memusedpct_dict)},
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memfreebytes/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memfreebytes/config',
              'message': json.dumps(memfreebytes_dict)},
-            {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/memusedbytes/config',
+            {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/memusedbytes/config',
              'message': json.dumps(memusedbytes_dict)}
         ]
     return None
@@ -517,9 +517,9 @@ def ha_discovery_sensor_HTU31D(short_name, system_id, device_info, topic_prefix,
     }
 
     discovery_array = [
-        {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/' + sensor.id + '_temperature/config',
+        {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/' + sensor.id + '_temperature/config',
              'message': json.dumps(temp_dict)},
-        {'topic': ha_base + '/sensor/' + 'bm2_' + system_id + '/' + sensor.id + '_humidity/config',
+        {'topic': ha_base + '/sensor/' + 'bm_' + short_name + '/' + sensor.id + '_humidity/config',
          'message': json.dumps(humidity_dict)},
     ]
 
@@ -599,7 +599,7 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
     options_list.extend(sorted(script_names))
 
     script_selector = {
-        'topic': ha_base + '/select/' + 'bm2_' + system_id + '/script/config',
+        'topic': ha_base + '/select/' + 'bm_' + short_name + '/script/config',
         'message': {
             'name': short_name + ' Script Selection',
             'object_id': short_name + "_script_select",
