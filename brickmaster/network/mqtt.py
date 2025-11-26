@@ -543,12 +543,14 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
     :return: list
     """
 
+    domain = 'switch'
+
     discovery_dict = {
         'name': control.name,
-        'object_id': short_name + "_" + control.id,
+        # 'object_id': short_name + "_" + control.id,
         'device': device_info,
-        # 'unique_id': system_id + "_" + control.id,
-        'default_entity_id': 'switch.' + system_id + "_" + control.id,
+        'unique_id': system_id + "_" + control.id,
+        'default_entity_id': domain + '.' + short_name + "_" + control.id,
         'command_topic': topic_prefix + short_name + '/controls/' + control.id + '/set',
         'state_topic': topic_prefix + short_name + '/controls/' + control.id + '/status',
         'availability': ha_availability(topic_prefix, short_name)
@@ -561,7 +563,7 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
         logger.warning("Network (MQTT): Control '{}' does not have icon set. This should never happen. Defaulting to 'toy-brick'".format(control.id))
         discovery_dict['icon'] = 'mdi:toy-brick'
 
-    return [{'topic': ha_base + '/switch/' + 'bm2_' + system_id + '/' + control.id + '/config',
+    return [{'topic': ha_base + '/' + domain + '/bm_' + system_id + '/' + control.id + '/config',
              'message': json.dumps(discovery_dict)}]
 
 
