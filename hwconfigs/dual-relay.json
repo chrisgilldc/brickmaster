@@ -1,7 +1,7 @@
 {
   "system": {
     "id": "bm2-2xrelay",
-    "name": "Brickmaster2 Dual Relay ESP32 Feather",
+    "name": "Brickmaster Dual Relay ESP32 Feather",
     "wifihw": "esp32",
     "log_level": "warning",
     "ha": {

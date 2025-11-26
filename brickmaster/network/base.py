@@ -6,7 +6,7 @@ import adafruit_logging
 from json import dumps as json_dumps
 import sys
 import time
-# Import only the parts of Brickmaster2 we need, to prevent circular imports.
+# Import only the parts of Brickmaster we need, to prevent circular imports.
 from . import mqtt
 import brickmaster.const as const
 import brickmaster.util
@@ -25,7 +25,7 @@ class BMNetwork:
         """
         Brickmaster Network Class
 
-        :param core: Reference to the main Brickmaster2 object.
+        :param core: Reference to the main Brickmaster object.
         :type core: Brickmaster
         :param system_id: ID of the system. Cannot include spaces!
         :type system_id: str

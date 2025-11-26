@@ -1,5 +1,5 @@
 """
-Brickmaster2 Configuration Processing
+Brickmaster Configuration Processing
 """
 
 import adafruit_logging as logging
@@ -11,7 +11,7 @@ import gc
 
 class BMConfig:
     """
-    Brickmaster2 Configuration Class
+    Brickmaster Configuration Class
     """
     def __init__(self, config_json):
 

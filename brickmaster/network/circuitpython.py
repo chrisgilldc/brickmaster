@@ -20,7 +20,7 @@ class BMNetworkCircuitPython(BMNetwork):
         """
         Brickmaster Network Class
 
-        :param core: Reference to the main Brickmaster2 object.
+        :param core: Reference to the main Brickmaster object.
         :type core: Brickmaster
         :param system_id: ID of the system. Cannot include spaces!
         :type system_id: str

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """
-Brickmaster2 Command Executor.
+Brickmaster Command Executor.
 """
 import brickmaster
 import pid

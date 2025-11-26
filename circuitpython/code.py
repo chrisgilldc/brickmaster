@@ -10,7 +10,7 @@ import time
 import traceback
 # import sys
 
-print("Brickmaster2 - {}".format(brickmaster.__version__))
+print("Brickmaster - {}".format(brickmaster.__version__))
 
 # Define a pin to use for System Status.
 sysrun_pin = "D32"

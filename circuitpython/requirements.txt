@@ -1,4 +1,4 @@
-# Brickmaster2 Requirements
+# Brickmaster Requirements
 # Only for Circuitpython! Pip installs on Linux should use the requirements in pyproject.toml.
 
 # Common requirements
