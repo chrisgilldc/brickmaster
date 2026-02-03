@@ -250,7 +250,7 @@ def ha_discovery_activescript(short_name, system_id, device_info, topic_prefix, 
     """
     discovery_dict = {
         'name': "Active Script",
-        'object_id': short_name + "_activescript",
+        'default_entity_id': short_name + "_activescript",
         'device': device_info,
         'unique_id': system_id + "_activescript",
         'state_topic': topic_prefix + short_name + '/active_script',
@@ -269,7 +269,7 @@ def ha_discovery_connectivity(short_name, system_id, device_info, topic_prefix, 
     """
     discovery_dict = {
         'name': "Connectivity",
-        'object_id': short_name + "_connectivity",
+        'default_entity_id': short_name + "_connectivity",
         'device': device_info,
         'device_class': 'connectivity',
         'unique_id': system_id + "_connectivity",
@@ -305,7 +305,7 @@ def ha_discovery_display_lcd(short_name, system_id, device_info, topic_prefix, h
 
     text_dict = {
         'name': sensor.name + " Text",
-        'object_id': short_name + "_" + sensor.id + "_text",
+        'default_entity_id': short_name + "_" + sensor.id + "_text",
         'device': device_info,
         'unique_id': system_id + "_" + sensor.id + "_text",
         'state_topic': topic_prefix + short_name + '/displays/' + sensor.id + '/showing',
@@ -343,7 +343,7 @@ def ha_discovery_display_seg(short_name, system_id, device_info, topic_prefix, h
         # If display is set to writable, we use a Text input box.
         text_dict = {
             'name': display.name + " Text",
-            'object_id': short_name + "_" + display.id + "_text",
+            'default_entity_id': short_name + "_" + display.id + "_text",
             'device': device_info,
             'unique_id': system_id + "_" + display.id + "_text",
             'state_topic': topic_prefix + short_name + '/displays/' + display.id + '/showing',
@@ -360,7 +360,7 @@ def ha_discovery_display_seg(short_name, system_id, device_info, topic_prefix, h
         # If not writable, use a regular sensor.
         sensor_dict = {
             'name': display.name + " Text",
-            'object_id': short_name + "_" + display.id + "_text",
+            'default_entity_id': short_name + "_" + display.id + "_text",
             'device': device_info,
             'unique_id': system_id + "_" + display.id + "_text",
             'state_topic': topic_prefix + short_name + '/displays/' + display.id + '/showing',
@@ -395,7 +395,7 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
     # Memfreepct
     memfreepct_dict = {
         'name': "Memory Available (Pct)",
-        'object_id': short_name + "_memfreepct",
+        'default_entity_id': short_name + "_memfreepct",
         'device': device_info,
         'unique_id': system_id + "_memfreepct",
         'state_topic': topic_prefix + short_name + '/meminfo',
@@ -406,7 +406,7 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
     }
     memusedpct_dict = {
         'name': "Memory Used (Pct)",
-        'object_id': short_name + "_memusedpct",
+        'default_entity_id': short_name + "_memusedpct",
         'device': device_info,
         'unique_id': system_id + "_memusedpct",
         'state_topic': topic_prefix + short_name + '/meminfo',
@@ -417,7 +417,7 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
     }
     memfreebytes_dict = {
         'name': "Memory Available (Bytes)",
-        'object_id': short_name + "_memfree",
+        'default_entity_id': short_name + "_memfree",
         'device': device_info,
         'unique_id': system_id + "_memfree",
         'state_topic': topic_prefix + short_name + '/meminfo',
@@ -428,7 +428,7 @@ def ha_discovery_meminfo(short_name, system_id, device_info, topic_prefix, ha_ba
     }
     memusedbytes_dict = {
         'name': "Memory Used (Bytes)",
-        'object_id': short_name + "_memusedpct",
+        'default_entity_id': short_name + "_memusedpct",
         'device': device_info,
         'unique_id': system_id + "_memusedpct",
         'state_topic': topic_prefix + short_name + '/meminfo',
@@ -494,7 +494,7 @@ def ha_discovery_sensor_HTU31D(short_name, system_id, device_info, topic_prefix,
 
     temp_dict = {
         'name': sensor.name + " Temperature",
-        'object_id': short_name + "_" + sensor.id + "_temperature",
+        'default_entity_id': short_name + "_" + sensor.id + "_temperature",
         'device': device_info,
         'unique_id': system_id + "_" + sensor.id + "_temperature",
         'state_topic': topic_prefix + short_name + '/sensors/' + sensor.id + '/status',
@@ -506,7 +506,7 @@ def ha_discovery_sensor_HTU31D(short_name, system_id, device_info, topic_prefix,
 
     humidity_dict = {
         'name': sensor.name + " Humidity",
-        'object_id': short_name + "_" + sensor.id + "_humidity",
+        'default_entity_id': short_name + "_" + sensor.id + "_humidity",
         'device': device_info,
         'unique_id': system_id + "_" + sensor.id + "_humidity",
         'state_topic': topic_prefix + short_name + '/sensors/' + sensor.id + '/status',
@@ -547,7 +547,7 @@ def ha_discovery_control(short_name, system_id, device_info, topic_prefix, ha_ba
 
     discovery_dict = {
         'name': control.name,
-        # 'object_id': short_name + "_" + control.id,
+        # 'default_entity_id': short_name + "_" + control.id,
         'device': device_info,
         'unique_id': system_id + "_" + control.id,
         'default_entity_id': domain + '.' + short_name + "_" + control.id,
@@ -602,7 +602,7 @@ def ha_discovery_script(short_name, system_id, device_info, topic_prefix, ha_bas
         'topic': ha_base + '/select/' + short_name + '/script/config',
         'message': {
             'name': short_name + ' Script Selection',
-            'object_id': short_name + "_script_select",
+            'default_entity_id': short_name + "_script_select",
             'device': device_info,
             'unique_id': system_id + "_script_select",
             'icon': 'mdi:script-text-outline',

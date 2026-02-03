@@ -69,7 +69,7 @@ class BMNetworkLinux(BMNetwork):
         # Is the system's interface up? If not, we can't do anything else.
         if not brickmaster.util.interface_status(self._net_interface):
             if not self._flag_interface_logged:
-                self._logger.warning("Interface not up.")
+                self._logger.warning("Interface '{}' not up.".format(self._net_interface))
                 self._flag_interface_logged = True
             return { 'online': False, 'mqtt_status': False, 'commands': {} }
         else:
