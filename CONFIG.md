@@ -20,17 +20,26 @@ On non-Linux installs, the file must be "config.json" in the root of the board's
 
 :white_check_mark: **means required**
 
-| Name                  | Type   | Default   | Description                                                                                                                                                    |
-|-----------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: `id` | string | None      | ID of the system, used for creating entity names. No spaces!                                                                                                   |
-| `name` | string | id | Long name of the system for display purposes. If not specified, will default to the ID.                                                                        |
-| `log_level`           | string | 'warning' | How verbose to be.                                                                                                                                             |
-| `wifihw`              | string | None      | Type of WiFi hardware. Ignored on Linux. May be 'esp32' or 'esp32spi'. Will attempt autodetection if not specified, which usually works but is not guaranteed. | 
-| `i2c`                 | bool   | None      | Defines I2C pins to use. Required if using I2C displays or external GPIO boards.                                                                               |
-| `indicators`          | dict   | None      | Defines GPIO pins for indicators lights.                                                                                                                       |
-| `mqtt` | dict | None | MQTT settings.                                                                                                                                                 |
-| `ha`                  | dict   | None      | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                                                                  |
-| 'interface'   | string | 'wlan0' | On linux, which interface should be monitored for connectivity. |
+| Name                      | Type   | Default   | Description                                                                                                                                                    |
+|---------------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `id`   | string | None      | ID of the system, used for creating entity names. No spaces!                                                                                                   |
+| `name`                    | string | id        | Long name of the system for display purposes. If not specified, will default to the ID.                                                                        |
+| `log_level`               | string | 'warning' | How verbose to be.                                                                                                                                             |
+| `wifihw`                  | string | None      | Type of WiFi hardware. Ignored on Linux. May be 'esp32' or 'esp32spi'. Will attempt autodetection if not specified, which usually works but is not guaranteed. | 
+| `i2c`                     | bool   | None      | Should I2C be enabled? May be 'true' or 'false'.                                                                                                               |
+| `indicators`              | dict   | None      | Defines GPIO pins for indicators lights.                                                                                                                       |
+| `mqtt`                    | dict   | None      | MQTT settings.                                                                                                                                                 |
+| `ha`                      | dict   | None      | Options for Home Assistant discovery. If excluded, will disable HA discovery.                                                                                  |
+| 'interface'               | string | 'wlan0'   | On linux, which interface should be monitored for connectivity.                                                                                                |
+| 'ntp'                     | dict   | None      | Settings for NTP.                                                                                                                                              |
+
+#### Home Assistant (ha)
+
+| Name        | Type   | Default   | Description                                                                                                                                                                                                                                                                                                                          |
+|-------------|--------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `area`      | string | None      | Area to suggest for the device when performing discovery.                                                                                                                                                                                                                                                                            |
+| `base` | string | 'homeassistant' | Base for homeassistant discovery. Default is the same as HA's default, don't change unless you know you changed it in HA.                                                                                                                                                                                                            |
+| `meminfo`    | string | 'unified' | How to set up system memory information.<li>'unified' creates one entity, showing percent of memory free. <li>'unified-used' creates one entity, showing percent of memory used. <li>'split-pct' creates seperate used and free percent entities.<li>'split-all' creates entities for free and used in both percent and total bytes. |
 
 #### I2C
 I2C is required if using I2C displays (the only kind of supported displays) or Controls on an I2C board (AW9523).
@@ -61,13 +70,17 @@ Settings for MQTT.
 | `key`    | string | None    | Key to authenticate to the broker.                                              |
 | `log`    | bool   | False   | Enable MQTT client debugging. Probably don't need this!                         |
 
-#### Home Assistant (ha)
+#### NTP
 
-| Name        | Type   | Default   | Description                                                                                                                                                                                                                                                                                                                          |
-|-------------|--------|-----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `area`      | string | None      | Area to suggest for the device when performing discovery.                                                                                                                                                                                                                                                                            |
-| `base` | string | 'homeassistant' | Base for homeassistant discovery. Default is the same as HA's default, don't change unless you know you changed it in HA.                                                                                                                                                                                                            |
-| `meminfo`    | string | 'unified' | How to set up system memory information.<li>'unified' creates one entity, showing percent of memory free. <li>'unified-used' creates one entity, showing percent of memory used. <li>'split-pct' creates seperate used and free percent entities.<li>'split-all' creates entities for free and used in both percent and total bytes. |
+Settings for time synchronization via NTP. This is only used on CircuitPython. If you're on a system, this is a task
+that should be handled by a system daemon instead.
+
+
+| Name                         | Type   | Default          | Description                                                                                                                                                    |
+|------------------------------|--------|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `servers` | list   | ["pool.ntp.org"] | List of servers to use, as strings of IPs or Hostnames.                                                                                                        |
+| `tz`                         | string | None             |                                                                                                                                                                |
+| `recheck`                    | int    | 60               | How often to recheck the clock against the server, in minutes.                                                                                                 |
 
 ### Controls
 
@@ -161,14 +174,15 @@ is defined as a dict with the following definition.
 
 :white_check_mark: **means required**
 
-| Name                         | Type   | Default | Description                                                                                                       |
-|------------------------------|--------|---------|-------------------------------------------------------------------------------------------------------------------|
-| :white_check_mark: `name`    | string |         | Name of the display. Will be referenced elsewhere.                                                                |
-| :white_check_mark: `type`    | string |         | Type of display.<br/>Valid values are `bigseg7x4`, `seg7x4`                                                       |
-| :white_check_mark: `address` | string |         | Address of the display. Must be a string in format `0xDD`, will be hex converted.                                 |
-| :white_check_mark: `idle`    | dict   |         | What the display should show when not otherwise running. May be empty.                                            |
-| `idle` -> `show`             | string | 'blank' | What to show when idle. May be `blank` (turn off display), `time` (time in local timezone), `date` (current date) |
-| `idle` -> `brightness`       | float  | 1       | Brightness of the display when idle. Can be between 0.25 and 1.                                                   |
+| Name                         | Type   | Default | Description                                                                                                             |
+|------------------------------|--------|---------|-------------------------------------------------------------------------------------------------------------------------|
+| :white_check_mark: `name`    | string |         | Name of the display. Will be referenced elsewhere.                                                                      |
+| :white_check_mark: `type`    | string |         | Type of display.<br/>Valid values are `lcd` for LCD character displays, bigseg7x4` or `seg7x4` for LED segment displays |
+| :white_check_mark: `address` | string |         | Address of the display. Must be a string in format `0xDD`, will be hex converted.                                       |
+| :white_check_mark: `idle`    | dict   |         | What the display should show when not otherwise running. May be empty.                                                  |
+| `idle_show`                  | string | 'blank' | What to show when idle. May be `blank` (turn off display), `time` (time in local timezone), `date` (current date)       |
+| `idle_brightness             | float  | 1       | Brightness of the display when idle. Can be between 0.25 and 1.                                                         |
+| `writable` | bool | Depends on type | Should this display be settable via MQTT. Defaults to True for LCD character displays, False for segmented displays.    |
 
 ### Scripts
 

@@ -1,0 +1,31 @@
+# Example automation to publish Time Zone offsets to MQTT.
+# Create the sensors you need and add them to the trigger and a publish section to get them out to the correct place.
+
+alias: TZ Info
+description: "Publish time zone information to MQTT for consumption by Brickmaster boards"
+triggers:
+  - trigger: state
+    entity_id:
+      - sensor.tz_offset_america_new_york
+      - sensor.tz_offset_asia_tokyo
+  - trigger: homeassistant
+    event: start
+conditions: []
+actions:
+  - action: mqtt.publish
+    metadata: {}
+    data:
+      evaluate_payload: false
+      qos: 0
+      retain: false
+      topic: tzinfo/America/New_York
+      payload: "{{ states('sensor.tz_offset_america_new_york') }}"
+  - action: mqtt.publish
+    metadata: {}
+    data:
+      evaluate_payload: false
+      qos: 0
+      retain: false
+      topic: tzinfo/Asia/Tokyo
+      payload: "{{ states('sensor.tz_offset_asia_tokyo') }}"
+mode: single

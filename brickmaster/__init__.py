@@ -1,9 +1,13 @@
 """
-Brickmaster2
+Brickmaster
 """
 
 # Controls
 from . import controls
+# Displays
+from . import displays
+# Effects
+from . import effects
 # GPIO
 from . import gpio
 # Network
@@ -17,8 +21,9 @@ from . import util
 
 # Unitary Classes from files
 from .core import Brickmaster
-from .config import BM2Config
-from .display import Display
+from .config import BMConfig
+# from .time import BMDateTime
+# from .display import Display
 from . import exceptions
 from .version import __version__
 

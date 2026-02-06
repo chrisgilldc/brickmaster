@@ -1,5 +1,5 @@
 """
-Brickmaster2 Configuration Processing
+Brickmaster Configuration Processing
 """
 
 import adafruit_logging as logging
@@ -9,11 +9,12 @@ import json
 import gc
 
 
-class BM2Config:
+class BMConfig:
     """
-    Brickmaster2 Configuration Class
+    Brickmaster Configuration Class
     """
     def __init__(self, config_json):
+
         self._config = config_json
         self._logger = logging.getLogger("Brickmaster")
         self._logger.setLevel(logging.INFO)
@@ -107,10 +108,12 @@ class BM2Config:
         """
         self._logger.debug("Config: Validating system section")
         required_params = ['id', 'mqtt']
-        optional_params = ['name', 'i2c', 'interface', 'log_level', 'wifihw']
+        optional_params = ['i2c', 'interface', 'local_tz', 'log_level', 'name', 'ntp', 'wifihw']
         optional_defaults = {
+            'ntp': {'servers': ['pool.ntp.org'], 'tz': 'UTC', 'recheck': 60},
             'i2c': None,
             'interface': 'wlan0',
+            'local_tz': 'UTC',
             'log_level': 'info',
             'wifihw': None
         }
@@ -142,6 +145,14 @@ class BM2Config:
             self._config['system']['mqtt']['log'] = False
         if 'port' not in self._config['system']['mqtt']:
             self._config['system']['mqtt']['port'] = 1883
+
+        # Confirm all NTP subkeys are defined.
+        ntp_keys = {'servers','tz','recheck'}
+        ntp_defaults = {'servers': ['pool.ntp.org'], 'tz': 'UTC', 'recheck': 60}
+        for key in ntp_keys:
+            if key not in self._config['system']['ntp']:
+                self._logger.info("Config: NTP setting '{}' defaulting to '{}'".format(key,ntp_defaults[key]))
+                self._config['system']['ntp'][key] = ntp_defaults[key]
 
         # Check for network indicator definition.
         if 'indicators' in self._config['system']:
@@ -488,15 +499,51 @@ class BM2Config:
                     # i += 1
                     continue
             # Make sure type is legitimate.
-            if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4'):
+            if self._config['displays'][i]['type'].lower() not in ('seg7x4', 'bigseg7x4', 'lcd'):
                 self._logger.critical("Display type '{}' not known in display {}. Discarding display.".
                                       format(self._config['displays'][i]['type'], i))
                 to_delete.append(i)
                 # i += 1
                 continue
+
             # If name isn't defined, convert ID to name.
             if 'name' not in self._config['displays'][i]:
                 self._config['displays'][i]['name'] = self._config['displays'][i]['id']
+
+            # If a timezone isn't set, cmake sure the key exists.
+            if 'tz' not in self._config['displays'][i]:
+                self._config['displays'][i]['tz'] = None
+
+            # LCD requires cols and rows
+            if self._config['displays'][i]['type'] == 'lcd':
+                if 'rows' not in self._config['displays'][i]:
+                    self._logger.critical("Display {} must have 'rows' defined.".
+                                          format(self._config['displays'][i]['name']))
+                    to_delete.append(i)
+                    continue
+                else:
+                    try:
+                        self._config['displays'][i]['rows'] = int(self._config['displays'][i]['rows'])
+                    except TypeError:
+                        self._logger.critical("Cannot convert row value for display '{}' to an integer.".
+                                              format(self._config['displays'][i]['name']))
+                        to_delete.append(i)
+                        continue
+
+                if 'cols' not in self._config['displays'][i]:
+                    self._logger.critical("Display {} must have 'cols' defined.".
+                                          format(self._config['displays'][i]['name']))
+                    to_delete.append(i)
+                    continue
+                else:
+                    try:
+                        self._config['displays'][i]['cols'] = int(self._config['displays'][i]['cols'])
+                    except TypeError:
+                        self._logger.critical("Cannot convert cols value for display '{}' to an integer.".
+                                              format(self._config['displays'][i]['name']))
+                        to_delete.append(i)
+                        continue
+
 
             # Convert the address to a hex value.
             try:
@@ -507,33 +554,42 @@ class BM2Config:
                 # i += 1
                 to_delete.append(i)
                 continue
-            # Default when_idle to blank, if not otherwise specified.
-            if 'idle' not in self._config['displays'][i]:
-                self._config['displays'][i]['idle'] = {'show': 'blank'}
-            else:
-                # If the idle was put in as a string, convert it into a dict and default to full brightness.
-                if isinstance(self._config['displays'][i]['idle'], str):
-                    self._config['displays'][i]['idle'] = {
-                        'show': self._config['displays'][i]['idle'],
-                        'brightness': 1
-                         }
-                else:
-                    # Check the show option.
-                    if self._config['displays'][i]['idle']['show'] not in ('time', 'date', 'blank'):
-                        self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to "
-                                             "blank.".format(i, self._config['displays'][i]['idle']['show']))
-                        self._config['displays'][i]['idle']['show'] = 'blank'
-                        self._config['displays'][i]['idle']['brightness'] = 1
 
-                    # Convert the brightness setting to a float.
-                    try:
-                        self._config['displays'][i]['idle']['brightness'] = (
-                            float(self._config['displays'][i]['idle']['brightness']))
-                    except KeyError:
-                        self._config['displays'][i]['idle']['brightness'] = 1
-                    except ValueError:
-                        self._config['displays'][i]['idle']['brightness'] = 1
+            # Default when_idle to blank, if not otherwise specified.
+            if 'idle_show' not in self._config['displays'][i]:
+                self._logger.warning("No idle show provided. Defaulting to blank.")
+                self._config['displays'][i]['idle_show'] = 'blank'
+            else:
+                if self._config['displays'][i]['idle_show'] not in ('time4', 'time6', 'date', 'blank'):
+                    self._logger.warning("Specified idle value for display {} ('{}') not valid. Defaulting to "
+                                         "blank.".format(i, self._config['displays'][i]['idle']['show']))
+                    self._config['displays'][i]['idle_show'] = 'blank'
+
+            if 'idle_brightness' not in self._config['displays'][i]:
+                self._logger.warning("No idle brightness provided. Defaulting to full brightness.")
+                self._config['displays'][i]['idle_brightness'] = 1
+            else:
+                self._config['displays'][i]['idle_brightness'] = (
+                    float(self._config['displays'][i]['idle_brightness']))
+
+                    # # Convert the brightness setting to a float.
+                    # try:
+                    #     self._config['displays'][i]['idle']['brightness'] = (
+                    #         float(self._config['displays'][i]['idle']['brightness']))
+                    # except KeyError:
+                    #     self._config['displays'][i]['idle']['brightness'] = 1
+                    # except ValueError:
+                    #     self._config['displays'][i]['idle']['brightness'] = 1
+
+            # Default writablity.
+            if 'writable' not in self._config['displays'][i]:
+                if self._config['displays'][i]['type'] == 'lcd':
+                    self._config['displays'][i]['writable'] = True
+                elif self._config['displays'][i]['type'].lower() in ('bigseg7x4','seg7x4'):
+                    self._config['displays'][i]['writable'] = False
+
             i += 1
+
 
         # Delete any invalidated displays
         self._logger.debug("Displays to delete: {}".format(to_delete))

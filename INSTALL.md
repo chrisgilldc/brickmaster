@@ -109,3 +109,30 @@ appear in the terminal status bar.
 9. Via the web interface, upload `circuitpython\code.py` to the filesystem root. 
 10. Board should now restart and come up correctly. Monitor the console to confirm correct operation.
 
+### Configuring time for Circuitpython
+
+Getting correct time for Circuitpython is a hairy business. Specifically, time*zones* are hairy. There isn't a current, 
+well-maintained timezone database for Circuitpython to allow everything to be done on-board. Getting both time and zone
+via MQTT has known inaccuracies.
+
+Brickmaster takes a hybrid approach.
+
+Time is set via NTP and sets the board's real-time clock to UTC.
+Timezone information is obtained through MQTT.
+
+Use World Clock sensors and an automation in HA to publish the current offset to the topic.
+
+#### Set up sensors
+Create [World Clock](https://www.home-assistant.io/integrations/worldclock/) sensors in Home Assistant, one for each 
+time zone you need.
+
+Note that a separate zone is *NOT* needed for UTC.
+
+Use the time format '%z'. This will return only the UTC offset for the zone.
+
+For example, to create an offset zone for the US East Coast:
+![tz_offset_sensor_example.png](tz_offset_sensor_example.png)
+
+### Set up Automation
+Create an automation to push the value of this sensor out to MQTT.
+An example automation is in examples/ha_timezone_automation.yaml

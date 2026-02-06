@@ -36,15 +36,30 @@ future. Requires a pystack value of at least 4096, possibly more depending on yo
 Feature set is intended to be 1:1 between CPython and CircuitPython. Documentation notes where this is not true due to
 platform limitations.
 
-## v0.7 Target Features - Target date: Someday!
+## v0.7 Changes!
+Major features:
+- Additional Display Support
+  - Character LCDs via I2C.
+  - Remote display setting via MQTT
+Other Changes:
+- Command line for Linux now takes '-i' option to specify main interface.
+- 
+
 - Load config from a remote site.
 - Remote reload command to reset (and load new config!)
 - Actual Sphinx documentation
+- Additional display support
+  - ~~Character LCDs (via I2C)~~ Supported! Now support the Adafruit I2C character displays. More kinds could be worked in, but the framework isn't that modular.
+  - ~~Ability to set displays remotely.~~ Basics implemented. Can send a JSON with various commands to the "set" topic of the display.
+  - Advanced Display Feature
+- NTP support for Circuitpython
+  - Partial. Sets clock from NTP. No timezone support yet.
+- Allow Non-MQTT use?
 
 ## V0.6 Target Features
 - ~~Option to load config from a remote site (ie: web directory)~~ - Nope, moving to v0.7
-- Package for PyPi and Circup.
-- Control options
+- ~~Package for PyPi and Circup.~~ Seems to work!
+- ~~Control options~~
   - ~~Multi-pin controls.~~ Done!
   - ~~Groups to wrap multiple controls together.~~ - Dropped. Probably better to group through Home Assistant.
   - ~~Flasher option.~~ Done!

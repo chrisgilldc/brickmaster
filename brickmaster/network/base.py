@@ -6,7 +6,7 @@ import adafruit_logging
 from json import dumps as json_dumps
 import sys
 import time
-# Import only the parts of Brickmaster2 we need, to prevent circular imports.
+# Import only the parts of Brickmaster we need, to prevent circular imports.
 from . import mqtt
 import brickmaster.const as const
 import brickmaster.util
@@ -15,17 +15,17 @@ import brickmaster.exceptions
 from ..exceptions import BMRecoverableError
 
 
-class BM2Network:
+class BMNetwork:
     """
     Brickmaster Networking class for Linux
     """
     def __init__(self, core, system_id, short_name, long_name, broker, mqtt_username, mqtt_password, mqtt_timeout=1,
                  mqtt_log=False, net_interface='wlan0', net_indicator=None, port=1883, ha_discover=True,
-                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, log_level=None):
+                 ha_base='homeassistant', ha_area=None, ha_meminfo='unified', wifi_obj=None, logger=None):
         """
         Brickmaster Network Class
 
-        :param core: Reference to the main Brickmaster2 object.
+        :param core: Reference to the main Brickmaster object.
         :type core: Brickmaster
         :param system_id: ID of the system. Cannot include spaces!
         :type system_id: str
@@ -56,7 +56,8 @@ class BM2Network:
         :param ha_meminfo: Memory topic format. Must be one of 'unified', 'unified-used', 'split-pct', 'split-all'
         :param wifi_obj: Wifi Object for CircuitPython systems.
         :type wifi_obj: brickmaster.network.BMWiFi
-        :param log_level: Level to log at.
+        :param loggger: Logger to use. If one is not provided, a new one will be created at the DEBUG level.
+        :type logger: adafruit_logging.Logger
         """
         # Set our status to initialization.
         self._status = (0, time.monotonic())
@@ -90,13 +91,8 @@ class BM2Network:
             'sensors': {}
         }
 
-        # Default the logging level.
-        if log_level is None:
-            log_level = adafruit_logging.WARNING
+        self._logger = logger
 
-        # Set up logger. Adafruit Logging doesn't support hierarchical logging.
-        self._logger = adafruit_logging.getLogger('Brickmaster')
-        self._logger.setLevel(log_level)
         self._logger.info(f"Network: System Name is '{self._long_name}'")
         self._logger.info("Network: Home Assistant discovery (ha discover) is {}".format(self._ha_discover))
 
@@ -356,6 +352,10 @@ class BM2Network:
             elif issubclass(type(action_object), brickmaster.sensors.BaseSensor):
                 self._logger.debug("Registering sensor '{}' to topics '{}'".format(action_object.id, obj_topics))
                 self._object_register['sensors'][action_object.id] = action_object
+            elif issubclass(type(action_object), brickmaster.displays.BaseDisplay):
+                self._logger.debug("Registering display '{}' to topics '{}'".format(action_object.id, obj_topics))
+                self._object_register['displays'][action_object.id] = action_object
+
             else:
                 self._logger.error("Cannot determine class of object '{}' (type: {}). Cannot register.".
                                    format(action_object.id, type(action_object)))
@@ -442,11 +442,11 @@ class BM2Network:
 
         :param userdata:
         :param flags:
-        :param rc:
+        :param rc: Result Code
         :param properties:
         :return:
         """
-        self._logger.info(f"Network: On Connect callback invoked from result code '{rc}'")
+        self._logger.info(f"Network: Broker connection established.")
         self._logger.debug("Network:\n\tuserdata - '{}'\n\tflags - '{}'\n\tproperties - '{}'".
                            format(userdata, flags,properties))
         self._logger.debug("Network: Setting status to 'connected'")
@@ -459,20 +459,35 @@ class BM2Network:
         self._mc_subscribe('brickmaster/' + self._short_name + '/script/set')
         self._mc_callback_add('brickmaster/' + self._short_name + '/script/set',
                               self._core.callback_scr)
-        # Subscribe to the Control topics.
-        for control_id in self._object_register['controls']:
-            # Subscribe to the topic.
-            self._logger.debug(f"Network: Subscribing to control topic for '{self._object_register['controls'][control_id].id}'")
-            self._mc_subscribe('brickmaster/' + self._short_name + '/controls/' +
-                               self._object_register['controls'][control_id].id + '/set')
-            # Connect the callback.f
-            self._mc_callback_add(
-                'brickmaster/' + self._short_name + '/controls/' +
-                self._object_register['controls'][control_id].id + '/set',
-                self._object_register['controls'][control_id].callback)
+        # # Subscribe to the Control topics.
+        # for control_id in self._object_register['controls']:
+        #     # Subscribe to the topic.
+        #     self._logger.debug(f"Network: Subscribing to control topic for '{self._object_register['controls'][control_id].id}'")
+        #     self._mc_subscribe('brickmaster/' + self._short_name + '/controls/' +
+        #                        self._object_register['controls'][control_id].id + '/set')
+        #     # Connect the callbacks for controls
+        #     self._mc_callback_add(
+        #         'brickmaster/' + self._short_name + '/controls/' +
+        #         self._object_register['controls'][control_id].id + '/set',
+        #         self._object_register['controls'][control_id].callback)
 
-        # Send the online message.
-        self._send_online()
+        # Subscribe to topics for object callbacks.
+        self._logger.info("Have object register: {}".format(self._object_register))
+        for register in ('controls','displays'):
+            for obj_id in self._object_register[register]:
+                # Subscribe to the topic.
+                self._logger.info("Network: Subscribing to control topic for {}".
+                                  format(self._object_register[register][obj_id].id))
+                self._mc_subscribe('brickmaster/' + self._short_name + '/' + register + '/' +
+                                   self._object_register[register][obj_id].id + '/set')
+                # Connect the callbacks for controls
+                self._mc_callback_add(
+                    'brickmaster/' + self._short_name + '/' + register + '/' +
+                    self._object_register[register][obj_id].id + '/set',
+                    self._object_register[register][obj_id].callback)
+
+            # Send the online message.
+            self._send_online()
 
         # Do Home Assistant Discovery.
         self._logger.debug("Network: On Connect invoking HA Discovery.")
@@ -485,7 +500,6 @@ class BM2Network:
             self._logger.info(f"Network: Sending initial message - {message}")
             self._pub_message(**message)
 
-
     def _on_disconnect(self, client, userdata, rc):
         """
         MQTT Client disconnect callback.
@@ -495,12 +509,13 @@ class BM2Network:
         :param rc:
         :return:
         """
-        self._logger.info("Network: Received on_disconnect")
+        self._logger.info("Network: Disconnected from broker.")
         self._logger.debug("Network:\n\tclient - '{}'\n\tuserdata - '{}'".format(client, userdata))
         if rc != 0:
             #TODO: Add some logic here or in the platform class to actually handle the result codes and back off when
             # a specific error type is unrecoverable.
-            self._logger.warning("Network: Unexpected disconnect with code: {}".format(rc))
+            self._logger.warning("Network: Unexpected disconnect with error '{}'".
+                                 format(brickmaster.util.convert_connect_code(rc)))
         self._reconnect_timer = time.monotonic()
         self._logger.debug("Network: Setting internal MQTT tracker False in '_on_disconnect' callback.")
         self.status = const.NET_STATUS_DISCONNECTED

@@ -7,6 +7,8 @@ import microcontroller
 import os
 import sys
 
+from brickmaster.exceptions import BMRecoverableError
+
 # Conditionally import netifaces.
 if sys.implementation.name == 'cpython':
     import netifaces
@@ -83,13 +85,44 @@ def load_config(config_path):
         the_json = json.load(config_file_handle)
     return the_json
 
-def mac_id(wifihw='wlan0'):
+def mac_id(iface='wlan0'):
     """
-    Get the MAC ID of the default gateway interface for a Linux system. Circuitpython doesn't need to use this method,
-    as MAC is retrieved by the wifi class which is invoked by code.py prior to creating the Brickmaster instance.
+    Get the MAC ID of the default gateway interface for a Linux system.
+    Circuitpython doesn't need to use this method as MAC is retrieved by the wifi class which is invoked by code.py
+    prior to creating the Brickmaster instance.
+
+    @param iface: Interface name to get the MAC from. Defaults to wlan0.
+    @type iface: str
 
     :return:
     """
     # #TODO: Replace this with actually checking against the default route. May be too many edge cases.
-    mac = netifaces.ifaddresses(wifihw)[netifaces.AF_PACKET][0]['addr']
-    return mac.replace(':', '')
+    try:
+        mac = netifaces.ifaddresses(iface)[netifaces.AF_PACKET][0]['addr']
+    except KeyError:
+        raise BMRecoverableError('Interface {} not found.'.format(iface))
+    else:
+        return mac.replace(':', '')
+
+def convert_connect_code(rc):
+    """ Convert a Paho MQTT API v1 RC code to a string.
+    :param rc: MQTT rc
+    :type rc: int
+    """
+    if rc == 0:
+        return "Connection successful"
+    elif rc == 1:
+        return "Incorrect protocol version"
+    elif rc == 2:
+        return "Invalid client identifier"
+    elif rc == 3:
+        return "Server unavailable"
+    elif rc == 4:
+        return "Bad username or password"
+    elif rc == 5:
+        return "Not authorized"
+    else:
+        return "Unknown error"
+
+
+

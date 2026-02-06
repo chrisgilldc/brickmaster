@@ -1,6 +1,7 @@
 """
 Brickmaster System Core
 """
+import time
 
 import adafruit_logging as logging
 import board
@@ -18,7 +19,7 @@ class Brickmaster:
     """
     Core Brickmaster class. Create one of these, then run it.
     """
-    def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None):
+    def __init__(self, config_json, mac_id, wifi_obj=None, sysrun=None, logger=None):
         """
         Brickmaster Core Module
 
@@ -28,6 +29,8 @@ class Brickmaster:
         :type mac_id: str
         :param wifi_obj: Wifi Object. ONLY used for CircuitPython
         :type wifi_obj: brickmaster.network.BMWiFi
+        :param logger: External logger. This will get passed by the Circuitpython code.py if need be.
+        :type logger: adafruit_logger
         """
         # Force a garbage collection
         gc.collect()
@@ -37,9 +40,6 @@ class Brickmaster:
         self._displays = {} # I2C displays
         self._indicators = { 'sysrun': sysrun } # LED indicators, if any.
         self._i2c_bus = None
-        # If system running indicator was passed, use it, otherwise set up a null indicator.
-        if self._indicators['sysrun'] is None:
-            self._indicators['sysrun'] = brickmaster.controls.CtrlNull('sysrun', 'System Status Null', self)
 
         self._scripts = {} # Scripts
         self._sensors = {} # Sensors
@@ -63,13 +63,23 @@ class Brickmaster:
 
         # The Adafruit logger doesn't support child loggers. This is a small
         # enough package, everything goes through the same logger.
-        self._logger = logging.getLogger('Brickmaster')
-        # Start out at the DEBUG level. The Config module will load the log level
-        # From the config file and adjust appropriately.
-        self._logger.setLevel(logging.DEBUG)
+        if logger is None:
+            self._logger = logging.getLogger('Brickmaster')
+            print_handler = logging.StreamHandler()
+            self._logger.addHandler(print_handler)
+            # Start out at the DEBUG level. The Config module will load the log level
+            # From the config file and adjust appropriately.
+            self._logger.setLevel(logging.DEBUG)
+        else:
+            self._logger = logger
+
+        # If system running indicator was passed, use it, otherwise set up a null indicator.
+        if self._indicators['sysrun'] is None:
+            self._indicators['sysrun'] = brickmaster.controls.CtrlNull(
+                'sysrun', 'System Status Null', self, self._logger)
 
         # Validate the config and process it.
-        self._bm2config = brickmaster.BM2Config(config_json)
+        self._bm2config = brickmaster.BMConfig(config_json)
 
         # Reset the log level based on the config.
         self._logger.debug("Core: Setting logging level to '{}'".format(self._bm2config.system['log_level']))
@@ -80,17 +90,28 @@ class Brickmaster:
 
         # Set up the indicators
         self._indicators.update(self._setup_indicators())
-        self._logger.debug("Core: Have indicators '{}'".format(self._indicators))
+        self._logger.info("Core: Have indicators '{}'".format(self._indicators))
 
         # Set the system indicator on.
         # This should have been done earlier, but in case it wasn't, we do it again here.
         self._indicators['sysrun'].set('on')
 
-        # Set up the I2C Bus.
-        self._setup_i2c_bus()
-        gc.collect()
+        # Create a time object. This also sets the global local time zone.
+        # self._bmdt = brickmaster.BMDateTime(local_tz=self._bm2config.system['local_tz'], logger=self._logger)
 
-        # Create the controls. Set the publish time to the system-wide publish time.
+        # Set up the I2C Bus.
+        # try:
+        self._setup_i2c_bus()
+        # except OSError as oe:
+        #     self._logger.critical("Core: Cannot get lock on I2C bus.")
+        #     sys.exit(1)
+        # else:
+        #     self._logger.info("Core: I2C configured.")
+        # gc.collect()
+
+        self._logger.info("Core: Have I2C Bus object - {}".format(self._i2c_bus))
+
+        # Create the controls. Set the publishing time to the system-wide publish time.
         self._create_controls(publish_time=self._bm2config.system['publish_time'])
         self._bm2config.del_controls()
         # Create the displays.
@@ -108,38 +129,41 @@ class Brickmaster:
 
         if sys.implementation.name == 'cpython':
             self._logger.info("Core: Setting up network for general-purpose OS.")
-            from .network.linux import BM2NetworkLinux
-            self._network = BM2NetworkLinux(self,
-                                            system_id=self._mac_id,
-                                            short_name=self._bm2config.system['id'],
-                                            long_name=self._bm2config.system['name'],
-                                            broker=self._bm2config.system['mqtt']['broker'],
-                                            mqtt_username=self._bm2config.system['mqtt']['user'],
-                                            mqtt_password=self._bm2config.system['mqtt']['key'],
-                                            mqtt_log=self._bm2config.system['mqtt']['log'],
-                                            net_indicator=self._indicators['net'],
-                                            ha_discover=self._bm2config.system['ha_discover'],
-                                            ha_area=self._bm2config.system['ha_area'],
-                                            log_level=self._bm2config.system['log_level'],
-                                            net_interface=self._bm2config.system['interface']
-                                            )
+            from .network.linux import BMNetworkLinux
+            self._network = BMNetworkLinux(self,
+                                           system_id=self._mac_id,
+                                           short_name=self._bm2config.system['id'],
+                                           long_name=self._bm2config.system['name'],
+                                           broker=self._bm2config.system['mqtt']['broker'],
+                                           mqtt_username=self._bm2config.system['mqtt']['user'],
+                                           mqtt_password=self._bm2config.system['mqtt']['key'],
+                                           mqtt_log=self._bm2config.system['mqtt']['log'],
+                                           net_indicator=self._indicators['net'],
+                                           ha_discover=self._bm2config.system['ha_discover'],
+                                           ha_area=self._bm2config.system['ha_area'],
+                                           logger=self._logger,
+                                           net_interface=self._bm2config.system['interface']
+                                           )
         elif sys.implementation.name == 'circuitpython':
             self._logger.info("Core: Setting up network for CircuitPython board.")
-            from .network.circuitpython import BM2NetworkCircuitPython
-            self._network = BM2NetworkCircuitPython(self,
-                                            wifi_obj=self._wifi_obj,
-                                            system_id=self._mac_id,
-                                            short_name=self._bm2config.system['id'],
-                                            long_name=self._bm2config.system['name'],
-                                            broker=self._bm2config.system['mqtt']['broker'],
-                                            mqtt_username=self._bm2config.system['mqtt']['user'],
-                                            mqtt_password=self._bm2config.system['mqtt']['key'],
-                                            mqtt_log=self._bm2config.system['mqtt']['log'],
-                                            net_indicator=self._indicators['net'],
-                                            ha_discover=self._bm2config.system['ha_discover'],
-                                            ha_area=self._bm2config.system['ha_area'],
-                                            log_level=self._bm2config.system['log_level']
-                                            )
+            from .network.circuitpython import BMNetworkCircuitPython
+            self._network = BMNetworkCircuitPython(self,
+                                                   wifi_obj=self._wifi_obj,
+                                                   system_id=self._mac_id,
+                                                   short_name=self._bm2config.system['id'],
+                                                   long_name=self._bm2config.system['name'],
+                                                   broker=self._bm2config.system['mqtt']['broker'],
+                                                   mqtt_username=self._bm2config.system['mqtt']['user'],
+                                                   mqtt_password=self._bm2config.system['mqtt']['key'],
+                                                   mqtt_log=self._bm2config.system['mqtt']['log'],
+                                                   net_indicator=self._indicators['net'],
+                                                   ha_discover=self._bm2config.system['ha_discover'],
+                                                   ha_area=self._bm2config.system['ha_area'],
+                                                   timeservers=self._bm2config.system['ntp']['servers'],
+                                                   tz=self._bm2config.system['ntp']['tz'],
+                                                   recheck=self._bm2config.system['ntp']['recheck'],
+                                                   logger=self._logger
+                                                   )
         else:
             self._logger.critical("Core: Implementation '{}' unknown, cannot determine correct network module.".
                                   format(sys.implementation.name))
@@ -157,6 +181,10 @@ class Brickmaster:
         self._logger.debug("Core: Registering sensors with network module.")
         for sensor in self._sensors:
             self._network.register_object(self._sensors[sensor])
+
+        self._logger.debug("Core: Registering displays with network module.")
+        for display in self._displays:
+            self._network.register_object(self._displays[display])
 
         gc.collect()
 
@@ -177,8 +205,6 @@ class Brickmaster:
                 if isinstance(self._controls[control], brickmaster.controls.CtrlFlasher):
                     self._controls[control].update()
 
-
-
             # If there's an active script, do it.
             if self._active_script is not None:
                 # self._logger.debug(f"Core: Script active, executing '{self._active_script}'")
@@ -191,7 +217,8 @@ class Brickmaster:
                 # Push time and date to displays that need it.
                 # self._logger.debug("Core: Showing idle display state.")
                 for display in self._displays:
-                    self._displays[display].show_idle()
+                     self._displays[display].update()
+                     self._displays[display].show_idle(self._bmdt.now())
 
     def callback_scr(self, client, topic, message):
         """
@@ -254,28 +281,33 @@ class Brickmaster:
 
             # Check the type to create the correct object type.
             # try:
-            if control_cfg['type'].lower() == 'single':
-                self._controls[control_cfg['id']] = brickmaster.controls.CtrlSingle(
-                    ctrl_id = control_cfg['id'],
-                    name = control_cfg['name'],
-                    core = self,
-                    pins = control_cfg['pins'],
-                    publish_time = publish_time,
-                    extio_obj = extio_obj,
-                    icon = control_cfg['icon'],
-                    log_level=self._bm2config.system['log_level'])
-            elif control_cfg['type'].lower() == 'flasher':
-                self._controls[control_cfg['id']] = (brickmaster.controls.CtrlFlasher(
-                    ctrl_id = control_cfg['id'],
-                    name = control_cfg['name'],
-                    core = self,
-                    pinlist = control_cfg['pins'],
-                    loiter_time = control_cfg['loiter_time'],
-                    switch_time = control_cfg['switch_time'],
-                    publish_time = publish_time,
-                    extio_obj = extio_obj,
-                    icon = control_cfg['icon'],
-                    log_level=self._bm2config.system['log_level']))
+            try:
+                if control_cfg['type'].lower() == 'single':
+                    self._controls[control_cfg['id']] = brickmaster.controls.CtrlSingle(
+                        ctrl_id = control_cfg['id'],
+                        name = control_cfg['name'],
+                        core = self,
+                        pins = control_cfg['pins'],
+                        publish_time = publish_time,
+                        extio_obj = extio_obj,
+                        icon = control_cfg['icon'],
+                        logger=self._logger)
+                elif control_cfg['type'].lower() == 'flasher':
+                    self._controls[control_cfg['id']] = brickmaster.controls.CtrlFlasher(
+                        ctrl_id = control_cfg['id'],
+                        name = control_cfg['name'],
+                        core = self,
+                        pinlist = control_cfg['pins'],
+                        loiter_time = control_cfg['loiter_time'],
+                        switch_time = control_cfg['switch_time'],
+                        publish_time = publish_time,
+                        extio_obj = extio_obj,
+                        icon = control_cfg['icon'],
+                        logger=self._logger)
+            except AttributeError as ae:
+                self._logger.error("Could not create control '{}'. Received error '{}'. Will continue with other "
+                                   "controls".format(control_cfg['id'], str(ae)))
+
 
     def _create_displays(self):
         if len(self._bm2config.displays) == 0:
@@ -289,14 +321,43 @@ class Brickmaster:
         # Set up the displays.
         for display_cfg in self._bm2config.displays:
             self._logger.info(f"Core: Setting up display '{display_cfg['name']}'")
-            try:
-                self._displays[display_cfg['name']] = brickmaster.Display(display_cfg, self._i2c_bus, )
-            except ImportError:
-                self._logger.error(f"Core: Display not available. Cannot create display '{display_cfg['name']}'")
-            else:
-                if display_cfg['idle']['show'] == 'time':
+            if display_cfg['type'] == 'lcd':
+                try:
+                    self._displays[display_cfg['name']] = brickmaster.displays.BMDisplayLCD(
+                        disp_id=display_cfg['id'],
+                        name=display_cfg['name'],
+                        address=display_cfg['address'],
+                        cols=display_cfg['cols'],
+                        rows=display_cfg['rows'],
+                        writable=display_cfg['writable'],
+                        logger=self._logger,
+                        i2c_bus=self._i2c_bus)
+                except ValueError as ve:
+                    self._logger.error("Core: For display '{}', received exception '{}'. Cannot create display.".format(display_cfg['id'], ve))
+                except ImportError as ie:
+                     self._logger.error("Core: Display library for '{}' not available. Cannot create display.".
+                                        format(display_cfg['name']))
+
+            elif display_cfg['type'] in ('bigseg7x4','seg7x4'):
+                try:
+                    self._displays[display_cfg['name']] = brickmaster.displays.BMDisplaySeg(
+                        disp_id=display_cfg['id'],
+                        name=display_cfg['name'],
+                        address=display_cfg['address'],
+                        disptype=display_cfg['type'],
+                        idle_show=display_cfg['idle_show'],
+                        idle_brightness=display_cfg['idle_brightness'],
+                        writable=display_cfg['writable'],
+                        logger=self._logger,
+                        i2c_bus=self._i2c_bus,
+                        tz=display_cfg['tz'])
+                except ImportError as ie:
+                     self._logger.error("Core: Display library for '{}' not available. Cannot create display.".
+                                        format(display_cfg['name']))
+                # else:
+                if display_cfg['idle_show'] == 'time':
                     self._clocks.append(display_cfg['name'])
-                elif display_cfg['idle']['show'] == 'date':
+                elif display_cfg['idle_show'] == 'date':
                     self._dates.append(display_cfg['name'])
 
     def _create_scripts(self):
@@ -432,6 +493,13 @@ class Brickmaster:
                 self._logger.error("Received Value Error while setting up I2C")
                 self._logger.error(str(e))
                 self._i2c_bus = None
+            else:
+                if not self._i2c_bus.try_lock():
+                    raise OSError("Cannot get lock on I2C bus.")
+                else:
+                    found_addresses = [hex(device_address) for device_address in self._i2c_bus.scan()]
+                    self._logger.info("Core: Found addresses - {}".format(found_addresses))
+                    self._i2c_bus.unlock()
         else:
             self._logger.warning("Core: No I2C bus defined. Skipping setup.")
             self._i2c_bus = None
@@ -454,29 +522,12 @@ class Brickmaster:
                                'off': self._bm2config.system['indicators']['netoff'] }
 
         if indicator_pins is not None:
-            indicators['net'] = brickmaster.controls.CtrlSingle('net', 'Network',self, indicator_pins, 10)
+            indicators['net'] = brickmaster.controls.CtrlSingle('net', 'Network',self, indicator_pins,
+                                                                10, logger=self._logger)
         else:
-            indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self)
+            indicators['net'] = brickmaster.controls.CtrlNull('net', 'Network', self, self._logger)
 
-        # indicators = {}
-        # for target in [('neton','Network Connected'),('netoff','Network Disconnected')]:
-        #     target_id = target[0]
-        #     name = target[1]
-        #     self._logger.debug("Core: Creating indicator for '{}'".format(target_id))
-        #     try:
-        #         if self._bm2config.system['indicators'][target_id] is not None:
-        #             indicators[target_id] = brickmaster.controls.CtrlSingle(target_id, name, self,
-        #                                                                     self._bm2config.system['indicators'][target_id],15)
-        #         else:
-        #             self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-        #             indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
-        #     except (KeyError, TypeError):
-        #          self._logger.warning(f"Core: No pin defined for status LED '{target_id}'. Cannot configure.")
-        #          indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
-        #     except AttributeError:
-        #          self._logger.warning("Core: Status LED pin '{}' for '{}' cannot be configured.".format(
-        #              self._bm2config.system['indicators'][target_id], target_id))
-        #          indicators[target_id] = brickmaster.controls.CtrlNull(target_id, name, self)
+        self._logger.info("Core: Setup will return indicators '{}'".format(indicators))
 
         return indicators
 
@@ -572,6 +623,7 @@ class Brickmaster:
             self._indicators['sysrun'].value = False
         except AttributeError:
             pass
+
         self._print_or_log("critical", "Core: Cleanup complete.")
         # Return a signal. We consider some exits clean, others we throw back the signal number that called us.
         if signalNumber in (None, 15):
